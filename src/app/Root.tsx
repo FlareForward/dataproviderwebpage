@@ -1,5 +1,5 @@
 import { Outlet, NavLink } from "react-router";
-import { Bell, LayoutDashboard, Search, Server, Menu } from "lucide-react";
+import { LayoutDashboard, Search, Server, Menu } from "lucide-react";
 import { Button } from "./components/Button";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
@@ -56,11 +56,6 @@ export function Root() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" className="px-2 relative text-[#8FA0B8] hover:text-[#FAFAFA]">
-              <Bell size={20} />
-              <span className="absolute top-1.5 right-2 w-2 h-2 bg-[#EE1A58] rounded-full" />
-            </Button>
-            <div className="w-px h-6 bg-[#2E3F56] mx-1" />
             <ConnectWallet />
           </div>
         </header>
