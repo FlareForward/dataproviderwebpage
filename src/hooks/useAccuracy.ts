@@ -1,14 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 
 /**
- * Per-feed FTSO accuracy, published to the repo's dedicated `data` branch by
- * scripts/publish-accuracy.sh (mirrored off the box every ~10 min). We fetch it
- * from raw.githubusercontent.com — the same raw-URL data pattern useProviders
- * uses for the on-chain provider list.
+ * Per-feed FTSO accuracy, served as a same-origin static asset at
+ * /ftso-accuracy.json (public/ftso-accuracy.json in this repo), refreshed off
+ * the box by scripts/publish-accuracy.sh. Same-origin avoids depending on the
+ * repo being public (raw.githubusercontent 404s for private repos). Override
+ * with VITE_ACCURACY_URL for local/preview against a different source.
  */
 const ACCURACY_URL =
-  import.meta.env.VITE_ACCURACY_URL ??
-  "https://raw.githubusercontent.com/FlareForward/dataproviderwebpage/data/ftso-accuracy.json";
+  import.meta.env.VITE_ACCURACY_URL ?? "/ftso-accuracy.json";
 
 export interface AccuracySummary {
   feeds_count: number;
