@@ -16,6 +16,7 @@ import { Button } from "./components/Button";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { usePriceFeeds } from "../hooks/usePriceFeeds";
 import { useProviders } from "../hooks/useProviders";
+import { AccuracyBoard } from "./components/AccuracyBoard";
 
 function formatLarge(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
@@ -59,6 +60,9 @@ export default function Dashboard() {
             </Link>
           </div>
         </div>
+
+        {/* FTSO Success Rate — overall headline pinned on top, per-feed board below */}
+        <AccuracyBoard />
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
