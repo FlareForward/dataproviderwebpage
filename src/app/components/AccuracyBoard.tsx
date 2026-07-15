@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import * as Tabs from "@radix-ui/react-tabs";
 import { Activity, ChevronDown, ChevronUp } from "lucide-react";
 import { useAccuracy, type AccuracyFeed } from "../../hooks/useAccuracy";
 
@@ -12,7 +13,10 @@ function f1(v: number): string {
  * Primary band is scaled 0..55, secondary 40..100, matching the reward-band shapes.
  * Returns an inline foreground + translucent background tuned for the dark card.
  */
-function heat(v: number, kind: "p" | "s"): { color: string; background: string } {
+function heat(
+  v: number,
+  kind: "p" | "s",
+): { color: string; background: string } {
   let t = kind === "p" ? v / 55 : (v - 40) / 60;
   t = Math.max(0, Math.min(1, t));
   const hue = 2 + t * 143; // 2 = red, 145 = green
@@ -58,11 +62,20 @@ const COLUMNS: ColumnDef[] = [
 ];
 
 /** One headline band: big number + % sign, colored by band. */
-function Band({ value, tone }: { value: number; tone: "primary" | "secondary" }) {
+function Band({
+  value,
+  tone,
+}: {
+  value: number;
+  tone: "primary" | "secondary";
+}) {
   const color = tone === "primary" ? "#EE1A58" : "#46C9D6";
   return (
     <div className="flex items-baseline gap-1.5">
-      <span className="text-4xl font-bold leading-none tracking-tight tabular-nums" style={{ color }}>
+      <span
+        className="text-4xl font-bold leading-none tracking-tight tabular-nums"
+        style={{ color }}
+      >
         {f1(value)}
       </span>
       <span className="text-base font-semibold text-[#8FA0B8]">%</span>
@@ -74,7 +87,10 @@ function BandLegend() {
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] uppercase tracking-wider text-[#8FA0B8]">
       <span className="flex items-center gap-1.5">
-        <span className="inline-block h-2.5 w-5 rounded-[3px]" style={{ background: "#EE1A58" }} />
+        <span
+          className="inline-block h-2.5 w-5 rounded-[3px]"
+          style={{ background: "#EE1A58" }}
+        />
         Primary band
       </span>
       <span className="flex items-center gap-1.5">
@@ -111,7 +127,7 @@ export function AccuracyBoard() {
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: key === "feed" ? "asc" : "desc" }
+        : { key, dir: key === "feed" ? "asc" : "desc" },
     );
   }
 
@@ -149,7 +165,10 @@ export function AccuracyBoard() {
             <Activity size={18} />
           </div>
           <div>
-            <h2 id="accuracy-heading" className="text-[1.25rem] font-semibold tracking-tight">
+            <h2
+              id="accuracy-heading"
+              className="text-[1.25rem] font-semibold tracking-tight"
+            >
               FTSO Success Rate
             </h2>
             <p className="mt-0.5 text-[0.8125rem] text-[#8FA0B8]">
@@ -162,7 +181,9 @@ export function AccuracyBoard() {
             <div className="font-mono text-sm font-semibold tabular-nums">
               {data.current_round.toLocaleString()}
             </div>
-            <div className="text-[10px] uppercase tracking-wider text-[#8FA0B8]">Voting round</div>
+            <div className="text-[10px] uppercase tracking-wider text-[#8FA0B8]">
+              Voting round
+            </div>
           </div>
           <div>
             <div className="text-sm font-semibold">{updatedLabel}</div>
@@ -178,168 +199,222 @@ export function AccuracyBoard() {
         </div>
       </div>
 
-      {/* Headline: overall success rate, 6h + 24h, pinned at the top */}
-      <div className="px-6 py-6">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8FA0B8]">
-          Overall — across all {s.feeds_count} feeds and every voting round in the window
-        </div>
-        <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
-          <div className="rounded-lg border border-[#2E3F56] bg-[#1D2430] p-5">
-            <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">Last 6 hours</div>
-            <div className="mt-3 flex flex-wrap items-baseline gap-x-8 gap-y-2">
-              <Band value={s.overall_primary_6h} tone="primary" />
-              <Band value={s.overall_secondary_6h} tone="secondary" />
-            </div>
-            <BandLegend />
-          </div>
-          <div className="rounded-lg border border-[#2E3F56] bg-[#1D2430] p-5">
-            <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">Last 24 hours</div>
-            <div className="mt-3 flex flex-wrap items-baseline gap-x-8 gap-y-2">
-              <Band value={s.overall_primary_24h} tone="primary" />
-              <Band value={s.overall_secondary_24h} tone="secondary" />
-            </div>
-            <div className="mt-3 font-mono text-[11px] uppercase tracking-wider text-[#8FA0B8]">
-              median across {s.feeds_count} feeds — {f1(s.median_primary_24h)}% /{" "}
-              {f1(s.median_secondary_24h)}%
-            </div>
-          </div>
-        </div>
-        <p className="mt-4 border-t border-[#2E3F56] pt-3 text-[12.5px] leading-relaxed text-[#8FA0B8]">
-          <span className="font-semibold text-[#FAFAFA]">Primary</span> is the tight reward band;{" "}
-          <span className="font-semibold text-[#FAFAFA]">secondary</span> the wider one. These are
-          trailing 6h / 24h averages graded on-chain against the real consensus bands — a new
-          engine's gains show up here gradually as the window fills.
-        </p>
-      </div>
+      <Tabs.Root defaultValue="success-rate">
+        <Tabs.List className="flex border-b border-[#2E3F56] px-6">
+          <Tabs.Trigger
+            value="success-rate"
+            className="px-4 py-3 text-sm font-medium text-[#8FA0B8] hover:text-[#FAFAFA] border-b-2 border-transparent data-[state=active]:border-[#EE1A58] data-[state=active]:text-[#EE1A58] transition-colors"
+          >
+            Success Rate
+          </Tabs.Trigger>
+          <Tabs.Trigger
+            value="performance"
+            className="px-4 py-3 text-sm font-medium text-[#8FA0B8] hover:text-[#FAFAFA] border-b-2 border-transparent data-[state=active]:border-[#EE1A58] data-[state=active]:text-[#EE1A58] transition-colors"
+          >
+            FTSO Performance
+          </Tabs.Trigger>
+        </Tabs.List>
 
-      {/* Epoch trend */}
-      <div className="border-t border-[#2E3F56] px-6 py-5">
-        <h3 className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-[#8FA0B8]">
-          Primary-band accuracy by reward epoch
-        </h3>
-        <div className="flex items-end gap-4">
-          {data.epochs.map((e) => {
-            const barPx = Math.max(6, Math.round((e.primary / epochMax) * EPOCH_BAR_MAX_PX));
-            return (
-              <div key={e.reward_epoch} className="flex flex-1 flex-col items-center gap-2">
-                <div
-                  className="relative w-full max-w-[52px] rounded-t-md bg-gradient-to-b from-[#EE1A58] to-[#EE1A58]/40"
-                  style={{ height: barPx }}
-                >
-                  <span className="absolute -top-5 left-0 right-0 text-center font-mono text-xs font-semibold tabular-nums">
-                    {f1(e.primary)}
-                  </span>
+        <Tabs.Content value="success-rate" className="outline-none">
+          {/* Headline: overall success rate, 6h + 24h, pinned at the top */}
+          <div className="px-6 py-6">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8FA0B8]">
+              Overall — across all {s.feeds_count} feeds and every voting round
+              in the window
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
+              <div className="rounded-lg border border-[#2E3F56] bg-[#1D2430] p-5">
+                <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+                  Last 6 hours
                 </div>
-                <div className="font-mono text-[11px] text-[#8FA0B8]">#{e.reward_epoch}</div>
+                <div className="mt-3 flex flex-wrap items-baseline gap-x-8 gap-y-2">
+                  <Band value={s.overall_primary_6h} tone="primary" />
+                  <Band value={s.overall_secondary_6h} tone="secondary" />
+                </div>
+                <BandLegend />
               </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Per-feed table */}
-      <div className="border-t border-[#2E3F56]">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-6 pb-3 pt-4">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wider text-[#8FA0B8]">
-            Per-feed landing — all {data.feeds.length} feeds
-          </h3>
-          <div className="flex items-center gap-4 text-[11px] text-[#8FA0B8]">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "hsl(145 60% 45%)" }} />
-              strong
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "hsl(48 70% 50%)" }} />
-              mid
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-[3px]" style={{ background: "hsl(2 70% 52%)" }} />
-              weak / thin data
-            </span>
+              <div className="rounded-lg border border-[#2E3F56] bg-[#1D2430] p-5">
+                <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+                  Last 24 hours
+                </div>
+                <div className="mt-3 flex flex-wrap items-baseline gap-x-8 gap-y-2">
+                  <Band value={s.overall_primary_24h} tone="primary" />
+                  <Band value={s.overall_secondary_24h} tone="secondary" />
+                </div>
+                <div className="mt-3 font-mono text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+                  median across {s.feeds_count} feeds —{" "}
+                  {f1(s.median_primary_24h)}% / {f1(s.median_secondary_24h)}%
+                </div>
+              </div>
+            </div>
+            <p className="mt-4 border-t border-[#2E3F56] pt-3 text-[12.5px] leading-relaxed text-[#8FA0B8]">
+              <span className="font-semibold text-[#FAFAFA]">Primary</span> is
+              the tight reward band;{" "}
+              <span className="font-semibold text-[#FAFAFA]">secondary</span>{" "}
+              the wider one. These are trailing 6h / 24h averages graded
+              on-chain against the real consensus bands — a new engine's gains
+              show up here gradually as the window fills.
+            </p>
           </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-sm">
-            <caption className="sr-only">
-              FTSO per-feed landing rate inside the primary and secondary reward bands over trailing
-              6-hour and 24-hour windows, sortable by column.
-            </caption>
-            <thead>
-              <tr className="border-y border-[#2E3F56] bg-[#1D2430] text-[10.5px] uppercase tracking-wider text-[#8FA0B8]">
-                {COLUMNS.map((col) => {
-                  const active = sort.key === col.key;
-                  return (
-                    <th
-                      key={col.key}
-                      scope="col"
-                      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-                      className={`px-3.5 py-2.5 font-semibold ${col.align === "left" ? "text-left" : "text-right"}`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleSort(col.key)}
-                        className={`inline-flex items-center gap-1 rounded-sm hover:text-[#FAFAFA] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE1A58] focus-visible:ring-offset-1 focus-visible:ring-offset-[#1D2430] ${
-                          active ? "text-[#FAFAFA]" : ""
-                        } ${col.align === "right" ? "flex-row-reverse" : ""}`}
-                      >
-                        {col.label}
-                        {active ? (
-                          sort.dir === "asc" ? (
-                            <ChevronUp size={12} />
-                          ) : (
-                            <ChevronDown size={12} />
-                          )
-                        ) : (
-                          <span className="w-3" aria-hidden="true" />
-                        )}
-                      </button>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {sortedFeeds.map((r: AccuracyFeed) => {
-                const [base, quote] = r.feed.split("/");
+
+          {/* Epoch trend */}
+          <div className="border-t border-[#2E3F56] px-6 py-5">
+            <h3 className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-[#8FA0B8]">
+              Primary-band accuracy by reward epoch
+            </h3>
+            <div className="flex items-end gap-4">
+              {data.epochs.map((e) => {
+                const barPx = Math.max(
+                  6,
+                  Math.round((e.primary / epochMax) * EPOCH_BAR_MAX_PX),
+                );
                 return (
-                  <tr
-                    key={r.feed}
-                    className="border-b border-[#2E3F56]/60 transition-colors hover:bg-[#2E3F56]/25"
+                  <div
+                    key={e.reward_epoch}
+                    className="flex flex-1 flex-col items-center gap-2"
                   >
-                    <td className="px-3.5 py-1.5 text-left font-semibold">
-                      {base}
-                      <span className="font-medium text-[#8FA0B8]">/{quote}</span>
-                    </td>
-                    <td className="px-3.5 py-1.5 text-right">
-                      <HeatCell value={r.primary_6h} kind="p" />
-                    </td>
-                    <td className="px-3.5 py-1.5 text-right">
-                      <HeatCell value={r.secondary_6h} kind="s" />
-                    </td>
-                    <td className="px-3.5 py-1.5 text-right">
-                      <HeatCell value={r.primary_24h} kind="p" />
-                    </td>
-                    <td className="px-3.5 py-1.5 text-right">
-                      <HeatCell value={r.secondary_24h} kind="s" />
-                    </td>
-                    <td className="px-3.5 py-1.5 text-right font-mono tabular-nums text-[#8FA0B8]">
-                      {r.n_24h.toLocaleString()}
-                    </td>
-                  </tr>
+                    <div
+                      className="relative w-full max-w-[52px] rounded-t-md bg-gradient-to-b from-[#EE1A58] to-[#EE1A58]/40"
+                      style={{ height: barPx }}
+                    >
+                      <span className="absolute -top-5 left-0 right-0 text-center font-mono text-xs font-semibold tabular-nums">
+                        {f1(e.primary)}
+                      </span>
+                    </div>
+                    <div className="font-mono text-[11px] text-[#8FA0B8]">
+                      #{e.reward_epoch}
+                    </div>
+                  </div>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-        <div className="border-t border-[#2E3F56] px-6 py-3 text-[11.5px] text-[#8FA0B8]">
-          Graded on-chain against the real consensus bands, not a self-report — the same measure the
-          public trackers use. Snapshot{" "}
-          <span className="font-semibold text-[#FAFAFA]">
-            {updated.toISOString().slice(0, 16).replace("T", " ")} UTC
-          </span>
-          .
-        </div>
-      </div>
+            </div>
+          </div>
+        </Tabs.Content>
+
+        <Tabs.Content value="performance" className="outline-none">
+          {/* Per-feed table */}
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-6 pb-3 pt-4">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wider text-[#8FA0B8]">
+                Per-feed landing — all {data.feeds.length} feeds
+              </h3>
+              <div className="flex items-center gap-4 text-[11px] text-[#8FA0B8]">
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-3 w-3 rounded-[3px]"
+                    style={{ background: "hsl(145 60% 45%)" }}
+                  />
+                  strong
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-3 w-3 rounded-[3px]"
+                    style={{ background: "hsl(48 70% 50%)" }}
+                  />
+                  mid
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-3 w-3 rounded-[3px]"
+                    style={{ background: "hsl(2 70% 52%)" }}
+                  />
+                  weak / thin data
+                </span>
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse text-sm">
+                <caption className="sr-only">
+                  FTSO per-feed landing rate inside the primary and secondary
+                  reward bands over trailing 6-hour and 24-hour windows,
+                  sortable by column.
+                </caption>
+                <thead>
+                  <tr className="border-y border-[#2E3F56] bg-[#1D2430] text-[10.5px] uppercase tracking-wider text-[#8FA0B8]">
+                    {COLUMNS.map((col) => {
+                      const active = sort.key === col.key;
+                      return (
+                        <th
+                          key={col.key}
+                          scope="col"
+                          aria-sort={
+                            active
+                              ? sort.dir === "asc"
+                                ? "ascending"
+                                : "descending"
+                              : "none"
+                          }
+                          className={`px-3.5 py-2.5 font-semibold ${col.align === "left" ? "text-left" : "text-right"}`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleSort(col.key)}
+                            className={`inline-flex items-center gap-1 rounded-sm hover:text-[#FAFAFA] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#EE1A58] focus-visible:ring-offset-1 focus-visible:ring-offset-[#1D2430] ${
+                              active ? "text-[#FAFAFA]" : ""
+                            } ${col.align === "right" ? "flex-row-reverse" : ""}`}
+                          >
+                            {col.label}
+                            {active ? (
+                              sort.dir === "asc" ? (
+                                <ChevronUp size={12} />
+                              ) : (
+                                <ChevronDown size={12} />
+                              )
+                            ) : (
+                              <span className="w-3" aria-hidden="true" />
+                            )}
+                          </button>
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedFeeds.map((r: AccuracyFeed) => {
+                    const [base, quote] = r.feed.split("/");
+                    return (
+                      <tr
+                        key={r.feed}
+                        className="border-b border-[#2E3F56]/60 transition-colors hover:bg-[#2E3F56]/25"
+                      >
+                        <td className="px-3.5 py-1.5 text-left font-semibold">
+                          {base}
+                          <span className="font-medium text-[#8FA0B8]">
+                            /{quote}
+                          </span>
+                        </td>
+                        <td className="px-3.5 py-1.5 text-right">
+                          <HeatCell value={r.primary_6h} kind="p" />
+                        </td>
+                        <td className="px-3.5 py-1.5 text-right">
+                          <HeatCell value={r.secondary_6h} kind="s" />
+                        </td>
+                        <td className="px-3.5 py-1.5 text-right">
+                          <HeatCell value={r.primary_24h} kind="p" />
+                        </td>
+                        <td className="px-3.5 py-1.5 text-right">
+                          <HeatCell value={r.secondary_24h} kind="s" />
+                        </td>
+                        <td className="px-3.5 py-1.5 text-right font-mono tabular-nums text-[#8FA0B8]">
+                          {r.n_24h.toLocaleString()}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div className="border-t border-[#2E3F56] px-6 py-3 text-[11.5px] text-[#8FA0B8]">
+              Graded on-chain against the real consensus bands, not a
+              self-report — the same measure the public trackers use. Snapshot{" "}
+              <span className="font-semibold text-[#FAFAFA]">
+                {updated.toISOString().slice(0, 16).replace("T", " ")} UTC
+              </span>
+              .
+            </div>
+          </div>
+        </Tabs.Content>
+      </Tabs.Root>
     </section>
   );
 }
