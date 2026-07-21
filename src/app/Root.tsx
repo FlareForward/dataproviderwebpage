@@ -20,7 +20,7 @@ export function Root() {
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Overview" />
-          <NavItem to="/providers" icon={<Server size={20} />} label="Data Providers" />
+          <NavItem to="/providers" icon={<Server size={20} />} label="Infrastructure Providers" />
         </nav>
         <div className="p-4 border-t border-[#2E3F56]">
           <div className="bg-[#243552] rounded-lg p-4 border border-[#2E3F56]">
