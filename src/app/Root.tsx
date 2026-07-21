@@ -1,11 +1,14 @@
+import { useState } from "react";
 import { Outlet, NavLink } from "react-router";
-import { LayoutDashboard, Search, Server, Menu } from "lucide-react";
+import { LayoutDashboard, Search, Server, Menu, X } from "lucide-react";
 import { Button } from "./components/Button";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import logoImage from "../imports/flareforward_logo.png";
 
 export function Root() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
   return (
     <div className="min-h-screen bg-[#1C2D47] text-[#FAFAFA] font-['Inter'] flex">
       {/* Sidebar */}
@@ -38,8 +41,15 @@ export function Root() {
         {/* Header */}
         <header className="h-16 border-b border-[#2E3F56] bg-[#1C2D47]/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between px-4 lg:px-8">
           <div className="flex items-center gap-4 lg:hidden">
-            <Button variant="ghost" size="sm" className="px-2">
-              <Menu size={20} />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              aria-label="Toggle navigation menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
             </Button>
             <div className="flex items-center gap-2">
               <ImageWithFallback src={logoImage} alt="FlareForward Logo" className="h-7 w-auto object-contain" />
@@ -60,6 +70,24 @@ export function Root() {
           </div>
         </header>
 
+        {/* Mobile Navigation */}
+        {mobileMenuOpen && (
+          <nav className="lg:hidden border-b border-[#2E3F56] bg-[#1C2D47] p-4 space-y-1">
+            <NavItem
+              to="/"
+              icon={<LayoutDashboard size={20} />}
+              label="Overview"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <NavItem
+              to="/providers"
+              icon={<Server size={20} />}
+              label="Infrastructure Providers"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+          </nav>
+        )}
+
         {/* Dynamic Content */}
         <div className="flex-1 overflow-y-auto">
           <Outlet />
@@ -69,11 +97,22 @@ export function Root() {
   );
 }
 
-function NavItem({ icon, label, to }: { icon: React.ReactNode; label: string; to: string }) {
+function NavItem({
+  icon,
+  label,
+  to,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  to: string;
+  onClick?: () => void;
+}) {
   return (
     <NavLink
       to={to}
       end
+      onClick={onClick}
       className={({ isActive }) =>
         `flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
           isActive
