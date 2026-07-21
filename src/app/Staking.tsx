@@ -277,8 +277,10 @@ export function Staking() {
                 <div className="text-center py-8 text-[#8FA0B8] flex flex-col items-center gap-4">
                   <ShieldCheck size={32} className="opacity-20" />
                   <p className="text-sm">
-                    P-chain staking needs your public key. Sign a message once to enable it — this
-                    does not move any funds.
+                    P-chain staking needs your account's public key. If your wallet prompts you,
+                    sign the one-time message to enable it — this never moves funds or submits a
+                    transaction. Wallets whose account already has on-chain activity may be enabled
+                    without any prompt.
                   </p>
                   <Button
                     variant="primary"
