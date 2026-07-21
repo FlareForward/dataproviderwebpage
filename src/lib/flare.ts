@@ -21,6 +21,18 @@ export const ftsoV2Abi = flareAbis.ftsoV2InterfaceAbi;
 export const wNatAbi = flareAbis.ivpTokenAbi;
 
 /**
+ * On-chain FTSO provider registry contracts. These let us enumerate the live
+ * set of registered data providers directly from chain state (instead of a
+ * manually-maintained off-chain list), so newly registered providers show up
+ * as soon as they are on-chain.
+ */
+export const flareSystemsManagerAbi = flareAbis.iFlareSystemsManagerAbi;
+/** VoterRegistry.getRegisteredVoters(rewardEpochId) -> identity addresses. */
+export const voterRegistryAbi = flareAbis.iVoterRegistryAbi;
+/** EntityManager.getDelegationAddressOf(voter) maps identity -> delegation address. */
+export const entityManagerAbi = flareAbis.iEntityManagerAbi;
+
+/**
  * Block-latency feed reads are free view calls on Flare mainnet, but the
  * canonical FtsoV2 ABI marks them `payable`. We use a view-typed subset so
  * viem's typed `readContract` accepts them (eth_call ignores payability).

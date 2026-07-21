@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { useAccount, usePublicClient } from "wagmi";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
 import { Network, Amount } from "@flarenetwork/flare-tx-sdk";
@@ -19,6 +19,7 @@ export interface DelegationTarget {
 export function useDelegation() {
   const { address, connector, isConnected } = useAccount();
   const publicClient = usePublicClient();
+  const queryClient = useQueryClient();
   const { data: wNatAddress } = useWNatAddress();
   const [busy, setBusy] = useState<null | "wrap" | "delegate" | "undelegate">(null);
 
@@ -63,7 +64,10 @@ export function useDelegation() {
   const refresh = useCallback(() => {
     balances.refetch();
     delegation.refetch();
-  }, [balances, delegation]);
+    // Vote power / delegation percentages in the provider list shift after a
+    // delegate/undelegate, so refresh the live roster too.
+    queryClient.invalidateQueries({ queryKey: ["providers"] });
+  }, [balances, delegation, queryClient]);
 
   const wrap = useCallback(
     async (amountFlr: string) => {
