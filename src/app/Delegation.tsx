@@ -450,7 +450,7 @@ function YourDelegations({
                 </div>
                 <div className="min-w-0">
                   <div className="font-medium text-[#FAFAFA] truncate">
-                    {provider?.name ?? shortAddress(d.address)}
+                    {provider?.name ?? "Unknown provider"}
                   </div>
                   <div className="text-xs text-[#8FA0B8] font-mono mt-0.5">
                     {shortAddress(d.address)}
