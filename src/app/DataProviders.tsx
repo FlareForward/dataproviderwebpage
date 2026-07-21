@@ -3,6 +3,7 @@ import * as Tabs from "@radix-ui/react-tabs";
 import { Search, Shield, ExternalLink } from "lucide-react";
 import { useLocation } from "react-router";
 import { Delegation } from "./Delegation";
+import { Staking } from "./Staking";
 import { Badge } from "./components/Badge";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useProviders } from "../hooks/useProviders";
@@ -10,13 +11,17 @@ import { shortAddress, EXPLORER_URL } from "../lib/flare";
 
 export function DataProviders() {
   const location = useLocation();
-  const defaultTab = location.pathname.includes("delegation") ? "delegation" : "all";
+  const defaultTab = location.pathname.includes("staking")
+    ? "staking"
+    : location.pathname.includes("delegation")
+      ? "delegation"
+      : "all";
 
   return (
     <div className="p-4 lg:p-8 flex-1 flex flex-col h-full overflow-hidden">
       <div className="max-w-7xl mx-auto w-full space-y-6 flex-1 flex flex-col">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Data Providers</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Infrastructure Providers</h1>
           <p className="text-[#8FA0B8] text-sm mt-1">
             View registered FTSO data providers and delegate your vote power.
           </p>
@@ -36,6 +41,12 @@ export function DataProviders() {
             >
               Delegation
             </Tabs.Trigger>
+            <Tabs.Trigger
+              value="staking"
+              className="px-6 py-3 text-sm font-medium text-[#8FA0B8] hover:text-[#FAFAFA] border-b-2 border-transparent data-[state=active]:border-[#EE1A58] data-[state=active]:text-[#EE1A58] transition-colors"
+            >
+              Staking
+            </Tabs.Trigger>
           </Tabs.List>
 
           <Tabs.Content value="all" className="flex-1 outline-none">
@@ -44,6 +55,10 @@ export function DataProviders() {
 
           <Tabs.Content value="delegation" className="flex-1 outline-none">
             <Delegation />
+          </Tabs.Content>
+
+          <Tabs.Content value="staking" className="flex-1 outline-none">
+            <Staking />
           </Tabs.Content>
         </Tabs.Root>
       </div>

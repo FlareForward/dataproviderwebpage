@@ -11,6 +11,7 @@ export const router = createBrowserRouter([
       { index: true, Component: Dashboard },
       { path: "providers", Component: DataProviders },
       { path: "delegation", Component: DataProviders },
+      { path: "staking", Component: DataProviders },
     ],
   },
 ]);

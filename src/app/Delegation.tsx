@@ -1,14 +1,19 @@
 import { useState } from "react";
 import { formatUnits } from "viem";
-import { Shield, Search, CheckCircle2, Wallet, Info, Loader2, XCircle } from "lucide-react";
+import { Shield, Search, CheckCircle2, Wallet, Info, Loader2, XCircle, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/Card";
 import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
-import { useProviders } from "../hooks/useProviders";
+import { useProviders, type ProviderRow } from "../hooks/useProviders";
 import { useDelegation } from "../hooks/useDelegation";
 import { shortAddress } from "../lib/flare";
+
+interface CurrentDelegation {
+  address: `0x${string}`;
+  bips: number;
+}
 
 const MAX_TARGETS = 2;
 
@@ -89,6 +94,17 @@ export function Delegation() {
 
   return (
     <div className="space-y-6">
+      {/* Your delegations — a prominent summary of who your WFLR vote power is
+          currently delegated to, mirroring the "Your Stakes" card. */}
+      {isConnected && currentDelegations.length > 0 && (
+        <YourDelegations
+          delegations={currentDelegations}
+          providers={providers}
+          busy={busy}
+          onUndelegate={undelegate}
+        />
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Provider Selection List */}
         <Card className="col-span-1 lg:col-span-2 bg-[#243552] border-[#2E3F56]">
@@ -354,26 +370,6 @@ export function Delegation() {
                     </div>
                   )}
 
-                  {/* Current delegation */}
-                  {currentDelegations.length > 0 && (
-                    <div className="pt-4 border-t border-[#2E3F56] space-y-2">
-                      <div className="text-xs text-[#8FA0B8]">Current delegations</div>
-                      {currentDelegations.map((d) => (
-                        <div key={d.address} className="flex items-center justify-between text-sm">
-                          <span className="font-mono text-[#FAFAFA]">{shortAddress(d.address)}</span>
-                          <span className="text-[#8FA0B8]">{(d.bips / 100).toFixed(0)}%</span>
-                        </div>
-                      ))}
-                      <Button
-                        variant="ghost"
-                        className="w-full text-red-400 hover:bg-red-500/10 gap-2 mt-2"
-                        disabled={busy !== null}
-                        onClick={() => undelegate()}
-                      >
-                        {busy === "undelegate" ? <Loader2 className="animate-spin" size={16} /> : <><XCircle size={16} /> Undelegate all</>}
-                      </Button>
-                    </div>
-                  )}
                 </>
               )}
             </CardContent>
@@ -381,5 +377,101 @@ export function Delegation() {
         </div>
       </div>
     </div>
+  );
+}
+
+function YourDelegations({
+  delegations,
+  providers,
+  busy,
+  onUndelegate,
+}: {
+  delegations: CurrentDelegation[];
+  providers: ProviderRow[];
+  busy: null | "wrap" | "delegate" | "undelegate";
+  onUndelegate: () => void;
+}) {
+  const totalPct = delegations.reduce((sum, d) => sum + d.bips, 0) / 100;
+
+  return (
+    <Card className="bg-[#243552] border-[#2E3F56]">
+      <CardHeader className="border-b border-[#2E3F56] pb-4">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <Users size={18} className="text-[#EE1A58]" />
+            <CardTitle className="text-[#FAFAFA]">Your Delegations</CardTitle>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <div className="text-xs text-[#8FA0B8]">Vote power delegated</div>
+              <div className="text-sm font-semibold text-[#FAFAFA]">{totalPct.toFixed(0)}%</div>
+            </div>
+            <Button
+              variant="ghost"
+              className="text-red-400 hover:bg-red-500/10 gap-2"
+              disabled={busy !== null}
+              onClick={onUndelegate}
+            >
+              {busy === "undelegate" ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <>
+                  <XCircle size={16} /> Undelegate all
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+        <CardDescription className="text-[#8FA0B8]">
+          Providers your WFLR vote power is currently delegated to
+        </CardDescription>
+      </CardHeader>
+      <div className="divide-y divide-[#2E3F56]">
+        {delegations.map((d) => {
+          const provider = providers.find(
+            (p) => p.address.toLowerCase() === d.address.toLowerCase()
+          );
+          return (
+            <div
+              key={d.address}
+              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            >
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center border border-[#2E3F56] bg-[#1D2430] overflow-hidden shrink-0">
+                  {provider?.logoURI ? (
+                    <ImageWithFallback
+                      src={provider.logoURI}
+                      alt={provider.name}
+                      className="w-10 h-10 object-cover"
+                    />
+                  ) : (
+                    <Shield size={18} className="text-[#8FA0B8]" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium text-[#FAFAFA] truncate">
+                    {provider?.name ?? shortAddress(d.address)}
+                  </div>
+                  <div className="text-xs text-[#8FA0B8] font-mono mt-0.5">
+                    {shortAddress(d.address)}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 sm:justify-end pl-14 sm:pl-0">
+                <div className="text-right">
+                  <div className="text-sm font-semibold text-[#EE1A58]">
+                    {(d.bips / 100).toFixed(0)}%
+                  </div>
+                  {provider && (
+                    <div className="text-xs text-[#8FA0B8]">VP: {provider.votePowerLabel}</div>
+                  )}
+                </div>
+                <Badge variant="success">Delegated</Badge>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
