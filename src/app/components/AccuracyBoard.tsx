@@ -133,7 +133,7 @@ export function AccuracyBoard() {
 
   if (error) {
     return (
-      <div className="rounded-[8px] border border-red-500/30 bg-[#243552] p-6 text-center text-red-400">
+      <div className="glass-panel border-red-500/30 p-6 text-center text-red-400">
         Failed to load accuracy feed: {error.message}
       </div>
     );
@@ -141,7 +141,7 @@ export function AccuracyBoard() {
 
   if (isLoading || !data) {
     return (
-      <div className="rounded-[8px] border border-[#2E3F56] bg-[#243552] p-8 text-center text-[#8FA0B8]">
+      <div className="glass-panel p-8 text-center text-[#8FA0B8]">
         Loading FTSO accuracy…
       </div>
     );
@@ -156,10 +156,10 @@ export function AccuracyBoard() {
   return (
     <section
       aria-labelledby="accuracy-heading"
-      className="overflow-hidden rounded-[8px] border border-[#2E3F56] bg-[#243552] text-[#FAFAFA] shadow-[0_4px_12px_rgba(0,0,0,0.3)]"
+      className="overflow-hidden glass-card text-[#FAFAFA]"
     >
       {/* Header */}
-      <div className="flex flex-col gap-3 border-b border-[#2E3F56] px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative flex flex-col gap-3 border-b border-white/8 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EE1A58]/10 text-[#EE1A58]">
             <Activity size={18} />
@@ -200,7 +200,7 @@ export function AccuracyBoard() {
       </div>
 
       <Tabs.Root defaultValue="success-rate">
-        <Tabs.List className="flex border-b border-[#2E3F56] px-6">
+        <Tabs.List className="relative flex border-b border-white/8 px-6">
           <Tabs.Trigger
             value="success-rate"
             className="px-4 py-3 text-sm font-medium text-[#8FA0B8] hover:text-[#FAFAFA] border-b-2 border-transparent data-[state=active]:border-[#EE1A58] data-[state=active]:text-[#EE1A58] transition-colors"
@@ -223,7 +223,7 @@ export function AccuracyBoard() {
               in the window
             </div>
             <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="rounded-lg border border-[#2E3F56] bg-[#1D2430] p-5">
+              <div className="glass-panel p-5">
                 <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
                   Last 6 hours
                 </div>
@@ -233,7 +233,7 @@ export function AccuracyBoard() {
                 </div>
                 <BandLegend />
               </div>
-              <div className="rounded-lg border border-[#2E3F56] bg-[#1D2430] p-5">
+              <div className="glass-panel p-5">
                 <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
                   Last 24 hours
                 </div>
@@ -247,7 +247,7 @@ export function AccuracyBoard() {
                 </div>
               </div>
             </div>
-            <p className="mt-4 border-t border-[#2E3F56] pt-3 text-[12.5px] leading-relaxed text-[#8FA0B8]">
+            <p className="mt-4 border-t border-white/8 pt-3 text-[12.5px] leading-relaxed text-[#8FA0B8]">
               <span className="font-semibold text-[#FAFAFA]">Primary</span> is
               the tight reward band;{" "}
               <span className="font-semibold text-[#FAFAFA]">secondary</span>{" "}
@@ -258,7 +258,7 @@ export function AccuracyBoard() {
           </div>
 
           {/* Epoch trend */}
-          <div className="border-t border-[#2E3F56] px-6 py-5">
+          <div className="border-t border-white/8 px-6 py-5">
             <h3 className="mb-4 text-[11px] font-semibold uppercase tracking-wider text-[#8FA0B8]">
               Primary-band accuracy by reward epoch
             </h3>
@@ -330,7 +330,7 @@ export function AccuracyBoard() {
                   sortable by column.
                 </caption>
                 <thead>
-                  <tr className="border-y border-[#2E3F56] bg-[#1D2430] text-[10.5px] uppercase tracking-wider text-[#8FA0B8]">
+                  <tr className="border-y border-white/8 bg-white/5 text-[10.5px] uppercase tracking-wider text-[#8FA0B8]">
                     {COLUMNS.map((col) => {
                       const active = sort.key === col.key;
                       return (
@@ -375,7 +375,7 @@ export function AccuracyBoard() {
                     return (
                       <tr
                         key={r.feed}
-                        className="border-b border-[#2E3F56]/60 transition-colors hover:bg-[#2E3F56]/25"
+                        className="border-b border-white/8 transition-colors hover:bg-white/5"
                       >
                         <td className="px-3.5 py-1.5 text-left font-semibold">
                           {base}
@@ -404,7 +404,7 @@ export function AccuracyBoard() {
                 </tbody>
               </table>
             </div>
-            <div className="border-t border-[#2E3F56] px-6 py-3 text-[11.5px] text-[#8FA0B8]">
+            <div className="border-t border-white/8 px-6 py-3 text-[11.5px] text-[#8FA0B8]">
               Graded on-chain against the real consensus bands, not a
               self-report — the same measure the public trackers use. Snapshot{" "}
               <span className="font-semibold text-[#FAFAFA]">

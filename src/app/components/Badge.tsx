@@ -11,8 +11,8 @@ export function Badge({ className, variant = "dark", children }: BadgeProps) {
   const variants = {
     primary: "bg-[#EE1A58] text-white",
     rose: "bg-gradient-to-r from-[#EC4899] to-[#F43F5E] text-white",
-    dark: "bg-[#1D2430] text-[#FAFAFA] border border-[#2E3F56]",
-    outline: "bg-transparent text-[#FAFAFA] border border-[#2E3F56]",
+    dark: "bg-white/5 text-[#FAFAFA] border border-white/10 backdrop-blur-md",
+    outline: "bg-transparent text-[#FAFAFA] border border-white/15 backdrop-blur-md",
     success: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
   };
 

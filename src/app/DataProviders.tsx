@@ -28,7 +28,7 @@ export function DataProviders() {
         </div>
 
         <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col">
-          <Tabs.List className="flex border-b border-[#2E3F56] mb-6">
+          <Tabs.List className="flex border-b border-white/8 mb-6">
             <Tabs.Trigger
               value="all"
               className="px-6 py-3 text-sm font-medium text-[#8FA0B8] hover:text-[#FAFAFA] border-b-2 border-transparent data-[state=active]:border-[#EE1A58] data-[state=active]:text-[#EE1A58] transition-colors"
@@ -80,7 +80,7 @@ function AllProviders() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 bg-[#243552] border border-[#2E3F56] rounded-md px-3 py-2 focus-within:border-[#EE1A58] transition-colors max-w-md">
+      <div className="flex items-center gap-2 glass-panel px-3 py-2 focus-within:border-[#EE1A58]/60 transition-colors max-w-md">
         <Search size={16} className="text-[#8FA0B8]" />
         <input
           value={q}
@@ -92,13 +92,13 @@ function AllProviders() {
       </div>
 
       {error && (
-        <div className="bg-[#243552] border border-red-500/30 rounded-xl p-6 text-center text-red-400">
+        <div className="glass-panel border-red-500/30 p-6 text-center text-red-400">
           Failed to load providers: {error.message}
         </div>
       )}
 
       {isLoading && providers.length === 0 && (
-        <div className="bg-[#243552] border border-[#2E3F56] rounded-xl p-8 text-center text-[#8FA0B8]">
+        <div className="glass-panel p-8 text-center text-[#8FA0B8]">
           Loading data providers...
         </div>
       )}
@@ -107,11 +107,11 @@ function AllProviders() {
         {filtered.map((p) => (
           <div
             key={p.address}
-            className="bg-[#243552] border border-[#2E3F56] rounded-xl p-5 flex flex-col gap-3 hover:border-[#EE1A58]/40 transition-colors"
+            className="glass-card glass-card-hover p-5 flex flex-col gap-3"
           >
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-[#1D2430] border border-[#2E3F56] flex items-center justify-center overflow-hidden shrink-0">
+                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
                   {p.logoURI ? (
                     <ImageWithFallback src={p.logoURI} alt={p.name} className="w-10 h-10 object-cover" />
                   ) : (
@@ -137,7 +137,7 @@ function AllProviders() {
               <p className="text-xs text-[#8FA0B8] line-clamp-3">{p.description}</p>
             )}
 
-            <div className="flex items-center justify-between mt-auto pt-3 border-t border-[#2E3F56]/60 text-sm">
+            <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/8 text-sm">
               <div>
                 <div className="text-[#8FA0B8] text-xs">Vote Power</div>
                 <div className="text-[#FAFAFA] font-medium">{p.votePowerLabel}</div>
