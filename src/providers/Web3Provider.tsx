@@ -5,9 +5,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { chain, FLARE_RPC_URL } from "../lib/flare";
 import { ledger } from "../lib/connectors/ledger";
 
-const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as
-  | string
-  | undefined;
+// Public WalletConnect Cloud project ID. This is not a secret: Vite inlines
+// VITE_* values into the client bundle, so a project ID is always visible in
+// the shipped app. We bake in a default so WalletConnect works in every
+// deployment without extra build-env configuration; an env var still overrides
+// it for local dev or a different project.
+const DEFAULT_WALLETCONNECT_PROJECT_ID = "edbee77ea21c931eea27d81df91ac7b9";
+
+const projectId =
+  (import.meta.env.VITE_WALLETCONNECT_PROJECT_ID as string | undefined) ||
+  DEFAULT_WALLETCONNECT_PROJECT_ID;
 
 /** Whether the WalletConnect-based connectors can be offered. */
 export const walletConnectEnabled = Boolean(projectId);
