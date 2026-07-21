@@ -39,10 +39,12 @@ export function Delegation() {
     .map((addr) => providers.find((p) => p.address === addr))
     .filter((p): p is NonNullable<typeof p> => Boolean(p));
 
+  const q = query.trim().toLowerCase();
   const filtered = providers.filter(
     (p) =>
-      p.name.toLowerCase().includes(query.toLowerCase()) ||
-      p.address.toLowerCase().includes(query.toLowerCase())
+      p.name.toLowerCase().includes(q) ||
+      p.address.toLowerCase().includes(q) ||
+      p.identityAddress.toLowerCase().includes(q)
   );
 
   const hasVotePower = wflrBalance > 0n;

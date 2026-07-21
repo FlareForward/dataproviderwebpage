@@ -5,12 +5,19 @@ import {
   CONTRACT_REGISTRY_ADDRESS,
   contractRegistryAbi,
   wNatAbi,
+  voterRegistryAbi,
+  entityManagerAbi,
+  flareSystemsManagerAbi,
+  shortAddress,
 } from "../lib/flare";
 
 const PROVIDER_LIST_URL =
   "https://raw.githubusercontent.com/TowoLabs/ftso-signal-providers/master/bifrost-wallet.providerlist.json";
 
 const FLARE_CHAIN_ID = 14;
+
+/** How often to re-read the live provider roster from chain (ms). */
+const REFRESH_MS = 30_000;
 
 interface RawProvider {
   chainId: number;
@@ -23,7 +30,10 @@ interface RawProvider {
 }
 
 export interface ProviderRow {
+  /** Delegation address — the address users delegate WFLR to. */
   address: `0x${string}`;
+  /** Identity address — the provider's canonical id shown on explorers. */
+  identityAddress: `0x${string}`;
   name: string;
   description: string;
   url: string;
@@ -32,6 +42,8 @@ export interface ProviderRow {
   votePower: number | null;
   votePowerLabel: string;
   delegationPct: number | null;
+  /** Whether the provider is registered for the current reward epoch. */
+  registeredCurrentEpoch: boolean;
   status: "Active" | "Warning" | "Offline";
 }
 
@@ -42,10 +54,11 @@ function formatVotePower(vp: number): string {
   return vp.toFixed(0);
 }
 
-export function useWNatAddress() {
+/** Resolve any protocol contract address by name via the ContractRegistry. */
+export function useContractAddress(name: string) {
   const publicClient = usePublicClient();
   return useQuery({
-    queryKey: ["wNatAddress"],
+    queryKey: ["contractAddress", name],
     enabled: !!publicClient,
     staleTime: Infinity,
     queryFn: async () =>
@@ -53,33 +66,116 @@ export function useWNatAddress() {
         address: CONTRACT_REGISTRY_ADDRESS,
         abi: contractRegistryAbi,
         functionName: "getContractAddressByName",
-        args: ["WNat"],
+        args: [name],
       })) as `0x${string}`,
   });
 }
 
+export function useWNatAddress() {
+  return useContractAddress("WNat");
+}
+
 export function useProviders() {
   const publicClient = usePublicClient();
-  const { data: wNatAddress } = useWNatAddress();
 
   const query = useQuery({
-    queryKey: ["providers", wNatAddress],
-    enabled: !!publicClient && !!wNatAddress,
-    staleTime: 60_000,
-    refetchInterval: 60_000,
+    queryKey: ["providers"],
+    enabled: !!publicClient,
+    staleTime: REFRESH_MS,
+    refetchInterval: REFRESH_MS,
     queryFn: async () => {
-      const res = await fetch(PROVIDER_LIST_URL);
-      if (!res.ok) throw new Error(`Failed to load provider list (${res.status})`);
-      const json = (await res.json()) as { providers: RawProvider[] };
-      const listed = json.providers.filter(
-        (p) => p.chainId === FLARE_CHAIN_ID && p.listed !== false && p.address
+      // 1. Resolve the protocol contracts we need in one batch.
+      const [wNatAddress, voterRegistry, entityManager, systemsManager] =
+        (await publicClient!.multicall({
+          allowFailure: false,
+          contracts: (
+            ["WNat", "VoterRegistry", "EntityManager", "FlareSystemsManager"] as const
+          ).map((name) => ({
+            address: CONTRACT_REGISTRY_ADDRESS,
+            abi: contractRegistryAbi,
+            functionName: "getContractAddressByName",
+            args: [name],
+          })),
+        })) as unknown as [`0x${string}`, `0x${string}`, `0x${string}`, `0x${string}`];
+
+      // 2. Enumerate registered providers across the current and previous
+      //    reward epoch. Using a two-epoch window means providers that were
+      //    active last epoch but have not (yet) re-registered for the current
+      //    one still appear, flagged as not currently registered. (Older
+      //    epochs are pruned on-chain, so one epoch back is the safe window.)
+      const rewardEpochId = Number(
+        (await publicClient!.readContract({
+          address: systemsManager,
+          abi: flareSystemsManagerAbi,
+          functionName: "getCurrentRewardEpochId",
+        })) as number | bigint
       );
 
-      // Read total + per-provider vote power on-chain.
+      const epochsToRead =
+        rewardEpochId > 0 ? [rewardEpochId, rewardEpochId - 1] : [rewardEpochId];
+      const voterLists = (await Promise.all(
+        epochsToRead.map((epoch) =>
+          publicClient!
+            .readContract({
+              address: voterRegistry,
+              abi: voterRegistryAbi,
+              functionName: "getRegisteredVoters",
+              args: [BigInt(epoch)],
+            })
+            .catch(() => [] as readonly `0x${string}`[])
+        )
+      )) as readonly (readonly `0x${string}`[])[];
+
+      const currentEpochVoters = new Set(voterLists[0].map((v) => v.toLowerCase()));
+      const uniqueVoters: `0x${string}`[] = [];
+      const seenVoters = new Set<string>();
+      for (const list of voterLists) {
+        for (const voter of list) {
+          const key = voter.toLowerCase();
+          if (!seenVoters.has(key)) {
+            seenVoters.add(key);
+            uniqueVoters.push(voter);
+          }
+        }
+      }
+
+      // 3. Map each voter (identity address) to the delegation address that
+      //    users actually delegate WFLR to, keeping the current-epoch flag.
+      const delegationResults = await publicClient!.multicall({
+        allowFailure: true,
+        contracts: uniqueVoters.map((voter) => ({
+          address: entityManager,
+          abi: entityManagerAbi,
+          functionName: "getDelegationAddressOf",
+          args: [voter],
+        })),
+      });
+      const entries = uniqueVoters
+        .map((voter, i) => {
+          const r = delegationResults[i];
+          if (r.status !== "success") return null;
+          return {
+            identityAddress: voter,
+            delegationAddress: r.result as unknown as `0x${string}`,
+            registeredCurrentEpoch: currentEpochVoters.has(voter.toLowerCase()),
+          };
+        })
+        .filter(
+          (
+            e
+          ): e is {
+            identityAddress: `0x${string}`;
+            delegationAddress: `0x${string}`;
+            registeredCurrentEpoch: boolean;
+          } => !!e
+        );
+      const delegationAddresses = entries.map((e) => e.delegationAddress);
+
+      // 4. Read total + per-provider vote power on-chain.
       let totalVotePower = 0;
       try {
         const total = (await publicClient!.readContract({
-          address: wNatAddress!,
+          address: wNatAddress,
           abi: wNatAbi,
           functionName: "totalVotePower",
         })) as bigint;
@@ -92,33 +188,64 @@ export function useProviders() {
       try {
         const results = await publicClient!.multicall({
           allowFailure: true,
-          contracts: listed.map((p) => ({
-            address: wNatAddress!,
+          contracts: delegationAddresses.map((addr) => ({
+            address: wNatAddress,
             abi: wNatAbi,
             functionName: "votePowerOf",
-            args: [p.address as `0x${string}`],
+            args: [addr],
           })),
         });
         votePowers = results.map((r) => (r.status === "success" ? (r.result as bigint) : null));
       } catch {
-        votePowers = listed.map(() => null);
+        votePowers = delegationAddresses.map(() => null);
       }
 
-      const providers: ProviderRow[] = listed.map((p, i) => {
+      // 5. Enrich with display metadata (name / logo / description) from the
+      //    community provider list. Cache-busted so updates are picked up.
+      const metadata = new Map<string, RawProvider>();
+      try {
+        const res = await fetch(PROVIDER_LIST_URL, { cache: "no-cache" });
+        if (res.ok) {
+          const json = (await res.json()) as { providers: RawProvider[] };
+          for (const p of json.providers) {
+            if (p.chainId === FLARE_CHAIN_ID && p.address) {
+              metadata.set(p.address.toLowerCase(), p);
+            }
+          }
+        }
+      } catch {
+        // Metadata is best-effort; fall back to on-chain addresses only.
+      }
+
+      const providers: ProviderRow[] = entries.map((entry, i) => {
+        const addr = entry.delegationAddress;
+        // Metadata lists sometimes key by delegation address, sometimes by
+        // identity address — try both.
+        const meta =
+          metadata.get(addr.toLowerCase()) ??
+          metadata.get(entry.identityAddress.toLowerCase());
         const vpWei = votePowers[i];
         const votePower = vpWei !== null ? Number(formatUnits(vpWei, 18)) : null;
         const delegationPct =
           votePower !== null && totalVotePower > 0 ? (votePower / totalVotePower) * 100 : null;
+        const status: ProviderRow["status"] =
+          votePower === null
+            ? "Offline"
+            : !entry.registeredCurrentEpoch || votePower === 0
+              ? "Warning"
+              : "Active";
         return {
-          address: p.address as `0x${string}`,
-          name: p.name,
-          description: p.description ?? "",
-          url: p.url ?? "",
-          logoURI: p.logoURI ?? "",
+          address: addr,
+          identityAddress: entry.identityAddress,
+          name: meta?.name ?? shortAddress(entry.identityAddress),
+          description: meta?.description ?? "",
+          url: meta?.url ?? "",
+          logoURI: meta?.logoURI ?? "",
           votePower,
           votePowerLabel: votePower !== null ? `${formatVotePower(votePower)} FLR` : "-",
           delegationPct,
-          status: votePower === null ? "Offline" : votePower > 0 ? "Active" : "Warning",
+          registeredCurrentEpoch: entry.registeredCurrentEpoch,
+          status,
         };
       });
 
@@ -132,6 +259,5 @@ export function useProviders() {
     totalVotePower: query.data?.totalVotePower ?? 0,
     isLoading: query.isLoading,
     error: query.error as Error | null,
-    wNatAddress,
   };
 }

@@ -55,10 +55,12 @@ function AllProviders() {
   const { providers, isLoading, error } = useProviders();
   const [q, setQ] = useState("");
 
+  const query = q.trim().toLowerCase();
   const filtered = providers.filter(
     (p) =>
-      p.name.toLowerCase().includes(q.toLowerCase()) ||
-      p.address.toLowerCase().includes(q.toLowerCase())
+      p.name.toLowerCase().includes(query) ||
+      p.address.toLowerCase().includes(query) ||
+      p.identityAddress.toLowerCase().includes(query)
   );
 
   return (
@@ -69,7 +71,7 @@ function AllProviders() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           type="text"
-          placeholder="Search providers by name or address..."
+          placeholder="Search providers by name, identity or delegation address..."
           className="bg-transparent border-none outline-none text-sm w-full placeholder:text-[#8FA0B8] text-[#FAFAFA]"
         />
       </div>
@@ -103,7 +105,9 @@ function AllProviders() {
                 </div>
                 <div className="min-w-0">
                   <div className="font-semibold text-[#FAFAFA] truncate">{p.name}</div>
-                  <div className="text-xs text-[#8FA0B8] font-mono">{shortAddress(p.address)}</div>
+                  <div className="text-xs text-[#8FA0B8] font-mono" title={p.identityAddress}>
+                    {shortAddress(p.identityAddress)}
+                  </div>
                 </div>
               </div>
               <Badge
@@ -143,7 +147,7 @@ function AllProviders() {
               </a>
             )}
             <a
-              href={`${EXPLORER_URL}/address/${p.address}`}
+              href={`${EXPLORER_URL}/address/${p.identityAddress}`}
               target="_blank"
               rel="noreferrer"
               className="text-xs text-[#8FA0B8] hover:text-[#FAFAFA] flex items-center gap-1"
