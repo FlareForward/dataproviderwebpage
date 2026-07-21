@@ -92,7 +92,9 @@ export function Staking() {
   }, [selectedNodeId, getValidatorCapacity]);
 
   const q = query.trim().toLowerCase();
-  const filtered = validators.filter((v) => v.nodeId.toLowerCase().includes(q));
+  const filtered = validators.filter(
+    (v) => v.nodeId.toLowerCase().includes(q) || (v.name?.toLowerCase().includes(q) ?? false)
+  );
 
   const amountWei = (() => {
     try {
@@ -186,7 +188,7 @@ export function Staking() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   type="text"
-                  placeholder="Search by NodeID..."
+                  placeholder="Search by name or NodeID..."
                   className="bg-transparent border-none outline-none text-sm w-full placeholder:text-[#8FA0B8] text-[#FAFAFA]"
                 />
               </div>
@@ -215,20 +217,28 @@ export function Staking() {
                   } ${isSel ? "bg-[#EE1A58]/10" : ""}`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center border overflow-hidden shrink-0 ${
-                        isSel ? "border-[#EE1A58]" : "border-[#2E3F56]"
-                      } bg-[#1D2430]`}
-                    >
-                      <Server size={18} className={isSel ? "text-[#EE1A58]" : "text-[#8FA0B8]"} />
-                    </div>
+                    <ValidatorAvatar name={v.name} logoURI={v.logoURI} selected={isSel} />
                     <div className="min-w-0">
                       <div className="font-medium text-[#FAFAFA] flex items-center gap-2">
-                        <span className="font-mono truncate" title={v.nodeId}>
-                          {shortNodeId(v.nodeId)}
-                        </span>
+                        {v.name ? (
+                          <span className="truncate" title={v.name}>
+                            {v.name}
+                          </span>
+                        ) : (
+                          <span className="font-mono truncate" title={v.nodeId}>
+                            {shortNodeId(v.nodeId)}
+                          </span>
+                        )}
                         {isSel && <CheckCircle2 size={14} className="text-[#EE1A58] shrink-0" />}
                       </div>
+                      {v.name && (
+                        <div
+                          className="text-xs text-[#8FA0B8] font-mono truncate"
+                          title={v.nodeId}
+                        >
+                          {shortNodeId(v.nodeId)}
+                        </div>
+                      )}
                       <div className="text-sm text-[#8FA0B8] flex items-center gap-3 mt-1 flex-wrap">
                         <span>Self-bond: {v.selfBondLabel} FLR</span>
                         <span className="w-1 h-1 rounded-full bg-[#2E3F56]" />
@@ -342,8 +352,28 @@ export function Staking() {
                       <>
                         <div className="bg-[#1C2D47] rounded-lg p-3 border border-[#2E3F56]">
                           <div className="text-xs text-[#8FA0B8] mb-1">Selected validator</div>
-                          <div className="font-mono text-sm text-[#FAFAFA] break-all">
-                            {shortNodeId(selectedValidator.nodeId, 10)}
+                          <div className="flex items-center gap-2">
+                            {selectedValidator.name && (
+                              <ValidatorAvatar
+                                name={selectedValidator.name}
+                                logoURI={selectedValidator.logoURI}
+                                size={20}
+                              />
+                            )}
+                            {selectedValidator.name ? (
+                              <div className="min-w-0">
+                                <div className="text-sm text-[#FAFAFA] font-medium truncate">
+                                  {selectedValidator.name}
+                                </div>
+                                <div className="font-mono text-xs text-[#8FA0B8] break-all">
+                                  {shortNodeId(selectedValidator.nodeId, 10)}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="font-mono text-sm text-[#FAFAFA] break-all">
+                                {shortNodeId(selectedValidator.nodeId, 10)}
+                              </div>
+                            )}
                           </div>
                           <div className="text-xs text-[#8FA0B8] mt-1">
                             Fee {selectedValidator.delegationFeePct.toFixed(2)}%
@@ -437,7 +467,14 @@ export function Staking() {
                           <div className="space-y-3">
                             <p className="text-sm text-[#FAFAFA] text-center">
                               Stake {stakeAmount} FLR to{" "}
-                              <span className="font-mono">{shortNodeId(selectedValidator.nodeId)}</span>?
+                              {selectedValidator.name ? (
+                                <span className="font-medium">{selectedValidator.name}</span>
+                              ) : (
+                                <span className="font-mono">
+                                  {shortNodeId(selectedValidator.nodeId)}
+                                </span>
+                              )}
+                              ?
                             </p>
                             <div className="flex gap-2">
                               <Button
@@ -531,9 +568,9 @@ function YourStakes({
   onchainFailed: boolean;
   onRefresh: () => void;
 }) {
-  const feeByNode = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const v of validators) map.set(v.nodeId, v.delegationFeePct);
+  const metaByNode = useMemo(() => {
+    const map = new Map<string, ValidatorRow>();
+    for (const v of validators) map.set(v.nodeId, v);
     return map;
   }, [validators]);
 
@@ -578,7 +615,8 @@ function YourStakes({
           </div>
         )}
         {stakes.map((s) => {
-          const fee = feeByNode.get(s.nodeId);
+          const meta = metaByNode.get(s.nodeId);
+          const fee = meta?.delegationFeePct;
           const unlocked = Number(s.endTime) <= nowSecs;
           return (
             <div
@@ -586,13 +624,25 @@ function YourStakes({
               className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
               <div className="flex items-center gap-4 min-w-0">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center border border-[#2E3F56] bg-[#1D2430] shrink-0">
-                  <Server size={18} className="text-[#8FA0B8]" />
-                </div>
+                <ValidatorAvatar name={meta?.name} logoURI={meta?.logoURI} />
                 <div className="min-w-0">
-                  <div className="font-mono text-sm text-[#FAFAFA] truncate" title={s.nodeId}>
-                    {shortNodeId(s.nodeId, 10)}
-                  </div>
+                  {meta?.name ? (
+                    <>
+                      <div className="text-sm text-[#FAFAFA] font-medium truncate" title={meta.name}>
+                        {meta.name}
+                      </div>
+                      <div
+                        className="font-mono text-xs text-[#8FA0B8] truncate"
+                        title={s.nodeId}
+                      >
+                        {shortNodeId(s.nodeId, 10)}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="font-mono text-sm text-[#FAFAFA] truncate" title={s.nodeId}>
+                      {shortNodeId(s.nodeId, 10)}
+                    </div>
+                  )}
                   <div className="text-xs text-[#8FA0B8] flex items-center gap-3 mt-1 flex-wrap">
                     <span className="flex items-center gap-1">
                       <Clock size={12} />
@@ -633,6 +683,46 @@ function YourStakes({
         </div>
       )}
     </Card>
+  );
+}
+
+/**
+ * Circular validator avatar: shows the provider logo when the node id is linked
+ * to a known FTSO entity, otherwise falls back to a generic server icon. Broken
+ * logo URLs also fall back to the icon.
+ */
+function ValidatorAvatar({
+  name,
+  logoURI,
+  selected = false,
+  size = 40,
+}: {
+  name?: string;
+  logoURI?: string;
+  selected?: boolean;
+  size?: number;
+}) {
+  const [errored, setErrored] = useState(false);
+  const showLogo = !!logoURI && !errored;
+  const iconSize = Math.round(size * 0.45);
+  return (
+    <div
+      className={`rounded-full flex items-center justify-center border overflow-hidden shrink-0 ${
+        selected ? "border-[#EE1A58]" : "border-[#2E3F56]"
+      } bg-[#1D2430]`}
+      style={{ width: size, height: size }}
+    >
+      {showLogo ? (
+        <img
+          src={logoURI}
+          alt={name ?? "Validator"}
+          className="w-full h-full object-cover"
+          onError={() => setErrored(true)}
+        />
+      ) : (
+        <Server size={iconSize} className={selected ? "text-[#EE1A58]" : "text-[#8FA0B8]"} />
+      )}
+    </div>
   );
 }
 

@@ -11,15 +11,20 @@ import {
   shortAddress,
 } from "../lib/flare";
 
-const PROVIDER_LIST_URL =
+export const PROVIDER_LIST_URL =
   "https://raw.githubusercontent.com/TowoLabs/ftso-signal-providers/master/bifrost-wallet.providerlist.json";
 
-const FLARE_CHAIN_ID = 14;
+/**
+ * Flare Forward is pinned to the top of the provider list regardless of vote
+ * power. Matched against both delegation and identity addresses.
+ */
+const PINNED_PROVIDER_ADDRESS =
+  "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110".toLowerCase();
 
 /** How often to re-read the live provider roster from chain (ms). */
 const REFRESH_MS = 30_000;
 
-interface RawProvider {
+export interface RawProvider {
   chainId: number;
   name: string;
   description?: string;
@@ -27,6 +32,31 @@ interface RawProvider {
   address: string;
   logoURI?: string;
   listed?: boolean;
+}
+
+export const FLARE_CHAIN_ID_FOR_PROVIDERS = 14;
+
+/**
+ * Fetch the community provider list and index it by (lowercased) address. Both
+ * the delegation view and the staking view use this to attach display names and
+ * logos to on-chain identities. Best-effort: returns an empty map on failure.
+ */
+export async function fetchProviderMetadata(): Promise<Map<string, RawProvider>> {
+  const metadata = new Map<string, RawProvider>();
+  try {
+    const res = await fetch(PROVIDER_LIST_URL, { cache: "no-cache" });
+    if (res.ok) {
+      const json = (await res.json()) as { providers: RawProvider[] };
+      for (const p of json.providers) {
+        if (p.chainId === FLARE_CHAIN_ID_FOR_PROVIDERS && p.address) {
+          metadata.set(p.address.toLowerCase(), p);
+        }
+      }
+    }
+  } catch {
+    // Metadata is best-effort.
+  }
+  return metadata;
 }
 
 export interface ProviderRow {
@@ -202,20 +232,7 @@ export function useProviders() {
 
       // 5. Enrich with display metadata (name / logo / description) from the
       //    community provider list. Cache-busted so updates are picked up.
-      const metadata = new Map<string, RawProvider>();
-      try {
-        const res = await fetch(PROVIDER_LIST_URL, { cache: "no-cache" });
-        if (res.ok) {
-          const json = (await res.json()) as { providers: RawProvider[] };
-          for (const p of json.providers) {
-            if (p.chainId === FLARE_CHAIN_ID && p.address) {
-              metadata.set(p.address.toLowerCase(), p);
-            }
-          }
-        }
-      } catch {
-        // Metadata is best-effort; fall back to on-chain addresses only.
-      }
+      const metadata = await fetchProviderMetadata();
 
       const providers: ProviderRow[] = entries.map((entry, i) => {
         const addr = entry.delegationAddress;
@@ -249,7 +266,16 @@ export function useProviders() {
         };
       });
 
-      providers.sort((a, b) => (b.votePower ?? -1) - (a.votePower ?? -1));
+      providers.sort((a, b) => {
+        const aPinned =
+          a.address.toLowerCase() === PINNED_PROVIDER_ADDRESS ||
+          a.identityAddress.toLowerCase() === PINNED_PROVIDER_ADDRESS;
+        const bPinned =
+          b.address.toLowerCase() === PINNED_PROVIDER_ADDRESS ||
+          b.identityAddress.toLowerCase() === PINNED_PROVIDER_ADDRESS;
+        if (aPinned !== bPinned) return aPinned ? -1 : 1;
+        return (b.votePower ?? -1) - (a.votePower ?? -1);
+      });
       return { providers, totalVotePower };
     },
   });

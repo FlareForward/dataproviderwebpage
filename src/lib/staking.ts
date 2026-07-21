@@ -1,4 +1,4 @@
-import { formatUnits } from "viem";
+import { formatUnits, sha256, toBytes } from "viem";
 import type { Stake, StakeLimits } from "@flarenetwork/flare-tx-sdk";
 
 /**
@@ -143,6 +143,62 @@ export interface ValidatorRow {
   endDate: Date;
   /** Whether the validator still has enough remaining time to accept a new stake. */
   acceptsDelegations: boolean;
+  /**
+   * Display name of the FTSO entity that registered this node, when the node id
+   * can be linked back to a known provider (via EntityManager + provider list).
+   */
+  name?: string;
+  /** Logo URL for the linked FTSO entity, when available. */
+  logoURI?: string;
+  /** Identity address of the FTSO entity that registered this node, if linked. */
+  identityAddress?: `0x${string}`;
+}
+
+/** Metadata linked to a validator node id via on-chain entity registration. */
+export interface ValidatorMeta {
+  name?: string;
+  logoURI?: string;
+  identityAddress: `0x${string}`;
+}
+
+const CB58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+function base58Encode(bytes: Uint8Array): string {
+  const digits: number[] = [0];
+  for (const byte of bytes) {
+    let carry = byte;
+    for (let j = 0; j < digits.length; j++) {
+      carry += digits[j] << 8;
+      digits[j] = carry % 58;
+      carry = (carry / 58) | 0;
+    }
+    while (carry) {
+      digits.push(carry % 58);
+      carry = (carry / 58) | 0;
+    }
+  }
+  let str = "";
+  for (const b of bytes) {
+    if (b === 0) str += "1";
+    else break;
+  }
+  for (let k = digits.length - 1; k >= 0; k--) str += CB58_ALPHABET[digits[k]];
+  return str;
+}
+
+/**
+ * Convert a raw 20-byte node id (as returned by `EntityManager.getNodeIdsOf`)
+ * into the canonical P-chain `NodeID-<CB58>` string, so it can be matched
+ * against the node ids returned by the P-chain. CB58 encodes
+ * `payload ++ last4(sha256(payload))` with a base58 alphabet.
+ */
+export function nodeIdToString(hex: string): string {
+  const payload = toBytes(hex);
+  const checksum = toBytes(sha256(payload)).slice(-4);
+  const full = new Uint8Array(payload.length + checksum.length);
+  full.set(payload);
+  full.set(checksum, payload.length);
+  return `NodeID-${base58Encode(full)}`;
 }
 
 /** Delegation fees are returned in base points (10000 bips = 100%). */
@@ -180,6 +236,13 @@ export function shortNodeId(nodeId: string, chars = 6): string {
  * A validator can only accept a new delegation if its stake ends far enough in
  * the future to satisfy the minimum stake duration.
  */
+/**
+ * This validator is pinned to the top of the staking list regardless of its
+ * self-bond amount.
+ */
+export const PINNED_VALIDATOR_NODE_ID =
+  "NodeID-5amxeiA5AKHPPy6v1C7S1YgmkoXQDedtE";
+
 export function aggregateValidators(
   validators: readonly Stake[],
   minStakeDuration: bigint,
@@ -200,7 +263,12 @@ export function aggregateValidators(
         acceptsDelegations: v.endTime > now + minStakeDuration + STAKE_LATENCY_BUFFER,
       };
     })
-    .sort((a, b) => (b.selfBond > a.selfBond ? 1 : b.selfBond < a.selfBond ? -1 : 0));
+    .sort((a, b) => {
+      const aPinned = a.nodeId === PINNED_VALIDATOR_NODE_ID;
+      const bPinned = b.nodeId === PINNED_VALIDATOR_NODE_ID;
+      if (aPinned !== bPinned) return aPinned ? -1 : 1;
+      return b.selfBond > a.selfBond ? 1 : b.selfBond < a.selfBond ? -1 : 0;
+    });
 }
 
 export interface DurationOption {

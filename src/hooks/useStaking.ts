@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, usePublicClient } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -18,12 +18,22 @@ import {
   loadPublicKey,
   loadTrackedStakes,
   mergeStakes,
+  nodeIdToString,
   savePublicKey,
   STAKE_LATENCY_BUFFER,
   type DisplayStake,
+  type ValidatorMeta,
   type ValidatorRow,
 } from "../lib/staking";
-import { FLARE_RPC_URL } from "../lib/flare";
+import { fetchProviderMetadata } from "./useProviders";
+import {
+  CONTRACT_REGISTRY_ADDRESS,
+  contractRegistryAbi,
+  entityManagerAbi,
+  flareSystemsManagerAbi,
+  voterRegistryAbi,
+  FLARE_RPC_URL,
+} from "../lib/flare";
 
 const network = Network.FLARE;
 const API_ORIGIN = deriveApiOrigin(FLARE_RPC_URL);
@@ -51,6 +61,7 @@ const ZERO_BALANCE: Balance = {
 
 export function useStaking() {
   const { address, connector, isConnected } = useAccount();
+  const publicClient = usePublicClient();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<StakingBusy>(null);
   // The P-chain public key is only resolved after the user explicitly enables
@@ -100,7 +111,7 @@ export function useStaking() {
     queryFn: async (): Promise<StakeLimits> => network.getStakeLimits(),
   });
 
-  const validators = useQuery({
+  const validatorsQuery = useQuery({
     queryKey: ["validatorsOnP"],
     staleTime: 60_000,
     refetchInterval: 60_000,
@@ -110,6 +121,133 @@ export function useStaking() {
       return aggregateValidators(raw, limits.data!.minStakeDuration);
     },
   });
+
+  // Link P-chain node ids back to the FTSO entities that registered them, so we
+  // can show the provider's name and logo next to each validator. The mapping
+  // is fully on-chain: EntityManager records the `bytes20` node ids each voter
+  // registered; we CB58-encode those to `NodeID-...` strings and attach the
+  // display metadata from the community provider list (matched by identity or
+  // delegation address).
+  const validatorMeta = useQuery({
+    queryKey: ["validatorMeta"],
+    enabled: !!publicClient,
+    staleTime: 5 * 60_000,
+    refetchInterval: 5 * 60_000,
+    queryFn: async (): Promise<Map<string, ValidatorMeta>> => {
+      const [voterRegistry, entityManager, systemsManager] = (await publicClient!.multicall({
+        allowFailure: false,
+        contracts: (["VoterRegistry", "EntityManager", "FlareSystemsManager"] as const).map(
+          (name) => ({
+            address: CONTRACT_REGISTRY_ADDRESS,
+            abi: contractRegistryAbi,
+            functionName: "getContractAddressByName",
+            args: [name],
+          })
+        ),
+      })) as unknown as [`0x${string}`, `0x${string}`, `0x${string}`];
+
+      const rewardEpochId = Number(
+        (await publicClient!.readContract({
+          address: systemsManager,
+          abi: flareSystemsManagerAbi,
+          functionName: "getCurrentRewardEpochId",
+        })) as number | bigint
+      );
+      // Use a two-epoch window so validators for an entity that has not yet
+      // re-registered this epoch still resolve, mirroring useProviders().
+      const epochsToRead =
+        rewardEpochId > 0 ? [rewardEpochId, rewardEpochId - 1] : [rewardEpochId];
+      const voterLists = (await Promise.all(
+        epochsToRead.map((epoch) =>
+          publicClient!
+            .readContract({
+              address: voterRegistry,
+              abi: voterRegistryAbi,
+              functionName: "getRegisteredVoters",
+              args: [BigInt(epoch)],
+            })
+            .catch(() => [] as readonly `0x${string}`[])
+        )
+      )) as readonly (readonly `0x${string}`[])[];
+
+      const uniqueVoters: `0x${string}`[] = [];
+      const seenVoters = new Set<string>();
+      for (const list of voterLists) {
+        for (const voter of list ?? []) {
+          const key = voter.toLowerCase();
+          if (!seenVoters.has(key)) {
+            seenVoters.add(key);
+            uniqueVoters.push(voter);
+          }
+        }
+      }
+
+      if (uniqueVoters.length === 0) return new Map();
+
+      // Read the node ids each entity currently has registered. Note we use
+      // `getNodeIdsOf` (live) rather than the reward-epoch snapshot
+      // `getNodeIdsOfAt`, which returns empty for this index.
+      const [nodeIdResults, delegationResults, metadata] = await Promise.all([
+        publicClient!.multicall({
+          allowFailure: true,
+          contracts: uniqueVoters.map((voter) => ({
+            address: entityManager,
+            abi: entityManagerAbi,
+            functionName: "getNodeIdsOf",
+            args: [voter],
+          })),
+        }),
+        publicClient!.multicall({
+          allowFailure: true,
+          contracts: uniqueVoters.map((voter) => ({
+            address: entityManager,
+            abi: entityManagerAbi,
+            functionName: "getDelegationAddressOf",
+            args: [voter],
+          })),
+        }),
+        fetchProviderMetadata(),
+      ]);
+
+      const map = new Map<string, ValidatorMeta>();
+      uniqueVoters.forEach((voter, i) => {
+        const nr = nodeIdResults[i];
+        if (nr.status !== "success") return;
+        const rawNodeIds = nr.result as unknown as readonly `0x${string}`[];
+        if (!rawNodeIds || rawNodeIds.length === 0) return;
+
+        const delegation =
+          delegationResults[i]?.status === "success"
+            ? (delegationResults[i].result as unknown as `0x${string}`)
+            : undefined;
+        // Provider lists key by delegation address or identity address; try both.
+        const meta =
+          metadata.get(voter.toLowerCase()) ??
+          (delegation ? metadata.get(delegation.toLowerCase()) : undefined);
+
+        for (const raw of rawNodeIds) {
+          map.set(nodeIdToString(raw), {
+            name: meta?.name,
+            logoURI: meta?.logoURI,
+            identityAddress: voter,
+          });
+        }
+      });
+      return map;
+    },
+  });
+
+  // Merge the on-chain metadata into the validator rows (order preserved).
+  const validators = useMemo(() => {
+    const rows = validatorsQuery.data ?? [];
+    const meta = validatorMeta.data;
+    if (!meta || meta.size === 0) return rows;
+    return rows.map((v) => {
+      const m = meta.get(v.nodeId);
+      if (!m) return v;
+      return { ...v, name: m.name, logoURI: m.logoURI, identityAddress: m.identityAddress };
+    });
+  }, [validatorsQuery.data, validatorMeta.data]);
 
   const balance = useQuery({
     queryKey: ["pchain-balance", publicKey],
@@ -311,8 +449,8 @@ export function useStaking() {
     balance: balance.data ?? ZERO_BALANCE,
     balanceLoading: balance.isLoading,
     limits: limits.data ?? null,
-    validators: validators.data ?? [],
-    validatorsLoading: validators.isLoading,
+    validators,
+    validatorsLoading: validatorsQuery.isLoading,
     stakes,
     stakesFetching: onchainStakes.isFetching,
     stakesOnchainFailed: onchainStakes.isError,
