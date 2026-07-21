@@ -27,6 +27,10 @@
     "viem": "^2.55.0",
     "wagmi": "^3.7.1"
   },
+  "optionalDependencies": {
+    "@rollup/rollup-linux-x64-gnu": "4.62.2",
+    "@rollup/rollup-linux-x64-musl": "4.62.2"
+  },
   "devDependencies": {
     "@tailwindcss/vite": "4.1.12",
     "@types/react": "18.3.12",
