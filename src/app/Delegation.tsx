@@ -107,8 +107,8 @@ export function Delegation() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Provider Selection List */}
-        <Card className="col-span-1 lg:col-span-2 bg-[#243552] border-[#2E3F56]">
-          <CardHeader className="border-b border-[#2E3F56] pb-4">
+        <Card className="col-span-1 lg:col-span-2">
+          <CardHeader className="border-b border-white/8 pb-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <CardTitle className="text-[#FAFAFA]">Available Providers</CardTitle>
@@ -116,7 +116,7 @@ export function Delegation() {
                   Choose up to {MAX_TARGETS} providers to split your vote power
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2 bg-[#1C2D47] border border-[#2E3F56] rounded-md px-3 py-1.5 focus-within:border-[#EE1A58] transition-colors w-full sm:w-auto">
+              <div className="flex items-center gap-2 glass-panel px-3 py-1.5 focus-within:border-[#EE1A58]/60 transition-colors w-full sm:w-auto">
                 <Search size={16} className="text-[#8FA0B8]" />
                 <input
                   value={query}
@@ -131,7 +131,7 @@ export function Delegation() {
               {selected.length}/{MAX_TARGETS} selected
             </div>
           </CardHeader>
-          <div className="divide-y divide-[#2E3F56] max-h-[560px] overflow-y-auto">
+          <div className="divide-y divide-white/8 max-h-[560px] overflow-y-auto">
             {providers.length === 0 && (
               <div className="p-8 text-center text-[#8FA0B8] text-sm">Loading providers...</div>
             )}
@@ -149,14 +149,14 @@ export function Delegation() {
                   className={`p-4 flex items-center justify-between transition-colors ${
                     atLimit
                       ? "opacity-40 cursor-not-allowed"
-                      : "cursor-pointer hover:bg-[#2E3F56]/30"
-                  } ${isSel ? "bg-[#EE1A58]/10" : ""}`}
+                      : "cursor-pointer hover:bg-white/5"
+                  } ${isSel ? "bg-[#EE1A58]/15" : ""}`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center border overflow-hidden shrink-0 ${
-                        isSel ? "border-[#EE1A58]" : "border-[#2E3F56]"
-                      } bg-[#1D2430]`}
+                        isSel ? "border-[#EE1A58]" : "border-white/10"
+                      } bg-white/5`}
                     >
                       {provider.logoURI ? (
                         <ImageWithFallback src={provider.logoURI} alt={provider.name} className="w-10 h-10 object-cover" />
@@ -181,7 +181,7 @@ export function Delegation() {
                       </div>
                       <div className="text-sm text-[#8FA0B8] flex items-center gap-3 mt-1">
                         <span>VP: {provider.votePowerLabel}</span>
-                        <span className="w-1 h-1 rounded-full bg-[#2E3F56]" />
+                        <span className="w-1 h-1 rounded-full bg-white/20" />
                         <span className="font-mono">{shortAddress(provider.address)}</span>
                       </div>
                     </div>
@@ -200,8 +200,8 @@ export function Delegation() {
 
         {/* Delegation Action Panel */}
         <div className="col-span-1">
-          <Card className="bg-[#243552] border-[#2E3F56] sticky top-24">
-            <CardHeader className="border-b border-[#2E3F56] pb-4">
+          <Card className="sticky top-24">
+            <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Delegate Vote Power</CardTitle>
               <CardDescription className="text-[#8FA0B8]">Delegate WFLR to earn FTSO rewards</CardDescription>
             </CardHeader>
@@ -221,11 +221,11 @@ export function Delegation() {
                 <>
                   {/* Balances */}
                   <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-[#1C2D47] rounded-lg p-3 border border-[#2E3F56]">
+                    <div className="glass-panel p-3">
                       <div className="text-xs text-[#8FA0B8] mb-1">FLR Balance</div>
                       <div className="font-medium text-[#FAFAFA] text-sm">{flrLabel}</div>
                     </div>
-                    <div className="bg-[#1C2D47] rounded-lg p-3 border border-[#2E3F56]">
+                    <div className="glass-panel p-3">
                       <div className="text-xs text-[#8FA0B8] mb-1">WFLR (Vote Power)</div>
                       <div className="font-medium text-[#FAFAFA] text-sm">{wflrLabel}</div>
                     </div>
@@ -239,7 +239,7 @@ export function Delegation() {
                     {selectedProviders.map((p, i) => (
                       <div
                         key={p.address}
-                        className="bg-[#1C2D47] rounded-lg p-3 border border-[#2E3F56] flex items-center justify-between gap-3"
+                        className="glass-panel p-3 flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0">
                           <div className="font-medium text-[#FAFAFA] truncate">{p.name}</div>
@@ -260,7 +260,7 @@ export function Delegation() {
 
                     {/* Split slider (only when two providers are selected) */}
                     {isTwo && (
-                      <div className="bg-[#1C2D47] rounded-lg p-3 border border-[#2E3F56] space-y-2">
+                      <div className="glass-panel p-3 space-y-2">
                         <div className="flex justify-between text-xs text-[#8FA0B8]">
                           <span className="truncate max-w-[45%]">{selectedProviders[0].name}</span>
                           <span className="truncate max-w-[45%] text-right">{selectedProviders[1].name}</span>
@@ -299,7 +299,7 @@ export function Delegation() {
                         value={wrapAmount}
                         onChange={(e) => setWrapAmount(e.target.value)}
                         placeholder="0.00"
-                        className="w-full bg-[#1C2D47] border border-[#2E3F56] rounded-md py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58] transition-colors pr-16"
+                        className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">FLR</span>
                     </div>
@@ -394,8 +394,8 @@ function YourDelegations({
   const totalPct = delegations.reduce((sum, d) => sum + d.bips, 0) / 100;
 
   return (
-    <Card className="bg-[#243552] border-[#2E3F56]">
-      <CardHeader className="border-b border-[#2E3F56] pb-4">
+    <Card>
+      <CardHeader className="border-b border-white/8 pb-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Users size={18} className="text-[#EE1A58]" />
@@ -426,7 +426,7 @@ function YourDelegations({
           Providers your WFLR vote power is currently delegated to
         </CardDescription>
       </CardHeader>
-      <div className="divide-y divide-[#2E3F56]">
+      <div className="divide-y divide-white/8">
         {delegations.map((d) => {
           const provider = providers.find(
             (p) => p.address.toLowerCase() === d.address.toLowerCase()
@@ -437,7 +437,7 @@ function YourDelegations({
               className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
               <div className="flex items-center gap-4 min-w-0">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center border border-[#2E3F56] bg-[#1D2430] overflow-hidden shrink-0">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center border border-white/10 bg-white/5 overflow-hidden shrink-0">
                   {provider?.logoURI ? (
                     <ImageWithFallback
                       src={provider.logoURI}

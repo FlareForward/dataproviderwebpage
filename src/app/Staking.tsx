@@ -173,8 +173,8 @@ export function Staking() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Validator list */}
-        <Card className="col-span-1 lg:col-span-2 bg-[#243552] border-[#2E3F56]">
-          <CardHeader className="border-b border-[#2E3F56] pb-4">
+        <Card className="col-span-1 lg:col-span-2">
+          <CardHeader className="border-b border-white/8 pb-4">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
                 <CardTitle className="text-[#FAFAFA]">Available Validators</CardTitle>
@@ -182,7 +182,7 @@ export function Staking() {
                   Stake FLR on the P-chain by delegating to a validator node
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2 bg-[#1C2D47] border border-[#2E3F56] rounded-md px-3 py-1.5 focus-within:border-[#EE1A58] transition-colors w-full sm:w-auto">
+              <div className="flex items-center gap-2 glass-panel px-3 py-1.5 focus-within:border-[#EE1A58]/60 transition-colors w-full sm:w-auto">
                 <Search size={16} className="text-[#8FA0B8]" />
                 <input
                   value={query}
@@ -194,7 +194,7 @@ export function Staking() {
               </div>
             </div>
           </CardHeader>
-          <div className="divide-y divide-[#2E3F56] max-h-[560px] overflow-y-auto">
+          <div className="divide-y divide-white/8 max-h-[560px] overflow-y-auto">
             {validatorsLoading && validators.length === 0 && (
               <div className="p-8 text-center text-[#8FA0B8] text-sm">Loading validators...</div>
             )}
@@ -213,8 +213,8 @@ export function Staking() {
                   className={`p-4 flex items-center justify-between transition-colors ${
                     disabled
                       ? "opacity-40 cursor-not-allowed"
-                      : "cursor-pointer hover:bg-[#2E3F56]/30"
-                  } ${isSel ? "bg-[#EE1A58]/10" : ""}`}
+                      : "cursor-pointer hover:bg-white/5"
+                  } ${isSel ? "bg-[#EE1A58]/15" : ""}`}
                 >
                   <div className="flex items-center gap-4 min-w-0">
                     <ValidatorAvatar name={v.name} logoURI={v.logoURI} selected={isSel} />
@@ -241,9 +241,9 @@ export function Staking() {
                       )}
                       <div className="text-sm text-[#8FA0B8] flex items-center gap-3 mt-1 flex-wrap">
                         <span>Self-bond: {v.selfBondLabel} FLR</span>
-                        <span className="w-1 h-1 rounded-full bg-[#2E3F56]" />
+                          <span className="w-1 h-1 rounded-full bg-white/20" />
                         <span>Fee: {v.delegationFeePct.toFixed(2)}%</span>
-                        <span className="w-1 h-1 rounded-full bg-[#2E3F56]" />
+                          <span className="w-1 h-1 rounded-full bg-white/20" />
                         <span>Ends: {v.endDate.toLocaleDateString()}</span>
                       </div>
                     </div>
@@ -259,8 +259,8 @@ export function Staking() {
 
         {/* Staking action panel */}
         <div className="col-span-1">
-          <Card className="bg-[#243552] border-[#2E3F56] sticky top-24">
-            <CardHeader className="border-b border-[#2E3F56] pb-4">
+          <Card className="sticky top-24">
+            <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Stake on the P-chain</CardTitle>
               <CardDescription className="text-[#8FA0B8]">
                 Delegate FLR to a validator to earn staking rewards
@@ -323,7 +323,7 @@ export function Staking() {
                         value={moveAmount}
                         onChange={(e) => setMoveAmount(e.target.value)}
                         placeholder="0.00"
-                        className="w-full bg-[#1C2D47] border border-[#2E3F56] rounded-md py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58] transition-colors pr-16"
+                        className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">
                         FLR
@@ -344,7 +344,7 @@ export function Staking() {
                   </div>
 
                   {/* Stake form */}
-                  <div className="pt-4 border-t border-[#2E3F56] space-y-3">
+                  <div className="pt-4 border-t border-white/8 space-y-3">
                     {!selectedValidator ? (
                       <div className="text-center py-4 text-[#8FA0B8] flex flex-col items-center">
                         <Server size={28} className="mb-2 opacity-20" />
@@ -352,7 +352,7 @@ export function Staking() {
                       </div>
                     ) : (
                       <>
-                        <div className="bg-[#1C2D47] rounded-lg p-3 border border-[#2E3F56]">
+                        <div className="glass-panel p-3">
                           <div className="text-xs text-[#8FA0B8] mb-1">Selected validator</div>
                           <div className="flex items-center gap-2">
                             {selectedValidator.name && (
@@ -402,7 +402,7 @@ export function Staking() {
                               value={stakeAmount}
                               onChange={(e) => setStakeAmount(e.target.value)}
                               placeholder="0.00"
-                              className="w-full bg-[#1C2D47] border border-[#2E3F56] rounded-md py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58] transition-colors pr-16"
+                              className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
                             />
                             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">
                               FLR
@@ -428,10 +428,10 @@ export function Staking() {
                                 <button
                                   key={opt.label}
                                   onClick={() => setDurationSecs(opt.seconds)}
-                                  className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
                                     durationSecs === opt.seconds
-                                      ? "border-[#EE1A58] text-[#EE1A58] bg-[#EE1A58]/10"
-                                      : "border-[#2E3F56] text-[#8FA0B8] hover:text-[#FAFAFA]"
+                                      ? "border-[#EE1A58] text-[#EE1A58] bg-[#EE1A58]/15 glass-glow"
+                                      : "border-white/10 text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5"
                                   }`}
                                 >
                                   {opt.label}
@@ -507,7 +507,7 @@ export function Staking() {
                   </div>
 
                   {/* Rewards + withdraw */}
-                  <div className="pt-4 border-t border-[#2E3F56] space-y-3">
+                  <div className="pt-4 border-t border-white/8 space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[#8FA0B8] flex items-center gap-2">
                         <Gift size={14} /> Claimable rewards
@@ -579,8 +579,8 @@ function YourStakes({
   const nowSecs = Math.floor(Date.now() / 1000);
 
   return (
-    <Card className="bg-[#243552] border-[#2E3F56]">
-      <CardHeader className="border-b border-[#2E3F56] pb-4">
+    <Card>
+      <CardHeader className="border-b border-white/8 pb-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <Layers size={18} className="text-[#EE1A58]" />
@@ -608,7 +608,7 @@ function YourStakes({
           Validators you are currently staked to
         </CardDescription>
       </CardHeader>
-      <div className="divide-y divide-[#2E3F56]">
+      <div className="divide-y divide-white/8">
         {stakes.length === 0 && (
           <div className="p-6 text-center text-sm text-[#8FA0B8]">
             {fetching
@@ -653,11 +653,11 @@ function YourStakes({
                     </span>
                     {fee !== undefined && (
                       <>
-                        <span className="w-1 h-1 rounded-full bg-[#2E3F56]" />
+                          <span className="w-1 h-1 rounded-full bg-white/20" />
                         <span>Fee {fee.toFixed(2)}%</span>
                       </>
                     )}
-                    <span className="w-1 h-1 rounded-full bg-[#2E3F56]" />
+                          <span className="w-1 h-1 rounded-full bg-white/20" />
                     <span>Since {new Date(Number(s.startTime) * 1000).toLocaleDateString()}</span>
                   </div>
                 </div>
@@ -678,7 +678,7 @@ function YourStakes({
         })}
       </div>
       {onchainFailed && (
-        <div className="px-4 py-3 border-t border-[#2E3F56] text-xs text-[#8FA0B8] flex items-center gap-2">
+        <div className="px-4 py-3 border-t border-white/8 text-xs text-[#8FA0B8] flex items-center gap-2">
           <Info size={12} className="shrink-0" />
           Showing stakes recorded on this device. The P-chain is busy right now — use refresh to
           reconcile with on-chain data.
@@ -710,8 +710,8 @@ function ValidatorAvatar({
   return (
     <div
       className={`rounded-full flex items-center justify-center border overflow-hidden shrink-0 ${
-        selected ? "border-[#EE1A58]" : "border-[#2E3F56]"
-      } bg-[#1D2430]`}
+        selected ? "border-[#EE1A58]" : "border-white/10"
+      } bg-white/5`}
       style={{ width: size, height: size }}
     >
       {showLogo ? (
@@ -730,7 +730,7 @@ function ValidatorAvatar({
 
 function BalanceTile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-[#1C2D47] rounded-lg p-3 border border-[#2E3F56]">
+    <div className="glass-panel p-3">
       <div className="text-xs text-[#8FA0B8] mb-1">{label}</div>
       <div className="font-medium text-[#FAFAFA] text-sm truncate" title={value}>
         {value}

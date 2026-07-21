@@ -90,7 +90,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Crypto Pricing Chart */}
-          <Card className="col-span-1 lg:col-span-2 bg-[#243552] border-[#2E3F56]">
+          <Card className="col-span-1 lg:col-span-2">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <div>
                 <CardTitle className="text-[#FAFAFA]">Live Price Trend</CardTitle>
@@ -103,10 +103,10 @@ export default function Dashboard() {
                   <button
                     key={sym}
                     onClick={() => setChartSymbol(sym)}
-                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
                       chartSymbol === sym
-                        ? "bg-[#EE1A58] text-white"
-                        : "bg-[#1D2430] text-[#8FA0B8] hover:text-[#FAFAFA]"
+                        ? "bg-[#EE1A58] text-white glass-glow"
+                        : "bg-white/5 text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/10"
                     }`}
                   >
                     {sym}
@@ -169,7 +169,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Live Price Feed */}
-          <Card className="col-span-1 bg-[#243552] border-[#2E3F56]">
+          <Card className="col-span-1">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -191,7 +191,7 @@ export default function Dashboard() {
                   return (
                     <div
                       key={asset.feedId}
-                      className="flex items-center justify-between p-3 rounded-lg bg-[#1D2430] border border-[#2E3F56]"
+                      className="flex items-center justify-between p-3 glass-panel"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shrink-0 overflow-hidden">
@@ -224,7 +224,7 @@ export default function Dashboard() {
         </div>
 
         {/* Provider Vote Power Table */}
-        <Card className="bg-[#243552] border-[#2E3F56]">
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-[#FAFAFA]">Data Providers by Vote Power</CardTitle>
@@ -238,7 +238,7 @@ export default function Dashboard() {
           </CardHeader>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-[#FAFAFA]">
-              <thead className="bg-[#1D2430] border-y border-[#2E3F56] text-[#8FA0B8] text-xs uppercase tracking-wider font-semibold">
+              <thead className="bg-white/5 border-y border-white/8 text-[#8FA0B8] text-xs uppercase tracking-wider font-semibold">
                 <tr>
                   <th className="px-6 py-3">Provider</th>
                   <th className="px-6 py-3">Vote Power</th>
@@ -247,11 +247,11 @@ export default function Dashboard() {
                   <th className="px-6 py-3 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#2E3F56]">
+              <tbody className="divide-y divide-white/8">
                 {providers.slice(0, 6).map((val) => (
-                  <tr key={val.address} className="hover:bg-[#2E3F56]/30 transition-colors">
+                  <tr key={val.address} className="hover:bg-white/5 transition-colors">
                     <td className="px-6 py-4 font-medium flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-[#1D2430] flex items-center justify-center border border-[#2E3F56] overflow-hidden shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 overflow-hidden shrink-0">
                         {val.logoURI ? (
                           <ImageWithFallback src={val.logoURI} alt={val.name} className="w-8 h-8 object-cover" />
                         ) : (
@@ -309,7 +309,7 @@ function MetricCard({
   const hasTrend = trend !== undefined && trend !== null;
   const positive = (trend ?? 0) >= 0;
   return (
-    <Card className="bg-[#243552] border-[#2E3F56]">
+    <Card className="glass-card-hover">
       <CardContent className="p-5">
         <div className="text-sm font-medium text-[#8FA0B8]">{title}</div>
         <div className="mt-2 flex items-baseline gap-2">

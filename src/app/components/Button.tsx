@@ -9,18 +9,21 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", ...props }, ref) => {
     const variants = {
-      primary: "bg-[#EE1A58] text-white hover:opacity-90",
-      secondary: "bg-[#1D2430] text-[#FAFAFA] hover:bg-[#2E3F56]",
-      outline: "bg-transparent text-[#FAFAFA] border-2 border-[#2E3F56] hover:bg-[#1D2430]",
-      ghost: "bg-transparent text-[#FAFAFA] hover:bg-[#1D2430]",
-      dark: "bg-gradient-to-br from-[#EE1A58] to-[#E85A95] text-white hover:opacity-90",
-      gradient: "bg-gradient-to-br from-[#EE1A58] via-[#E85A95] to-[#F0A8C8] text-white hover:opacity-90",
+      primary: "bg-[#EE1A58] text-white glass-glow hover:opacity-90",
+      secondary:
+        "bg-white/5 text-[#FAFAFA] border border-white/10 backdrop-blur-md hover:bg-white/10 hover:border-white/20",
+      outline:
+        "bg-white/5 text-[#FAFAFA] border border-white/15 backdrop-blur-md hover:bg-white/10 hover:border-[#EE1A58]/50",
+      ghost: "bg-transparent text-[#FAFAFA] hover:bg-white/5",
+      dark: "bg-gradient-to-br from-[#EE1A58] to-[#E85A95] text-white glass-glow hover:opacity-90",
+      gradient:
+        "bg-gradient-to-br from-[#EE1A58] via-[#E85A95] to-[#F0A8C8] text-white glass-glow hover:opacity-90",
     };
 
     const sizes = {
-      sm: "h-9 px-3 text-[13px] rounded-md",
-      md: "h-10 px-4 text-[14px] rounded-lg",
-      lg: "h-11 px-8 text-[16px] rounded-lg",
+      sm: "h-9 px-3 text-[13px] rounded-lg",
+      md: "h-10 px-4 text-[14px] rounded-xl",
+      lg: "h-11 px-8 text-[16px] rounded-xl",
     };
 
     return (
