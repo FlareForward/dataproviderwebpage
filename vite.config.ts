@@ -20,4 +20,28 @@ export default defineConfig({
     },
   },
   assetsInclude: ["**/*.svg", "**/*.csv"],
+  build: {
+    // The WalletConnect / Reown AppKit tree is very large. Splitting it (and the
+    // other heavy vendors) into separate chunks keeps any single chunk small,
+    // which lowers peak memory during rollup rendering/minification — important
+    // for memory-constrained CI builders like Cloudflare Workers Builds.
+    chunkSizeWarningLimit: 1500,
+    rollupOptions: {
+      output: {
+        // Only pull out the large, self-contained vendor trees. Leaving the
+        // React ecosystem (and everything else) in the default chunk avoids
+        // circular-chunk init-order problems while still shrinking the main
+        // bundle enough to keep the build within CI memory limits.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("@walletconnect") || id.includes("@reown"))
+            return "walletconnect";
+          if (id.includes("/@wagmi/") || id.includes("/wagmi/") || id.includes("/viem/"))
+            return "wagmi";
+          if (id.includes("recharts") || id.includes("/d3-")) return "charts";
+          return undefined;
+        },
+      },
+    },
+  },
 });
