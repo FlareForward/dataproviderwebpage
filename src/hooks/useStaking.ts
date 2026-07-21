@@ -295,17 +295,36 @@ export function useStaking() {
 
   const refetchStakes = useCallback(() => onchainStakes.refetch(), [onchainStakes]);
 
-  /** Resolve (and cache) the P-chain public key, prompting a one-time signature. */
+  /**
+   * Resolve (and cache) the P-chain public key.
+   *
+   * The public key is public information and the SDK recovers it in two ways:
+   * first from the account's existing on-chain transaction history (via the
+   * block explorer, with no wallet interaction), and only if that fails does it
+   * fall back to prompting a one-time message signature. As a result, accounts
+   * that have already sent a transaction on a Flare network are enabled without
+   * any signature — the wallet is never asked to sign, so the copy below must
+   * not promise a signature that may not happen.
+   */
   const enableP = useCallback(async () => {
     if (publicKey) return publicKey;
     setBusy("enableP");
-    const t = toast.loading("Sign the message to enable P-chain staking...");
+    const t = toast.loading("Enabling P-chain staking — approve the signature if your wallet prompts you...");
     try {
       const wallet = await getWallet();
       if (!wallet.getPublicKey) {
         throw new Error("This wallet cannot expose a public key for P-chain staking.");
       }
       const pk = await wallet.getPublicKey();
+      // The SDK verifies the recovered key against the connected address, but
+      // guard here too so a wallet that returns nothing (or a key for another
+      // account) never silently "enables" staking against the wrong identity.
+      if (!pk) {
+        throw new Error("Could not obtain the public key for this account.");
+      }
+      if (address && network.getCAddress(pk).toLowerCase() !== address.toLowerCase()) {
+        throw new Error("Recovered public key does not match the connected account.");
+      }
       setPublicKey(pk);
       if (address) savePublicKey(address, pk);
       toast.success("P-chain staking enabled", { id: t });
