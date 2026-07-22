@@ -1,8 +1,25 @@
 name: Snapshot performance history
 
 # Periodically snapshots the public ftso-accuracy.json into an append-only
-# ftso-performance-history.json on the `data` branch, which the analytics page
-# consumes. History accumulates from the earliest available data forward.
+# ftso-performance-history.json and publishes it to the `performance` branch of
+# the PUBLIC FlareForward/ftso-accuracy-data repo, which the analytics page
+# consumes over raw.githubusercontent.com. History accumulates from the earliest
+# available data forward.
+#
+# Why a separate public repo + branch:
+#   - This repo (dataproviderwebpage) is PRIVATE, so its raw.githubusercontent.com
+#     URLs 404 for anonymous browsers — the frontend could never read the feed
+#     from here.
+#   - The accuracy box force-pushes ftso-accuracy-data's `main`, which would
+#     clobber anything we commit there, so we publish to a dedicated
+#     `performance` branch the box never touches.
+#
+# Setup (one-time, requires an org/repo admin):
+#   1. Create a token with write (contents) access to
+#      FlareForward/ftso-accuracy-data — a fine-grained PAT scoped to that repo,
+#      or a machine-user classic PAT with `repo`.
+#   2. Add it to THIS repo's Actions secrets as `ACCURACY_DATA_TOKEN`.
+# The `performance` branch is created automatically on the first successful run.
 
 on:
   schedule:
@@ -16,39 +33,56 @@ concurrency:
   group: snapshot-performance
   cancel-in-progress: false
 
+# We only read this repo; the history is written to the external public repo
+# using ACCURACY_DATA_TOKEN, not GITHUB_TOKEN.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   snapshot:
     runs-on: ubuntu-latest
     steps:
-      # The script lives on the default branch.
-      - name: Checkout scripts (default branch)
+      - name: Checkout scripts (this repo)
         uses: actions/checkout@v4
-
-      # The accumulated history lives on the data branch. Check it out into a
-      # subfolder so we can read + rewrite the exact committed state.
-      - name: Checkout data branch
-        uses: actions/checkout@v4
-        with:
-          ref: data
-          path: data-branch
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Snapshot accuracy into performance history
+      - name: Snapshot accuracy into performance history and publish
         env:
-          HISTORY_PATH: data-branch/ftso-performance-history.json
-          OUT_PATH: data-branch/ftso-performance-history.json
-        run: node scripts/snapshot-performance.mjs
-
-      - name: Commit + push if changed
-        working-directory: data-branch
+          TOKEN: ${{ secrets.ACCURACY_DATA_TOKEN }}
+          # Read + write the accumulated history from the checked-out public
+          # branch so each run extends the exact committed state.
+          HISTORY_PATH: perf-data/ftso-performance-history.json
+          OUT_PATH: perf-data/ftso-performance-history.json
         run: |
+          set -euo pipefail
+
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::error::ACCURACY_DATA_TOKEN secret is not set. Create a token with write access to FlareForward/ftso-accuracy-data and add it as the ACCURACY_DATA_TOKEN repository secret (see this workflow's header for details)."
+            exit 1
+          fi
+
+          REPO="https://x-access-token:${TOKEN}@github.com/FlareForward/ftso-accuracy-data.git"
+
+          # Clone the performance branch; create it as an orphan on first run.
+          if git clone --depth 1 --branch performance "$REPO" perf-data 2>/dev/null; then
+            echo "Extending existing performance branch."
+          else
+            echo "performance branch not found; creating it."
+            git clone --depth 1 "$REPO" perf-data
+            (
+              cd perf-data
+              git checkout --orphan performance
+              git rm -rf . >/dev/null 2>&1 || true
+            )
+          fi
+
+          node scripts/snapshot-performance.mjs
+
+          cd perf-data
           git config user.name "flareforward-bot"
           git config user.email "actions@users.noreply.github.com"
           git add ftso-performance-history.json
@@ -59,4 +93,4 @@ jobs:
             exit 0
           fi
           git commit -m "data: ftso-performance-history.json $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          git push origin HEAD:data
+          git push origin HEAD:performance
