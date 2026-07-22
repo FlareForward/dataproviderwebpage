@@ -123,7 +123,13 @@ export function ledger({ projectId }: LedgerParameters = {}) {
       },
 
       async getProvider() {
-        return getInstance();
+        // wagmi's `reconnect` runs on every page load and calls
+        // `getProvider()` on ALL connectors *before* checking
+        // `isAuthorized()`. If we lazily loaded Ledger's Connect Kit here it
+        // would pop the Ledger Live / Connect Kit modal on every refresh. So
+        // only ever return an already-created provider; the kit is loaded
+        // lazily in `connect()` when the user explicitly picks Ledger.
+        return provider as EthereumProvider;
       },
 
       async isAuthorized() {
