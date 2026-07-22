@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Outlet, NavLink } from "react-router";
-import { LayoutDashboard, Search, Server, Menu, X } from "lucide-react";
+import { LayoutDashboard, Search, Server, Menu, X, BarChart3 } from "lucide-react";
 import { Button } from "./components/Button";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
@@ -31,6 +31,7 @@ export function Root() {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Overview" />
           <NavItem to="/providers" icon={<Server size={20} />} label="Infrastructure Providers" />
+          <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
         </nav>
         <div className="p-4 border-t border-white/8">
           <div className="glass-panel p-4">
@@ -90,6 +91,12 @@ export function Root() {
               to="/providers"
               icon={<Server size={20} />}
               label="Infrastructure Providers"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <NavItem
+              to="/analytics"
+              icon={<BarChart3 size={20} />}
+              label="Analytics"
               onClick={() => setMobileMenuOpen(false)}
             />
           </nav>

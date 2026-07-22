@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { Root } from "./Root";
 import Dashboard from "./Dashboard";
 import { DataProviders } from "./DataProviders";
+import Analytics from "./Analytics";
 
 export const router = createBrowserRouter([
   {
@@ -12,6 +13,7 @@ export const router = createBrowserRouter([
       { path: "providers", Component: DataProviders },
       { path: "delegation", Component: DataProviders },
       { path: "staking", Component: DataProviders },
+      { path: "analytics", Component: Analytics },
     ],
   },
 ]);

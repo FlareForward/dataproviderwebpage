@@ -1,10 +1,16 @@
 import { useMemo, useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
 import { Activity, ChevronDown, ChevronUp } from "lucide-react";
-import { useAccuracy, type AccuracyFeed } from "../../hooks/useAccuracy";
+import {
+  useAccuracy,
+  isSubmitting,
+  type AccuracyFeed,
+} from "../../hooks/useAccuracy";
+import { EpochGapNotice } from "./EpochGapNotice";
 
-/** Round to one decimal, always showing it (e.g. 30 -> "30.0"). */
-function f1(v: number): string {
+/** Round to one decimal (e.g. 30 -> "30.0"); null/NaN render as an em dash. */
+function f1(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return "—";
   return (Math.round(v * 10) / 10).toFixed(1);
 }
 
@@ -26,7 +32,14 @@ function heat(
   };
 }
 
-function HeatCell({ value, kind }: { value: number; kind: "p" | "s" }) {
+function HeatCell({ value, kind }: { value: number | null; kind: "p" | "s" }) {
+  if (value === null || value === undefined) {
+    return (
+      <span className="inline-block min-w-[3.25rem] rounded-md px-2 py-0.5 font-semibold tabular-nums text-[#8FA0B8]/50">
+        —
+      </span>
+    );
+  }
   const h = heat(value, kind);
   return (
     <span
@@ -66,19 +79,22 @@ function Band({
   value,
   tone,
 }: {
-  value: number;
+  value: number | null;
   tone: "primary" | "secondary";
 }) {
   const color = tone === "primary" ? "#EE1A58" : "#46C9D6";
+  const isNull = value === null || value === undefined;
   return (
     <div className="flex items-baseline gap-1.5">
       <span
         className="text-4xl font-bold leading-none tracking-tight tabular-nums"
-        style={{ color }}
+        style={{ color: isNull ? "#8FA0B8" : color }}
       >
         {f1(value)}
       </span>
-      <span className="text-base font-semibold text-[#8FA0B8]">%</span>
+      {!isNull && (
+        <span className="text-base font-semibold text-[#8FA0B8]">%</span>
+      )}
     </div>
   );
 }
@@ -117,7 +133,12 @@ export function AccuracyBoard() {
     rows.sort((a, b) => {
       let cmp: number;
       if (sort.key === "feed") cmp = a.feed.localeCompare(b.feed);
-      else cmp = (a[sort.key] as number) - (b[sort.key] as number);
+      else {
+        // Nulls (no data) sort to the weak end.
+        const av = a[sort.key] ?? -Infinity;
+        const bv = b[sort.key] ?? -Infinity;
+        cmp = (av as number) - (bv as number);
+      }
       return sort.dir === "asc" ? cmp : -cmp;
     });
     return rows;
@@ -148,6 +169,7 @@ export function AccuracyBoard() {
   }
 
   const s = data.summary;
+  const submitting = isSubmitting(data);
   const updated = new Date(data.generated_at_unix * 1000);
   const updatedLabel = `${updated.toISOString().slice(11, 16)} UTC`;
   const epochMax = Math.max(...data.epochs.map((e) => e.primary), 1) * 1.25;
@@ -165,14 +187,27 @@ export function AccuracyBoard() {
             <Activity size={18} />
           </div>
           <div>
-            <h2
-              id="accuracy-heading"
-              className="text-[1.25rem] font-semibold tracking-tight"
-            >
-              FTSO Success Rate
-            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2
+                id="accuracy-heading"
+                className="text-[1.25rem] font-semibold tracking-tight"
+              >
+                FTSO Success Rate
+              </h2>
+              <span
+                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                  submitting
+                    ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                    : "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
+                }`}
+              >
+                {submitting ? "On-chain" : "Paused"}
+              </span>
+            </div>
             <p className="mt-0.5 text-[0.8125rem] text-[#8FA0B8]">
-              How often our feeds land inside the on-chain reward bands
+              {submitting
+                ? "How often our feeds land inside the on-chain reward bands"
+                : "Not submitting this epoch — accuracy paused until we resume"}
             </p>
           </div>
         </div>
@@ -192,13 +227,24 @@ export function AccuracyBoard() {
             </div>
           </div>
           <span
-            className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500 animate-pulse"
-            title="Live"
+            className={`h-2.5 w-2.5 shrink-0 rounded-full animate-pulse ${
+              submitting ? "bg-emerald-500" : "bg-yellow-500"
+            }`}
+            title={submitting ? "Live · submitting" : "Grading paused"}
             aria-hidden="true"
           />
         </div>
       </div>
 
+      {!submitting ? (
+        <div className="px-6 py-6">
+          <EpochGapNotice
+            rewardEpoch={data.status?.reward_epoch_current}
+            gapReason={data.status?.gap_reason}
+            expectedResumeUtc={data.status?.expected_resume_utc}
+          />
+        </div>
+      ) : (
       <Tabs.Root defaultValue="success-rate">
         <Tabs.List className="relative flex border-b border-white/8 px-6">
           <Tabs.Trigger
@@ -415,6 +461,7 @@ export function AccuracyBoard() {
           </div>
         </Tabs.Content>
       </Tabs.Root>
+      )}
     </section>
   );
 }

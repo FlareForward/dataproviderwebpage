@@ -40,24 +40,34 @@ export default function Dashboard() {
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Dashboard Overview</h1>
             <p className="text-[#8FA0B8] text-sm mt-1">
               Live FTSOv2 price feeds and Flare data-provider metrics.
-              {timestamp ? (
-                <span className="ml-1 text-[#8FA0B8]/70">
-                  Updated {new Date(timestamp * 1000).toLocaleTimeString()}
-                </span>
-              ) : null}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Link to="/providers">
-              <Button variant="outline" size="sm">
-                View Providers
-              </Button>
-            </Link>
-            <Link to="/delegation">
-              <Button variant="primary" size="sm">
-                Delegate
-              </Button>
-            </Link>
+          {/* Data-freshness indicator — replaces the redundant nav CTAs with a
+              glanceable "live" signal that reflects the polling price feed. */}
+          <div className="flex items-center gap-2.5 glass-panel px-3.5 py-2 self-start sm:self-auto">
+            <span className="relative flex h-2.5 w-2.5" aria-hidden="true">
+              <span
+                className={`absolute inline-flex h-full w-full rounded-full ${
+                  error ? "bg-red-400/60" : "bg-emerald-400/70 animate-ping"
+                }`}
+              />
+              <span
+                className={`relative inline-flex h-2.5 w-2.5 rounded-full ${
+                  error ? "bg-red-500" : "bg-emerald-500"
+                }`}
+              />
+            </span>
+            <span className="text-xs font-semibold text-[#FAFAFA]">
+              {error ? "Feed offline" : isLoading && !timestamp ? "Connecting…" : "Live"}
+            </span>
+            {timestamp ? (
+              <>
+                <span className="h-3.5 w-px bg-white/10" aria-hidden="true" />
+                <span className="text-xs tabular-nums text-[#8FA0B8]">
+                  {new Date(timestamp * 1000).toLocaleTimeString()}
+                </span>
+              </>
+            ) : null}
           </div>
         </div>
 

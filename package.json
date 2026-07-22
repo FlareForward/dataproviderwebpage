@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && NODE_OPTIONS=--max-old-space-size=4096 vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "snapshot:preview": "OUT_PATH=public/ftso-performance-history.json node scripts/snapshot-performance.mjs"
   },
   "dependencies": {
     "@flarenetwork/flare-tx-sdk": "^1.5.2",
