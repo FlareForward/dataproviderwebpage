@@ -1,0 +1,62 @@
+name: Snapshot performance history
+
+# Periodically snapshots the public ftso-accuracy.json into an append-only
+# ftso-performance-history.json on the `data` branch, which the analytics page
+# consumes. History accumulates from the earliest available data forward.
+
+on:
+  schedule:
+    # Every 15 minutes (GitHub cron is best-effort; observations are timestamped
+    # from the accuracy feed, so occasional delays don't distort the data).
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+# Prevent overlapping runs from racing on the same branch.
+concurrency:
+  group: snapshot-performance
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      # The script lives on the default branch.
+      - name: Checkout scripts (default branch)
+        uses: actions/checkout@v4
+
+      # The accumulated history lives on the data branch. Check it out into a
+      # subfolder so we can read + rewrite the exact committed state.
+      - name: Checkout data branch
+        uses: actions/checkout@v4
+        with:
+          ref: data
+          path: data-branch
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Snapshot accuracy into performance history
+        env:
+          HISTORY_PATH: data-branch/ftso-performance-history.json
+          OUT_PATH: data-branch/ftso-performance-history.json
+        run: node scripts/snapshot-performance.mjs
+
+      - name: Commit + push if changed
+        working-directory: data-branch
+        run: |
+          git config user.name "flareforward-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add ftso-performance-history.json
+          # --cached detects new (untracked) as well as modified files, so this
+          # works on the very first run before the file exists on the branch.
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "data: ftso-performance-history.json $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push origin HEAD:data

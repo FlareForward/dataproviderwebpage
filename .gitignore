@@ -16,3 +16,8 @@ dist-ssr
 logs
 *.log
 npm-debug.log*
+
+# Local preview artifact for the analytics page (published to the data branch
+# by the snapshot GitHub Action, not committed to main).
+public/ftso-performance-history.json
+/ftso-performance-history.json

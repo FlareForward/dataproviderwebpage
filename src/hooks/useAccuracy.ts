@@ -11,14 +11,20 @@ const ACCURACY_URL =
   import.meta.env.VITE_ACCURACY_URL ??
   "https://raw.githubusercontent.com/FlareForward/ftso-accuracy-data/main/ftso-accuracy.json";
 
+/**
+ * A `null` landing rate means "no data for this window" — never "0%". On-chain
+ * windows are null while the provider is out of the signing policy (a
+ * registration gap); the `qa` block stays populated regardless.
+ */
 export interface AccuracySummary {
   feeds_count: number;
-  overall_primary_6h: number;
-  overall_secondary_6h: number;
-  overall_primary_24h: number;
-  overall_secondary_24h: number;
-  median_primary_24h: number;
-  median_secondary_24h: number;
+  overall_primary_6h: number | null;
+  overall_secondary_6h: number | null;
+  overall_primary_24h: number | null;
+  overall_secondary_24h: number | null;
+  median_primary_24h: number | null;
+  median_secondary_24h: number | null;
+  source?: string;
 }
 
 export interface AccuracyEpoch {
@@ -37,13 +43,32 @@ export interface AccuracyTrendPoint {
 
 export interface AccuracyFeed {
   feed: string;
-  primary_6h: number;
-  secondary_6h: number;
-  primary_24h: number;
-  secondary_24h: number;
+  primary_6h: number | null;
+  secondary_6h: number | null;
+  primary_24h: number | null;
+  secondary_24h: number | null;
   n_6h?: number;
   n_24h: number;
   trend?: AccuracyTrendPoint[];
+  source?: string;
+}
+
+export interface AccuracyStatus {
+  submitting: boolean;
+  reward_epoch_current?: number;
+  reward_epoch_registered?: boolean;
+  gap_reason?: string | null;
+  expected_resume_utc?: string | null;
+}
+
+/** QA = our local provider values graded against the field reward band; stays
+ *  populated during registration gaps but understates ETH/USD and XRP/USD. */
+export interface AccuracyQa {
+  source?: string;
+  description?: string;
+  caveat?: string;
+  summary: AccuracySummary;
+  feeds: AccuracyFeed[];
 }
 
 export interface AccuracyData {
@@ -52,6 +77,18 @@ export interface AccuracyData {
   summary: AccuracySummary;
   epochs: AccuracyEpoch[];
   feeds: AccuracyFeed[];
+  status?: AccuracyStatus;
+  qa?: AccuracyQa;
+  schema_version?: number;
+}
+
+/**
+ * Whether the provider is actively submitting this epoch. During a registration
+ * gap the on-chain windows are null; we surface a "paused" notice rather than
+ * the DA-independent QA estimates, which can be misleading as live figures.
+ */
+export function isSubmitting(data: AccuracyData): boolean {
+  return data.status?.submitting ?? data.summary?.overall_primary_24h != null;
 }
 
 export function useAccuracy() {
