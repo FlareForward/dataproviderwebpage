@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source": "derived_from_ftso_accuracy",
-  "generated_at_unix": 1784759037,
+  "generated_at_unix": 1784762125,
   "provider": {
     "name": "Flare Forward",
     "identity_address": "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110",
@@ -70,6 +70,12 @@
     },
     {
       "ts": 1784759037,
+      "submitting": false,
+      "registered": false,
+      "reward_epoch": 417
+    },
+    {
+      "ts": 1784762125,
       "submitting": false,
       "registered": false,
       "reward_epoch": 417
