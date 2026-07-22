@@ -20,7 +20,8 @@
  *
  * Env:
  *   ACCURACY_URL  source accuracy feed (default: public FlareForward repo)
- *   HISTORY_URL   existing history to extend (default: this repo's data branch)
+ *   HISTORY_URL   existing history to extend (default: the public accuracy
+ *                 repo's `performance` branch)
  *   OUT_PATH      where to write the updated history (default: ./ftso-performance-history.json)
  */
 
@@ -31,7 +32,7 @@ const ACCURACY_URL =
   "https://raw.githubusercontent.com/FlareForward/ftso-accuracy-data/main/ftso-accuracy.json";
 const HISTORY_URL =
   process.env.HISTORY_URL ??
-  "https://raw.githubusercontent.com/FlareForward/dataproviderwebpage/data/ftso-performance-history.json";
+  "https://raw.githubusercontent.com/FlareForward/ftso-accuracy-data/performance/ftso-performance-history.json";
 const OUT_PATH = process.env.OUT_PATH ?? "ftso-performance-history.json";
 /**
  * When set, read the existing history from this local file instead of

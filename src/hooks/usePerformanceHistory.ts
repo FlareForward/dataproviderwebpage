@@ -3,10 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 /**
  * Flare Forward's performance history. A scheduled job (see
  * .github/workflows/snapshot-performance.yml) snapshots the public
- * ftso-accuracy.json into an append-only time-series on this repo's `data`
- * branch — band accuracy + submissions backfilled from the accuracy feed's
- * verified epochs[], uptime accumulated forward from status snapshots. Same
- * cross-origin raw-URL pattern as useAccuracy / useProviders. Override with
+ * ftso-accuracy.json into an append-only time-series and publishes it to the
+ * `performance` branch of the PUBLIC ftso-accuracy-data repo — band accuracy +
+ * submissions backfilled from the accuracy feed's verified epochs[], uptime
+ * accumulated forward from status snapshots. It lives in that public repo (not
+ * this one) because this repo is private and its raw URLs 404 for anonymous
+ * browsers; a dedicated branch keeps it clear of the box's force-pushed `main`.
+ * Same cross-origin raw-URL pattern as useAccuracy / useProviders. Override with
  * VITE_PERFORMANCE_URL for local/preview (e.g. `/ftso-performance-history.json`
  * served from public/).
  *
@@ -16,7 +19,16 @@ import { useQuery } from "@tanstack/react-query";
  */
 const PERFORMANCE_URL =
   import.meta.env.VITE_PERFORMANCE_URL ??
-  "https://raw.githubusercontent.com/FlareForward/dataproviderwebpage/data/ftso-performance-history.json";
+  "https://raw.githubusercontent.com/FlareForward/ftso-accuracy-data/performance/ftso-performance-history.json";
+
+/**
+ * Same-origin copy of the feed, bundled from public/ at build time. Used as a
+ * fallback when the live snapshot feed above hasn't been published yet (e.g.
+ * the data branch 404s because the snapshot job hasn't committed the file),
+ * so prod always renders at least the committed snapshot instead of an empty
+ * chart. Vite copies public/ftso-performance-history.json into dist/ verbatim.
+ */
+const FALLBACK_URL = "/ftso-performance-history.json";
 
 export interface PerformanceProvider {
   name: string;
@@ -232,6 +244,22 @@ export function aggregate(
     .sort((a, b) => a.key - b.key);
 }
 
+const EMPTY_DATA: PerformanceData = {
+  generated_at_unix: 0,
+  provider: EMPTY_PROVIDER,
+  series: [],
+};
+
+/** Fetch one feed URL. Returns null for a missing file (404); throws on other
+ *  transport/parse errors so the caller can decide whether to fall back. */
+async function fetchPerformance(url: string): Promise<PerformanceData | null> {
+  const res = await fetch(url, { cache: "no-cache" });
+  if (res.status === 404) return null;
+  if (!res.ok)
+    throw new Error(`Failed to load performance history (${res.status})`);
+  return (await res.json()) as PerformanceData;
+}
+
 export function usePerformanceHistory() {
   const query = useQuery({
     queryKey: ["ftso-performance-history"],
@@ -239,15 +267,25 @@ export function usePerformanceHistory() {
     refetchInterval: 10 * 60_000,
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<PerformanceData> => {
-      const res = await fetch(PERFORMANCE_URL, { cache: "no-cache" });
-      // The publisher may not have shipped the feed yet — treat a missing file
-      // as "no data published" (friendly empty state) rather than a hard error.
-      if (res.status === 404) {
-        return { generated_at_unix: 0, provider: EMPTY_PROVIDER, series: [] };
+      // Prefer the live snapshot feed. If it isn't published yet (missing file
+      // or a transient error) fall back to the same-origin copy bundled into
+      // the site, so prod still shows the committed snapshot rather than an
+      // empty chart. When the override already points at the bundled file,
+      // there's nothing to fall back to.
+      try {
+        const live = await fetchPerformance(PERFORMANCE_URL);
+        if (live) return live;
+      } catch (err) {
+        if (PERFORMANCE_URL === FALLBACK_URL) throw err;
       }
-      if (!res.ok)
-        throw new Error(`Failed to load performance history (${res.status})`);
-      return (await res.json()) as PerformanceData;
+
+      if (PERFORMANCE_URL !== FALLBACK_URL) {
+        const bundled = await fetchPerformance(FALLBACK_URL).catch(() => null);
+        if (bundled) return bundled;
+      }
+
+      // Nothing published anywhere yet — friendly empty state.
+      return EMPTY_DATA;
     },
   });
 
