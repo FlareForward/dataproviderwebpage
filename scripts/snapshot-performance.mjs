@@ -10,7 +10,16 @@
  * It derives three metrics per reward epoch:
  *   - band accuracy  -> from the accuracy file's verified `epochs[]`
  *   - submissions    -> on-chain graded samples (`epochs[].n`) vs. the expected
- *                       feeds x rounds for a full epoch (participation rate)
+ *                       feeds x rounds for the portion of the epoch that has
+ *                       actually ELAPSED as of this snapshot, not the full
+ *                       3.5-day epoch (participation rate). A fresh epoch has
+ *                       almost no expected rounds yet, so this avoids reading
+ *                       artificially near-zero while an otherwise-healthy
+ *                       epoch is still young; the denominator is also floored
+ *                       at the observed count so a provider ahead of the
+ *                       (approximate) elapsed estimate reads as a clean 100%,
+ *                       never >100%. A completed epoch is unaffected -- its
+ *                       elapsed time equals the full epoch either way.
  *   - uptime         -> built forward from `status.submitting` observations we
  *                       record on every run (null for epochs before this job
  *                       started, per the "null = no data, never 0%" convention)
@@ -112,7 +121,6 @@ async function main() {
   const status = accuracy.status ?? {};
   const currentEpoch = Number(status.reward_epoch_current ?? NaN);
   const feedsCount = Number(accuracy.summary?.feeds_count) || 63;
-  const expectedSamples = feedsCount * ROUNDS_PER_EPOCH;
 
   // 1. Record an uptime observation for this run (deduped by timestamp).
   const seenTs = new Set(history.uptime_observations.map((o) => o.ts));
@@ -143,13 +151,32 @@ async function main() {
         ? approxEpochStart(rewardEpoch, currentEpoch, now)
         : now);
     const n = typeof e.n === "number" ? e.n : null;
+    // Scale the expected-sample denominator to how much of this epoch has
+    // actually ELAPSED as of this snapshot, not the full 3.5-day epoch. An
+    // epoch that just started has almost no expected rounds yet; dividing its
+    // (correctly small) real count by the full-epoch total makes participation
+    // read as artificially near-zero for the entire epoch until it's nearly
+    // over, even when submission is fully healthy. A completed epoch
+    // (bucketStart + REWARD_EPOCH_SECONDS <= now) clamps to the same full
+    // expectedSamples as before -- this only changes the in-progress epoch.
+    const elapsedSeconds = Math.max(
+      0,
+      Math.min(REWARD_EPOCH_SECONDS, now - bucketStart)
+    );
+    const elapsedRounds = elapsedSeconds / VOTING_ROUND_SECONDS;
+    // bucket_start_unix is an approximation (assigned once from the current
+    // epoch boundary, not the exact on-chain reward-epoch start), so the
+    // elapsed estimate can run a little behind reality. Never let the
+    // denominator sit below what we've actually observed -- a provider
+    // ahead of the naive estimate reads as a clean 100%, not >100%.
+    const expectedSamplesElapsed = Math.max(feedsCount * elapsedRounds, n ?? 0);
     const row = {
       reward_epoch: rewardEpoch,
       bucket_start_unix: bucketStart,
       band_primary_pct: typeof e.primary === "number" ? e.primary : null,
       band_secondary_pct: typeof e.secondary === "number" ? e.secondary : null,
       submissions_count: n,
-      submissions_total: n !== null ? expectedSamples : null,
+      submissions_total: n !== null ? expectedSamplesElapsed : null,
       // Filled in below from uptime observations.
       uptime_pct: existing?.uptime_pct ?? null,
     };
