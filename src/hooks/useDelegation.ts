@@ -21,7 +21,7 @@ export function useDelegation() {
   const publicClient = usePublicClient();
   const queryClient = useQueryClient();
   const { data: wNatAddress } = useWNatAddress();
-  const [busy, setBusy] = useState<null | "wrap" | "delegate" | "undelegate">(null);
+  const [busy, setBusy] = useState<null | "wrap" | "delegate" | "undelegate" | "claim">(null);
 
   const balances = useQuery({
     queryKey: ["balances", address],
@@ -52,6 +52,13 @@ export function useDelegation() {
     },
   });
 
+  const claimableReward = useQuery({
+    queryKey: ["claimableFtsoReward", address],
+    enabled: !!address,
+    refetchInterval: 30_000,
+    queryFn: async (): Promise<bigint> => network.getClaimableFtsoReward(address!),
+  });
+
   const getWallet = useCallback(async () => {
     if (!connector) throw new Error("No wallet connector available");
     const provider = (await connector.getProvider()) as any;
@@ -64,10 +71,11 @@ export function useDelegation() {
   const refresh = useCallback(() => {
     balances.refetch();
     delegation.refetch();
+    claimableReward.refetch();
     // Vote power / delegation percentages in the provider list shift after a
     // delegate/undelegate, so refresh the live roster too.
     queryClient.invalidateQueries({ queryKey: ["providers"] });
-  }, [balances, delegation, queryClient]);
+  }, [balances, delegation, claimableReward, queryClient]);
 
   const wrap = useCallback(
     async (amountFlr: string) => {
@@ -133,8 +141,25 @@ export function useDelegation() {
     }
   }, [getWallet, refresh]);
 
+  const claimRewards = useCallback(async () => {
+    setBusy("claim");
+    const t = toast.loading("Claiming FTSO delegation rewards...");
+    try {
+      const wallet = await getWallet();
+      await network.claimFtsoReward(wallet);
+      toast.success("Delegation rewards claimed", { id: t });
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.shortMessage ?? e?.message ?? "Claim failed", { id: t });
+      throw e;
+    } finally {
+      setBusy(null);
+    }
+  }, [getWallet, refresh]);
+
   const flr = balances.data?.flr ?? 0n;
   const wflr = balances.data?.wflr ?? 0n;
+  const reward = claimableReward.data ?? 0n;
 
   return {
     isConnected,
@@ -144,10 +169,15 @@ export function useDelegation() {
     flrLabel: Number(formatUnits(flr, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 }),
     wflrLabel: Number(formatUnits(wflr, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 }),
     currentDelegations: delegation.data ?? [],
+    claimableReward: reward,
+    claimableRewardLabel: Number(formatUnits(reward, 18)).toLocaleString(undefined, {
+      maximumFractionDigits: 4,
+    }),
     busy,
     wrap,
     delegate,
     undelegate,
+    claimRewards,
     refresh,
   };
 }

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatUnits } from "viem";
-import { Shield, Search, CheckCircle2, Wallet, Info, Loader2, XCircle, Users } from "lucide-react";
+import { Shield, Search, CheckCircle2, Wallet, Info, Loader2, XCircle, Users, Gift } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/Card";
 import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
@@ -26,10 +26,13 @@ export function Delegation() {
     flrLabel,
     wflrLabel,
     currentDelegations,
+    claimableReward,
+    claimableRewardLabel,
     busy,
     wrap,
     delegate,
     undelegate,
+    claimRewards,
   } = useDelegation();
 
   const [selected, setSelected] = useState<`0x${string}`[]>([]);
@@ -80,6 +83,14 @@ export function Delegation() {
     }
   }
 
+  async function handleClaim() {
+    try {
+      await claimRewards();
+    } catch {
+      /* toast already shown */
+    }
+  }
+
   async function handleConfirmDelegate() {
     if (selectedProviders.length === 0) return;
     try {
@@ -103,6 +114,45 @@ export function Delegation() {
           busy={busy}
           onUndelegate={undelegate}
         />
+      )}
+
+      {/* Delegation rewards — claimable FTSO rewards accrued from delegation.
+          Shown whenever connected because rewards can persist even after the
+          user has undelegated. */}
+      {isConnected && (
+        <Card>
+          <CardHeader className="border-b border-white/8 pb-4">
+            <div className="flex items-center gap-2">
+              <Gift size={18} className="text-[#EE1A58]" />
+              <CardTitle className="text-[#FAFAFA]">Delegation Rewards</CardTitle>
+            </div>
+            <CardDescription className="text-[#8FA0B8]">
+              FTSO rewards earned from delegating your WFLR vote power
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="text-xs text-[#8FA0B8] mb-1">Claimable rewards</div>
+              <div className="text-2xl font-semibold text-[#FAFAFA]">
+                {claimableRewardLabel} <span className="text-base text-[#8FA0B8]">FLR</span>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              className="gap-2 sm:w-auto w-full"
+              disabled={busy !== null || claimableReward <= 0n}
+              onClick={handleClaim}
+            >
+              {busy === "claim" ? (
+                <Loader2 className="animate-spin" size={16} />
+              ) : (
+                <>
+                  <Gift size={16} /> Claim rewards
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -388,7 +438,7 @@ function YourDelegations({
 }: {
   delegations: CurrentDelegation[];
   providers: ProviderRow[];
-  busy: null | "wrap" | "delegate" | "undelegate";
+  busy: null | "wrap" | "delegate" | "undelegate" | "claim";
   onUndelegate: () => void;
 }) {
   const totalPct = delegations.reduce((sum, d) => sum + d.bips, 0) / 100;
