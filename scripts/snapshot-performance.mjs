@@ -8,7 +8,11 @@
  * from the earliest available data forward.
  *
  * It derives three metrics per reward epoch:
- *   - band accuracy  -> from the accuracy file's verified `epochs[]`
+ *   - band accuracy  -> the canonical Flare Systems Explorer per-reward-epoch
+ *                       grading (same source as the FTSO Success Rate board and
+ *                       the analytics cards). Falls back to the box's verified
+ *                       `epochs[]` only for epochs the Explorer doesn't cover
+ *                       (it exposes just the most recent few reward epochs).
  *   - submissions    -> on-chain graded samples (`epochs[].n`) vs. the expected
  *                       feeds x rounds for the portion of the epoch that has
  *                       actually ELAPSED as of this snapshot, not the full
@@ -20,18 +24,22 @@
  *                       (approximate) elapsed estimate reads as a clean 100%,
  *                       never >100%. A completed epoch is unaffected -- its
  *                       elapsed time equals the full epoch either way.
- *   - uptime         -> built forward from `status.submitting` observations we
- *                       record on every run (null for epochs before this job
- *                       started, per the "null = no data, never 0%" convention)
+ *   - uptime         -> the canonical Explorer per-reward-epoch `availability`
+ *                       where it covers an epoch; otherwise built forward from
+ *                       the `status.submitting` observations we record on every
+ *                       run (null for epochs before this job started, per the
+ *                       "null = no data, never 0%" convention)
  *
  * Storage is a single JSON file (the "light DB"): append-only, keyed by
  * reward_epoch, with an internal `uptime_observations[]` the frontend ignores.
  *
  * Env:
- *   ACCURACY_URL  source accuracy feed (default: public FlareForward repo)
- *   HISTORY_URL   existing history to extend (default: the public accuracy
- *                 repo's `performance` branch)
- *   OUT_PATH      where to write the updated history (default: ./ftso-performance-history.json)
+ *   ACCURACY_URL      source accuracy feed (default: public FlareForward repo)
+ *   EXPLORER_FTSO_URL canonical per-reward-epoch grading from the Flare Systems
+ *                     Explorer (default: the backend's entity/{id}/ftso endpoint)
+ *   HISTORY_URL       existing history to extend (default: the public accuracy
+ *                     repo's `performance` branch)
+ *   OUT_PATH          where to write the updated history (default: ./ftso-performance-history.json)
  */
 
 import { writeFile, readFile } from "node:fs/promises";
@@ -39,6 +47,14 @@ import { writeFile, readFile } from "node:fs/promises";
 const ACCURACY_URL =
   process.env.ACCURACY_URL ??
   "https://raw.githubusercontent.com/FlareForward/ftso-accuracy-data/main/ftso-accuracy.json";
+/**
+ * Canonical per-reward-epoch band accuracy (primary/secondary) from the Flare
+ * Systems Explorer — the same indexer the app's board/cards read. Values are
+ * fractions in 0..1 and get scaled to percentages here.
+ */
+const EXPLORER_FTSO_URL =
+  process.env.EXPLORER_FTSO_URL ??
+  `https://flare-systems-explorer-backend.flare.network/api/v0/entity/0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110/ftso`;
 const HISTORY_URL =
   process.env.HISTORY_URL ??
   "https://raw.githubusercontent.com/FlareForward/ftso-accuracy-data/performance/ftso-performance-history.json";
@@ -65,6 +81,37 @@ async function fetchJson(url) {
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
   return res.json();
+}
+
+/**
+ * Best-effort fetch of the Explorer's canonical per-reward-epoch band accuracy.
+ * Returns a Map keyed by reward epoch -> { primary, secondary } as percentages,
+ * or an empty Map if the Explorer is unavailable (so the job still runs and
+ * falls back to the box's verified epochs[]).
+ */
+async function fetchExplorerPerEpoch() {
+  try {
+    const res = await fetch(EXPLORER_FTSO_URL, {
+      headers: { Accept: "application/json" },
+      cache: "no-cache",
+    });
+    if (!res.ok) return new Map();
+    const data = await res.json();
+    const map = new Map();
+    for (const e of data.per_reward_epoch ?? []) {
+      const re = Number(e.reward_epoch_id);
+      if (!Number.isFinite(re)) continue;
+      map.set(re, {
+        availability:
+          typeof e.availability === "number" ? e.availability * 100 : null,
+        primary: typeof e.primary === "number" ? e.primary * 100 : null,
+        secondary: typeof e.secondary === "number" ? e.secondary * 100 : null,
+      });
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
 }
 
 /** Read + parse a local JSON file, returning null if it does not exist. */
@@ -105,6 +152,10 @@ function approxEpochStart(rewardEpoch, currentEpoch, nowUnix) {
 async function main() {
   const accuracy = await fetchJson(ACCURACY_URL);
   if (!accuracy) throw new Error(`Accuracy feed not found at ${ACCURACY_URL}`);
+
+  // Canonical per-reward-epoch band accuracy from the Flare Systems Explorer;
+  // overrides the box's self-graded epochs[] where it covers an epoch.
+  const canonicalByEpoch = await fetchExplorerPerEpoch();
 
   const history =
     (HISTORY_PATH
@@ -170,11 +221,25 @@ async function main() {
     // denominator sit below what we've actually observed -- a provider
     // ahead of the naive estimate reads as a clean 100%, not >100%.
     const expectedSamplesElapsed = Math.max(feedsCount * elapsedRounds, n ?? 0);
+    // Prefer the Explorer's canonical grading; fall back to the box's verified
+    // epochs[] for epochs the Explorer no longer exposes, then to any existing
+    // stored value (keeps older canonical/box values stable once written).
+    const canonical = canonicalByEpoch.get(rewardEpoch);
+    const bandPrimary =
+      canonical?.primary ??
+      (typeof e.primary === "number" ? e.primary : null) ??
+      existing?.band_primary_pct ??
+      null;
+    const bandSecondary =
+      canonical?.secondary ??
+      (typeof e.secondary === "number" ? e.secondary : null) ??
+      existing?.band_secondary_pct ??
+      null;
     const row = {
       reward_epoch: rewardEpoch,
       bucket_start_unix: bucketStart,
-      band_primary_pct: typeof e.primary === "number" ? e.primary : null,
-      band_secondary_pct: typeof e.secondary === "number" ? e.secondary : null,
+      band_primary_pct: bandPrimary,
+      band_secondary_pct: bandSecondary,
       submissions_count: n,
       submissions_total: n !== null ? expectedSamplesElapsed : null,
       // Filled in below from uptime observations.
@@ -183,8 +248,16 @@ async function main() {
     byEpoch.set(rewardEpoch, row);
   }
 
-  // 3. Recompute uptime_pct per epoch from observations that fall in its window.
+  // 3. Set uptime_pct per epoch: prefer the Explorer's canonical availability,
+  //    otherwise recompute from `status.submitting` observations in its window.
   for (const row of byEpoch.values()) {
+    const canonicalAvailability = canonicalByEpoch.get(
+      row.reward_epoch
+    )?.availability;
+    if (canonicalAvailability != null) {
+      row.uptime_pct = canonicalAvailability;
+      continue;
+    }
     const start = row.bucket_start_unix;
     const end = start + REWARD_EPOCH_SECONDS;
     let up = 0;
@@ -195,7 +268,7 @@ async function main() {
         if (o.submitting) up += 1;
       }
     }
-    row.uptime_pct = total > 0 ? (up / total) * 100 : null;
+    row.uptime_pct = total > 0 ? (up / total) * 100 : row.uptime_pct ?? null;
   }
 
   history.series = [...byEpoch.values()].sort(
