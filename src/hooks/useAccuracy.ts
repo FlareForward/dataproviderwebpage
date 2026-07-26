@@ -1,101 +1,74 @@
 import { useQuery } from "@tanstack/react-query";
 
 /**
- * Per-feed FTSO accuracy, fetched from a small PUBLIC data repo that the
- * provider box force-pushes every ~10 min (github.com/FlareForward/ftso-accuracy-data).
- * Same cross-origin raw-URL pattern useProviders uses for the provider list, so
- * the board refreshes live without redeploying the site. Override with
- * VITE_ACCURACY_URL for local/preview.
+ * Per-provider FTSO accuracy + availability, sourced from the Flare Systems
+ * Explorer's canonical indexer — the same figures shown on
+ * flare-systems-explorer.flare.network for the Flare Forward entity.
+ *
+ * The Explorer backend sends no CORS headers, so the browser can't call it
+ * directly; a same-origin Cloudflare Worker (worker/index.ts) proxies it at
+ * `/api/ftso`, normalizing the Explorer's 0..1 fractions into percentages and
+ * flattening its `/entity/{id}/ftso` + `/entity/{id}/feeds` endpoints into one
+ * payload. Override with VITE_ACCURACY_URL for local dev (e.g. point it at a
+ * deployed worker, or a `wrangler dev` origin).
  */
-const ACCURACY_URL =
-  import.meta.env.VITE_ACCURACY_URL ??
-  "https://raw.githubusercontent.com/FlareForward/ftso-accuracy-data/main/ftso-accuracy.json";
+const ACCURACY_URL = import.meta.env.VITE_ACCURACY_URL ?? "/api/ftso";
 
 /**
- * A `null` landing rate means "no data for this window" — never "0%". On-chain
- * windows are null while the provider is out of the signing policy (a
- * registration gap); the `qa` block stays populated regardless.
+ * A `null` metric means "no data for this window" — never "0%". The Explorer
+ * reports availability + primary/secondary reward-band landing rates as
+ * percentages after normalization in the proxy.
  */
-export interface AccuracySummary {
-  feeds_count: number;
-  overall_primary_6h: number | null;
-  overall_secondary_6h: number | null;
-  overall_primary_24h: number | null;
-  overall_secondary_24h: number | null;
-  median_primary_24h: number | null;
-  median_secondary_24h: number | null;
-  source?: string;
+export interface AccuracyWindow {
+  /** % of expected voting rounds the provider was available (submitting). */
+  availability: number | null;
+  /** % of rounds landing inside the tight (primary) reward band. */
+  primary: number | null;
+  /** % of rounds landing inside the wider (secondary) reward band. */
+  secondary: number | null;
 }
 
-export interface AccuracyEpoch {
+export interface AccuracyEpoch extends AccuracyWindow {
   reward_epoch: number;
-  primary: number;
-  secondary: number;
-  n?: number;
 }
 
-export interface AccuracyTrendPoint {
-  bucket_start_unix: number;
-  primary: number;
-  secondary: number;
-  n: number;
-}
-
-export interface AccuracyFeed {
+export interface AccuracyFeed extends AccuracyWindow {
+  /** Human-readable pair, e.g. "BTC/USD". */
   feed: string;
-  primary_6h: number | null;
-  secondary_6h: number | null;
-  primary_24h: number | null;
-  secondary_24h: number | null;
-  n_6h?: number;
-  n_24h: number;
-  trend?: AccuracyTrendPoint[];
-  source?: string;
-}
-
-export interface AccuracyStatus {
-  submitting: boolean;
-  reward_epoch_current?: number;
-  reward_epoch_registered?: boolean;
-  gap_reason?: string | null;
-  expected_resume_utc?: string | null;
-}
-
-/** QA = our local provider values graded against the field reward band; stays
- *  populated during registration gaps but understates ETH/USD and XRP/USD. */
-export interface AccuracyQa {
-  source?: string;
-  description?: string;
-  caveat?: string;
-  summary: AccuracySummary;
-  feeds: AccuracyFeed[];
+  /** 21-byte feed id (hex), e.g. "0x014254432f5553440000…". */
+  feed_id: string;
+  /** Whether this feed is currently part of the rewarded set. */
+  is_rewarded: boolean;
 }
 
 export interface AccuracyData {
   generated_at_unix: number;
-  current_round: number;
-  summary: AccuracySummary;
-  epochs: AccuracyEpoch[];
+  identity_address: string;
+  feeds_count: number;
+  last_6h: AccuracyWindow;
+  last_24h: AccuracyWindow;
+  /** Most recent reward epochs (the Explorer exposes the latest few). */
+  per_reward_epoch: AccuracyEpoch[];
   feeds: AccuracyFeed[];
-  status?: AccuracyStatus;
-  qa?: AccuracyQa;
-  schema_version?: number;
 }
 
 /**
- * Whether the provider is actively submitting this epoch. During a registration
- * gap the on-chain windows are null; we surface a "paused" notice rather than
- * the DA-independent QA estimates, which can be misleading as live figures.
+ * Whether the provider is actively participating. The Explorer reflects real
+ * on-chain participation, so a registration gap surfaces as null/zero
+ * availability + band rates; in that case we show a paused notice instead of
+ * presenting stale figures as live.
  */
 export function isSubmitting(data: AccuracyData): boolean {
-  return data.status?.submitting ?? data.summary?.overall_primary_24h != null;
+  const a = data.last_24h.availability ?? data.last_6h.availability;
+  const p = data.last_24h.primary ?? data.last_6h.primary;
+  return (a != null && a > 0) || p != null;
 }
 
 export function useAccuracy() {
   const query = useQuery({
     queryKey: ["ftso-accuracy"],
-    // Cache for the publish cadence; refetch quietly in the background so a
-    // long-open tab stays current without hammering the CDN.
+    // Match the proxy's edge cache; refetch quietly in the background so a
+    // long-open tab stays current without hammering the Explorer.
     staleTime: 5 * 60_000,
     refetchInterval: 10 * 60_000,
     refetchOnWindowFocus: false,

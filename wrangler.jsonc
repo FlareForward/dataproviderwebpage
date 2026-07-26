@@ -1,12 +1,21 @@
 {
-  // Static-assets-only Worker for the FlareForward FTSO data-provider portal.
-  // Vite builds the SPA into ./dist; this uploads it as static assets with a
+  // Worker for the FlareForward FTSO data-provider portal. Vite builds the SPA
+  // into ./dist; it's uploaded as static assets (bound as ASSETS) with a
   // single-page-application 404 fallback so client routes (/providers,
   // /delegation) resolve to index.html instead of 404ing.
+  //
+  // The worker entry (worker/index.ts) adds a same-origin JSON proxy at
+  // `/api/ftso` fronting the Flare Systems Explorer backend (which sends no CORS
+  // headers, so the browser can't call it directly). `run_worker_first` routes
+  // `/api/*` to the Worker BEFORE the SPA asset fallback would rewrite them to
+  // index.html; all other paths are served straight from static assets.
   "name": "ftso-flareforward",
   "compatibility_date": "2026-07-01",
+  "main": "worker/index.ts",
   "assets": {
     "directory": "./dist",
-    "not_found_handling": "single-page-application"
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
   }
 }

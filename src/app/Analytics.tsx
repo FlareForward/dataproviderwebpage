@@ -4,41 +4,60 @@ import { Card, CardContent } from "./components/Card";
 import { Badge } from "./components/Badge";
 import { PerformanceChart } from "./components/PerformanceChart";
 import { AccuracyBoard } from "./components/AccuracyBoard";
+import { ValidatorStaking } from "./components/ValidatorStaking";
 import {
   usePerformanceHistory,
   type PerformancePoint,
 } from "../hooks/usePerformanceHistory";
+import { useAccuracy } from "../hooks/useAccuracy";
+import { useProviders } from "../hooks/useProviders";
 
-function pct(v: number | null): string {
-  return v === null ? "—" : `${v.toFixed(1)}%`;
+/** Flare Forward identity (pinned) — mirrors PINNED_PROVIDER_ADDRESS. */
+const PINNED_PROVIDER_ADDRESS =
+  "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110".toLowerCase();
+
+function pct(v: number | null, digits = 1): string {
+  return v === null ? "—" : `${v.toFixed(digits)}%`;
 }
 
-/** Uptime / band rates carry through directly; submissions is a participation rate. */
-function pointValue(point: PerformancePoint, key: MetricCardKey): number | null {
-  switch (key) {
-    case "uptime":
-      return point.uptime_pct;
-    case "submissions":
-      return point.submissions_count !== null &&
-        point.submissions_total !== null &&
-        point.submissions_total > 0
-        ? (point.submissions_count / point.submissions_total) * 100
-        : null;
-    case "band":
-      return point.band_primary_pct;
-  }
+/** Submission reveal-participation rate for a box-pipeline point. */
+function submissionValue(point: PerformancePoint): number | null {
+  return point.submissions_count !== null &&
+    point.submissions_total !== null &&
+    point.submissions_total > 0
+    ? (point.submissions_count / point.submissions_total) * 100
+    : null;
 }
 
-type MetricCardKey = "uptime" | "submissions" | "band";
+type MetricCardKey = "uptime" | "submissions" | "delegation";
 
-const CARDS: { key: MetricCardKey; title: string; hint: string }[] = [
-  { key: "uptime", title: "Uptime", hint: "Latest reward epoch" },
+const CARDS: {
+  key: MetricCardKey;
+  title: string;
+  hint: string;
+  digits?: number;
+}[] = [
+  { key: "uptime", title: "Uptime", hint: "Availability · last 24h" },
   { key: "submissions", title: "Submissions", hint: "Reveal participation" },
-  { key: "band", title: "Band Accuracy", hint: "Primary reward band" },
+  {
+    key: "delegation",
+    title: "Delegation Share",
+    hint: "Share of network vote power",
+    digits: 2,
+  },
 ];
 
 export default function Analytics() {
   const { data, isLoading, error } = usePerformanceHistory();
+  const { data: accuracy } = useAccuracy();
+  const { providers } = useProviders();
+
+  const self =
+    providers.find(
+      (p) =>
+        p.identityAddress.toLowerCase() === PINNED_PROVIDER_ADDRESS ||
+        p.address.toLowerCase() === PINNED_PROVIDER_ADDRESS
+    ) ?? null;
 
   const series = useMemo(() => {
     if (!data) return [];
@@ -53,6 +72,29 @@ export default function Analytics() {
   // the AccuracyBoard shows the missed-epoch notice + countdown instead, and we
   // fall back to the historical trend only.
   const gap = !!data?.status && !data.status.submitting;
+
+  // Uptime reads the canonical Flare Systems Explorer trailing 24h availability
+  // so it agrees with the FTSO Success Rate board's headline above (a trailing
+  // window, not an epoch-over-epoch sample, so no "vs previous epoch" delta).
+  // Delegation Share is Flare Forward's on-chain share of total network vote
+  // power. Submissions has no Explorer equivalent, so it stays sourced from the
+  // box performance pipeline (latest/previous series) and keeps its epoch delta.
+  function cardValues(key: MetricCardKey): {
+    value: number | null;
+    prev: number | null;
+  } {
+    switch (key) {
+      case "uptime":
+        return { value: accuracy?.last_24h.availability ?? null, prev: null };
+      case "delegation":
+        return { value: self?.delegationPct ?? null, prev: null };
+      case "submissions":
+        return {
+          value: latest ? submissionValue(latest) : null,
+          prev: previous ? submissionValue(previous) : null,
+        };
+    }
+  }
 
   return (
     <div className="p-4 lg:p-8">
@@ -80,7 +122,30 @@ export default function Analytics() {
             missed-epoch notice with a countdown to the next epoch. */}
         <AccuracyBoard />
 
-        {error ? (
+        {/* Data-provider performance — FTSO uptime & submissions plus Flare
+            Forward's delegation vote-power share, with the historical trend.
+            Kept separate from validator staking below to avoid conflating the
+            data-provider/delegation metrics with the P-chain validator. */}
+        <section aria-labelledby="provider-perf-heading" className="space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#EE1A58]/10 text-[#EE1A58]">
+              <Activity size={18} />
+            </div>
+            <div>
+              <h2
+                id="provider-perf-heading"
+                className="text-[1.25rem] font-semibold tracking-tight text-[#FAFAFA]"
+              >
+                Provider Performance
+              </h2>
+              <p className="mt-0.5 text-[0.8125rem] text-[#8FA0B8]">
+                FTSO uptime and submissions, and Flare Forward's delegation
+                share of total network vote power.
+              </p>
+            </div>
+          </div>
+
+          {error ? (
           <div className="glass-panel border-red-500/30 p-6 text-center text-red-400">
             Failed to load performance history: {error.message}
           </div>
@@ -110,17 +175,14 @@ export default function Analytics() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {CARDS.map((card) => {
-                  const value = pointValue(latest, card.key);
-                  const prev = previous
-                    ? pointValue(previous, card.key)
-                    : null;
+                  const { value, prev } = cardValues(card.key);
                   const delta =
                     value !== null && prev !== null ? value - prev : null;
                   return (
                     <StatCard
                       key={card.key}
                       title={card.title}
-                      value={pct(value)}
+                      value={pct(value, card.digits)}
                       hint={card.hint}
                       delta={delta}
                     />
@@ -132,6 +194,10 @@ export default function Analytics() {
             <PerformanceChart series={series} />
           </>
         )}
+        </section>
+
+        {/* Validator staking — P-chain stake, capacity, and staking rewards. */}
+        <ValidatorStaking />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import {
   useAccuracy,
   isSubmitting,
   type AccuracyFeed,
+  type AccuracyWindow,
 } from "../../hooks/useAccuracy";
 import { EpochGapNotice } from "./EpochGapNotice";
 
@@ -21,9 +22,12 @@ function f1(v: number | null | undefined): string {
  */
 function heat(
   v: number,
-  kind: "p" | "s",
+  kind: "p" | "s" | "a",
 ): { color: string; background: string } {
-  let t = kind === "p" ? v / 55 : (v - 40) / 60;
+  let t: number;
+  if (kind === "p") t = v / 55;
+  else if (kind === "s") t = (v - 40) / 60;
+  else t = (v - 90) / 10; // availability: 90..100
   t = Math.max(0, Math.min(1, t));
   const hue = 2 + t * 143; // 2 = red, 145 = green
   return {
@@ -32,7 +36,13 @@ function heat(
   };
 }
 
-function HeatCell({ value, kind }: { value: number | null; kind: "p" | "s" }) {
+function HeatCell({
+  value,
+  kind,
+}: {
+  value: number | null;
+  kind: "p" | "s" | "a";
+}) {
   if (value === null || value === undefined) {
     return (
       <span className="inline-block min-w-[3.25rem] rounded-md px-2 py-0.5 font-semibold tabular-nums text-[#8FA0B8]/50">
@@ -51,13 +61,7 @@ function HeatCell({ value, kind }: { value: number | null; kind: "p" | "s" }) {
   );
 }
 
-type SortKey =
-  | "feed"
-  | "primary_6h"
-  | "secondary_6h"
-  | "primary_24h"
-  | "secondary_24h"
-  | "n_24h";
+type SortKey = "feed" | "availability" | "primary" | "secondary";
 
 interface ColumnDef {
   key: SortKey;
@@ -67,11 +71,9 @@ interface ColumnDef {
 
 const COLUMNS: ColumnDef[] = [
   { key: "feed", label: "Feed", align: "left" },
-  { key: "primary_6h", label: "6h primary", align: "right" },
-  { key: "secondary_6h", label: "6h secondary", align: "right" },
-  { key: "primary_24h", label: "24h primary", align: "right" },
-  { key: "secondary_24h", label: "24h secondary", align: "right" },
-  { key: "n_24h", label: "rounds", align: "right" },
+  { key: "availability", label: "Availability", align: "right" },
+  { key: "primary", label: "Primary", align: "right" },
+  { key: "secondary", label: "Secondary", align: "right" },
 ];
 
 /** One headline band: big number + % sign, colored by band. */
@@ -95,6 +97,58 @@ function Band({
       {!isNull && (
         <span className="text-base font-semibold text-[#8FA0B8]">%</span>
       )}
+    </div>
+  );
+}
+
+/** Availability figure: labeled percentage shown alongside the band rates. */
+function Availability({ value }: { value: number | null }) {
+  const isNull = value === null || value === undefined;
+  return (
+    <div>
+      <div className="text-[10px] font-semibold uppercase tracking-wider text-[#8FA0B8]">
+        Availability
+      </div>
+      <div className="mt-1 flex items-baseline gap-1">
+        <span
+          className="text-xl font-bold tabular-nums"
+          style={{ color: isNull ? "#8FA0B8" : "#FAFAFA" }}
+        >
+          {f1(value)}
+        </span>
+        {!isNull && (
+          <span className="text-xs font-semibold text-[#8FA0B8]">%</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WindowPanel({
+  label,
+  window: w,
+}: {
+  label: string;
+  window: AccuracyWindow;
+}) {
+  return (
+    <div className="glass-panel p-5">
+      <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+        {label}
+      </div>
+      <div className="mt-3 flex flex-wrap items-end gap-x-8 gap-y-3">
+        <div>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-[#8FA0B8]">
+            Success rate
+          </div>
+          <div className="mt-1 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+            <Band value={w.primary} tone="primary" />
+            <Band value={w.secondary} tone="secondary" />
+          </div>
+        </div>
+        <Availability value={w.availability} />
+      </div>
+      <BandLegend />
     </div>
   );
 }
@@ -123,7 +177,7 @@ function BandLegend() {
 export function AccuracyBoard() {
   const { data, isLoading, error } = useAccuracy();
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({
-    key: "primary_24h",
+    key: "primary",
     dir: "desc",
   });
 
@@ -168,11 +222,14 @@ export function AccuracyBoard() {
     );
   }
 
-  const s = data.summary;
   const submitting = isSubmitting(data);
   const updated = new Date(data.generated_at_unix * 1000);
   const updatedLabel = `${updated.toISOString().slice(11, 16)} UTC`;
-  const epochMax = Math.max(...data.epochs.map((e) => e.primary), 1) * 1.25;
+  const epochs = data.per_reward_epoch;
+  const latestEpoch =
+    epochs.length > 0 ? epochs[epochs.length - 1].reward_epoch : null;
+  const epochMax =
+    Math.max(...epochs.map((e) => e.primary ?? 0), 1) * 1.25;
   const EPOCH_BAR_MAX_PX = 92; // track height in px; avoids flexbox %-height ambiguity
 
   return (
@@ -212,14 +269,16 @@ export function AccuracyBoard() {
           </div>
         </div>
         <div className="flex items-center gap-4 text-right">
-          <div>
-            <div className="font-mono text-sm font-semibold tabular-nums">
-              {data.current_round.toLocaleString()}
+          {latestEpoch != null ? (
+            <div>
+              <div className="font-mono text-sm font-semibold tabular-nums">
+                {latestEpoch.toLocaleString()}
+              </div>
+              <div className="text-[10px] uppercase tracking-wider text-[#8FA0B8]">
+                Reward epoch
+              </div>
             </div>
-            <div className="text-[10px] uppercase tracking-wider text-[#8FA0B8]">
-              Voting round
-            </div>
-          </div>
+          ) : null}
           <div>
             <div className="text-sm font-semibold">{updatedLabel}</div>
             <div className="text-[10px] uppercase tracking-wider text-[#8FA0B8]">
@@ -238,11 +297,7 @@ export function AccuracyBoard() {
 
       {!submitting ? (
         <div className="px-6 py-6">
-          <EpochGapNotice
-            rewardEpoch={data.status?.reward_epoch_current}
-            gapReason={data.status?.gap_reason}
-            expectedResumeUtc={data.status?.expected_resume_utc}
-          />
+          <EpochGapNotice rewardEpoch={latestEpoch} />
         </div>
       ) : (
       <Tabs.Root defaultValue="success-rate">
@@ -262,44 +317,26 @@ export function AccuracyBoard() {
         </Tabs.List>
 
         <Tabs.Content value="success-rate" className="outline-none">
-          {/* Headline: overall success rate, 6h + 24h, pinned at the top */}
+          {/* Headline: overall success rate + availability, 6h + 24h */}
           <div className="px-6 py-6">
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8FA0B8]">
-              Overall — across all {s.feeds_count} feeds and every voting round
-              in the window
+              Overall — across all {data.feeds_count} feeds and every voting
+              round in the window
             </div>
             <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
-              <div className="glass-panel p-5">
-                <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
-                  Last 6 hours
-                </div>
-                <div className="mt-3 flex flex-wrap items-baseline gap-x-8 gap-y-2">
-                  <Band value={s.overall_primary_6h} tone="primary" />
-                  <Band value={s.overall_secondary_6h} tone="secondary" />
-                </div>
-                <BandLegend />
-              </div>
-              <div className="glass-panel p-5">
-                <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
-                  Last 24 hours
-                </div>
-                <div className="mt-3 flex flex-wrap items-baseline gap-x-8 gap-y-2">
-                  <Band value={s.overall_primary_24h} tone="primary" />
-                  <Band value={s.overall_secondary_24h} tone="secondary" />
-                </div>
-                <div className="mt-3 font-mono text-[11px] uppercase tracking-wider text-[#8FA0B8]">
-                  median across {s.feeds_count} feeds —{" "}
-                  {f1(s.median_primary_24h)}% / {f1(s.median_secondary_24h)}%
-                </div>
-              </div>
+              <WindowPanel label="Last 6 hours" window={data.last_6h} />
+              <WindowPanel label="Last 24 hours" window={data.last_24h} />
             </div>
             <p className="mt-4 border-t border-white/8 pt-3 text-[12.5px] leading-relaxed text-[#8FA0B8]">
               <span className="font-semibold text-[#FAFAFA]">Primary</span> is
               the tight reward band;{" "}
               <span className="font-semibold text-[#FAFAFA]">secondary</span>{" "}
-              the wider one. These are trailing 6h / 24h averages graded
-              on-chain against the real consensus bands — a new engine's gains
-              show up here gradually as the window fills.
+              the wider one; <span className="font-semibold text-[#FAFAFA]">
+              availability
+              </span>{" "}
+              is the share of expected rounds submitted. These are the canonical
+              figures from the Flare Systems Explorer, graded on-chain against
+              the real consensus bands.
             </p>
           </div>
 
@@ -309,10 +346,10 @@ export function AccuracyBoard() {
               Primary-band accuracy by reward epoch
             </h3>
             <div className="flex items-end gap-4">
-              {data.epochs.map((e) => {
+              {epochs.map((e) => {
                 const barPx = Math.max(
                   6,
-                  Math.round((e.primary / epochMax) * EPOCH_BAR_MAX_PX),
+                  Math.round(((e.primary ?? 0) / epochMax) * EPOCH_BAR_MAX_PX),
                 );
                 return (
                   <div
@@ -329,6 +366,9 @@ export function AccuracyBoard() {
                     </div>
                     <div className="font-mono text-[11px] text-[#8FA0B8]">
                       #{e.reward_epoch}
+                    </div>
+                    <div className="font-mono text-[10px] text-[#8FA0B8]/70">
+                      {f1(e.availability)}% avail
                     </div>
                   </div>
                 );
@@ -371,9 +411,8 @@ export function AccuracyBoard() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] border-collapse text-sm">
                 <caption className="sr-only">
-                  FTSO per-feed landing rate inside the primary and secondary
-                  reward bands over trailing 6-hour and 24-hour windows,
-                  sortable by column.
+                  FTSO per-feed availability and landing rate inside the primary
+                  and secondary reward bands, sortable by column.
                 </caption>
                 <thead>
                   <tr className="border-y border-white/8 bg-white/5 text-[10.5px] uppercase tracking-wider text-[#8FA0B8]">
@@ -420,7 +459,7 @@ export function AccuracyBoard() {
                     const [base, quote] = r.feed.split("/");
                     return (
                       <tr
-                        key={r.feed}
+                        key={r.feed_id || r.feed}
                         className="border-b border-white/8 transition-colors hover:bg-white/5"
                       >
                         <td className="px-3.5 py-1.5 text-left font-semibold">
@@ -428,21 +467,23 @@ export function AccuracyBoard() {
                           <span className="font-medium text-[#8FA0B8]">
                             /{quote}
                           </span>
+                          {!r.is_rewarded ? (
+                            <span
+                              className="ml-2 rounded-[3px] bg-white/5 px-1.5 py-0.5 align-middle text-[9px] font-medium uppercase tracking-wider text-[#8FA0B8]"
+                              title="Not currently in the rewarded feed set"
+                            >
+                              unrewarded
+                            </span>
+                          ) : null}
                         </td>
                         <td className="px-3.5 py-1.5 text-right">
-                          <HeatCell value={r.primary_6h} kind="p" />
+                          <HeatCell value={r.availability} kind="a" />
                         </td>
                         <td className="px-3.5 py-1.5 text-right">
-                          <HeatCell value={r.secondary_6h} kind="s" />
+                          <HeatCell value={r.primary} kind="p" />
                         </td>
                         <td className="px-3.5 py-1.5 text-right">
-                          <HeatCell value={r.primary_24h} kind="p" />
-                        </td>
-                        <td className="px-3.5 py-1.5 text-right">
-                          <HeatCell value={r.secondary_24h} kind="s" />
-                        </td>
-                        <td className="px-3.5 py-1.5 text-right font-mono tabular-nums text-[#8FA0B8]">
-                          {r.n_24h.toLocaleString()}
+                          <HeatCell value={r.secondary} kind="s" />
                         </td>
                       </tr>
                     );
@@ -451,8 +492,9 @@ export function AccuracyBoard() {
               </table>
             </div>
             <div className="border-t border-white/8 px-6 py-3 text-[11.5px] text-[#8FA0B8]">
-              Graded on-chain against the real consensus bands, not a
-              self-report — the same measure the public trackers use. Snapshot{" "}
+              Canonical figures from the Flare Systems Explorer, graded on-chain
+              against the real consensus bands — the same measure the public
+              trackers use. Snapshot{" "}
               <span className="font-semibold text-[#FAFAFA]">
                 {updated.toISOString().slice(0, 16).replace("T", " ")} UTC
               </span>
