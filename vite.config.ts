@@ -19,6 +19,19 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  server: {
+    // The FTSO accuracy board fetches the same-origin `/api/ftso` proxy that the
+    // Cloudflare Worker (worker/index.ts) serves in prod. The Vite dev server
+    // doesn't run the Worker, so forward `/api` to a local `wrangler dev`
+    // (`npx wrangler dev --port 8788`) during development. Alternatively set
+    // VITE_ACCURACY_URL to a deployed worker's /api/ftso URL.
+    proxy: {
+      "/api": {
+        target: "http://localhost:8788",
+        changeOrigin: true,
+      },
+    },
+  },
   assetsInclude: ["**/*.svg", "**/*.csv"],
   build: {
     // The WalletConnect / Reown AppKit tree is very large. Splitting it (and the
