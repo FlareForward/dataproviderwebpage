@@ -5,7 +5,7 @@ import { formatUnits } from "viem";
 import { toast } from "sonner";
 import { Network, Amount } from "@flarenetwork/flare-tx-sdk";
 import { EIP1193WalletController } from "@flarenetwork/flare-tx-sdk";
-import { wNatAbi } from "../lib/flare";
+import { wNatAbi, wrapWalletProvider } from "../lib/flare";
 import { useWNatAddress } from "./useProviders";
 
 const network = Network.FLARE;
@@ -61,7 +61,7 @@ export function useDelegation() {
 
   const getWallet = useCallback(async () => {
     if (!connector) throw new Error("No wallet connector available");
-    const provider = (await connector.getProvider()) as any;
+    const provider = wrapWalletProvider((await connector.getProvider()) as any);
     const controller = new EIP1193WalletController(provider);
     const wallet = await controller.getActiveWallet();
     if (!wallet) throw new Error("Could not resolve an active wallet account");

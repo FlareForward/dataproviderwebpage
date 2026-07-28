@@ -33,6 +33,7 @@ import {
   flareSystemsManagerAbi,
   voterRegistryAbi,
   FLARE_RPC_URL,
+  wrapWalletProvider,
 } from "../lib/flare";
 
 const network = Network.FLARE;
@@ -96,7 +97,7 @@ export function useStaking() {
 
   const getWallet = useCallback(async () => {
     if (!connector) throw new Error("No wallet connector available");
-    const provider = (await connector.getProvider()) as any;
+    const provider = wrapWalletProvider((await connector.getProvider()) as any);
     const controller = new EIP1193WalletController(provider);
     const wallet = await controller.getActiveWallet();
     if (!wallet) throw new Error("Could not resolve an active wallet account");

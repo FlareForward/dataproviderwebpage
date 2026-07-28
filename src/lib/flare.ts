@@ -63,3 +63,38 @@ export function shortAddress(address?: string, chars = 4): string {
   if (!address) return "";
   return `${address.slice(0, 2 + chars)}...${address.slice(-chars)}`;
 }
+
+type Eip1193RequestArgs = { method: string; params?: unknown };
+
+/**
+ * Wraps an EIP-1193 provider so the Flare SDK never chokes on a numeric
+ * `eth_chainId`. The SDK's EIP-1193 layer assumes `eth_chainId` returns a hex
+ * string and calls `String.prototype.startsWith` on it while switching chains
+ * before signing. Some connectors (notably WalletConnect) return the chain id
+ * as a number, which surfaces as "a.startsWith is not a function" and breaks
+ * every SDK write (wrap, delegate, and both reward claims). Coercing the result
+ * back to a hex string keeps the whole signing path working regardless of
+ * connector. The provider is otherwise passed through untouched.
+ */
+export function wrapWalletProvider<T extends { request: (args: Eip1193RequestArgs) => Promise<unknown> }>(
+  provider: T
+): T {
+  return new Proxy(provider, {
+    get(target, prop, receiver) {
+      if (prop !== "request") {
+        const value = Reflect.get(target, prop, receiver);
+        return typeof value === "function" ? value.bind(target) : value;
+      }
+      return async (args: Eip1193RequestArgs) => {
+        const result = await target.request(args);
+        if (
+          args?.method === "eth_chainId" &&
+          (typeof result === "number" || typeof result === "bigint")
+        ) {
+          return `0x${result.toString(16)}`;
+        }
+        return result;
+      };
+    },
+  });
+}
