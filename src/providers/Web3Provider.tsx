@@ -52,7 +52,15 @@ const connectors = [
           metadata: {
             name: "FlareForward",
             description: "Flare Network data provider dashboard and delegation portal",
-            url: "https://flareforward.app",
+            // Must match the origin the app is actually served from. WalletConnect
+            // verifies (and mobile wallets deep-link back to) this URL; a mismatch
+            // silently breaks the session so the wallet never surfaces the signing
+            // request. Derive it from the live origin so it's correct on every
+            // deployment domain instead of hardcoding one.
+            url:
+              typeof window !== "undefined"
+                ? window.location.origin
+                : "https://ftso.flareforward.com",
             icons: [],
           },
         }),
