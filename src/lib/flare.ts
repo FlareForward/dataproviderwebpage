@@ -65,36 +65,62 @@ export function shortAddress(address?: string, chars = 4): string {
 }
 
 type Eip1193RequestArgs = { method: string; params?: unknown };
+type Eip1193Listener = (...args: any[]) => void;
+interface Eip1193Source {
+  request: (args: Eip1193RequestArgs) => Promise<unknown>;
+  on?: (event: string, listener: Eip1193Listener) => unknown;
+  removeListener?: (event: string, listener: Eip1193Listener) => unknown;
+}
+interface Eip1193Provider {
+  request: (args: Eip1193RequestArgs) => Promise<unknown>;
+  on: (event: string, listener: Eip1193Listener) => unknown;
+  removeListener: (event: string, listener: Eip1193Listener) => unknown;
+}
 
 /**
- * Wraps an EIP-1193 provider so the Flare SDK never chokes on a numeric
- * `eth_chainId`. The SDK's EIP-1193 layer assumes `eth_chainId` returns a hex
- * string and calls `String.prototype.startsWith` on it while switching chains
- * before signing. Some connectors (notably WalletConnect) return the chain id
- * as a number, which surfaces as "a.startsWith is not a function" and breaks
- * every SDK write (wrap, delegate, and both reward claims). Coercing the result
- * back to a hex string keeps the whole signing path working regardless of
- * connector. The provider is otherwise passed through untouched.
+ * Canonicalizes an `eth_chainId` result to a minimal `0x`-prefixed hex string
+ * (e.g. `0xe`), matching the format the Flare SDK compares against. Handles the
+ * common connector variations: a number/bigint (WalletConnect), a decimal
+ * string, or a zero-padded hex string (`0x0e`). Anything unparseable is
+ * returned untouched.
  */
-export function wrapWalletProvider<T extends { request: (args: Eip1193RequestArgs) => Promise<unknown> }>(
-  provider: T
-): T {
-  return new Proxy(provider, {
-    get(target, prop, receiver) {
-      if (prop !== "request") {
-        const value = Reflect.get(target, prop, receiver);
-        return typeof value === "function" ? value.bind(target) : value;
-      }
-      return async (args: Eip1193RequestArgs) => {
-        const result = await target.request(args);
-        if (
-          args?.method === "eth_chainId" &&
-          (typeof result === "number" || typeof result === "bigint")
-        ) {
-          return `0x${result.toString(16)}`;
-        }
-        return result;
-      };
+function canonicalChainId(value: unknown): unknown {
+  try {
+    if (typeof value === "number" || typeof value === "bigint") {
+      return `0x${BigInt(value).toString(16)}`;
+    }
+    if (typeof value === "string" && value.trim() !== "") {
+      return `0x${BigInt(value).toString(16)}`;
+    }
+  } catch {
+    // Not a parseable chain id; leave it alone.
+  }
+  return value;
+}
+
+/**
+ * Wraps a wallet's EIP-1193 provider before handing it to the Flare SDK.
+ *
+ * The SDK's EIP-1193 layer assumes `eth_chainId` returns a hex string and calls
+ * `String.prototype.startsWith` on it while resolving the chain before signing.
+ * Connectors such as WalletConnect return the chain id as a number, which
+ * surfaced as "a.startsWith is not a function" and broke every SDK write (wrap,
+ * delegate, and both reward claims). A non-canonical value (e.g. `0x0e` or a
+ * numeric `14`) also makes the SDK believe the wallet is on the wrong chain and
+ * fire a `wallet_addEthereumChain` / `wallet_switchEthereumChain` dance that
+ * some wallets stall on instead of ever surfacing the transaction prompt.
+ *
+ * Normalizing `eth_chainId` to a canonical hex string fixes both. We forward
+ * only the members the SDK actually uses (`request`, `on`, `removeListener`) via
+ * a plain object so we never interfere with the provider's internal state.
+ */
+export function wrapWalletProvider(provider: Eip1193Source): Eip1193Provider {
+  return {
+    request: async (args: Eip1193RequestArgs) => {
+      const result = await provider.request(args);
+      return args?.method === "eth_chainId" ? canonicalChainId(result) : result;
     },
-  });
+    on: (event, listener) => provider.on?.(event, listener),
+    removeListener: (event, listener) => provider.removeListener?.(event, listener),
+  };
 }
