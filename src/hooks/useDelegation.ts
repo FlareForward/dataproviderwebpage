@@ -61,10 +61,13 @@ export function useDelegation() {
 
   const getWallet = useCallback(async () => {
     if (!connector) throw new Error("No wallet connector available");
+    console.info("[claim] getWallet: requesting provider from connector", connector?.id);
     const provider = wrapWalletProvider((await connector.getProvider()) as any);
+    console.info("[claim] getWallet: got provider, resolving active wallet");
     const controller = new EIP1193WalletController(provider);
     const wallet = await controller.getActiveWallet();
     if (!wallet) throw new Error("Could not resolve an active wallet account");
+    console.info("[claim] getWallet: active wallet resolved");
     return wallet;
   }, [connector]);
 
@@ -146,7 +149,9 @@ export function useDelegation() {
     const t = toast.loading("Claiming FTSO delegation rewards...");
     try {
       const wallet = await getWallet();
+      console.info("[claim] invoking network.claimFtsoReward");
       await network.claimFtsoReward(wallet);
+      console.info("[claim] network.claimFtsoReward resolved");
       toast.success("Delegation rewards claimed", { id: t });
       refresh();
     } catch (e: any) {

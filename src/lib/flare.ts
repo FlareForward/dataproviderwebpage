@@ -117,8 +117,17 @@ function canonicalChainId(value: unknown): unknown {
 export function wrapWalletProvider(provider: Eip1193Source): Eip1193Provider {
   return {
     request: async (args: Eip1193RequestArgs) => {
-      const result = await provider.request(args);
-      return args?.method === "eth_chainId" ? canonicalChainId(result) : result;
+      const started = Date.now();
+      // TEMP DEBUG: trace every wallet RPC call to localize the prod claim stall.
+      console.info("[flare-provider] \u2192", args?.method);
+      try {
+        const result = await provider.request(args);
+        console.info("[flare-provider] \u2713", args?.method, `${Date.now() - started}ms`);
+        return args?.method === "eth_chainId" ? canonicalChainId(result) : result;
+      } catch (e) {
+        console.info("[flare-provider] \u2717", args?.method, `${Date.now() - started}ms`, e);
+        throw e;
+      }
     },
     on: (event, listener) => provider.on?.(event, listener),
     removeListener: (event, listener) => provider.removeListener?.(event, listener),
