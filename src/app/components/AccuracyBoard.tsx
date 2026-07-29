@@ -61,7 +61,7 @@ function HeatCell({
   );
 }
 
-type SortKey = "feed" | "availability" | "primary" | "secondary";
+type SortKey = "feed" | "author" | "availability" | "primary" | "secondary";
 
 interface ColumnDef {
   key: SortKey;
@@ -71,10 +71,18 @@ interface ColumnDef {
 
 const COLUMNS: ColumnDef[] = [
   { key: "feed", label: "Feed", align: "left" },
+  { key: "author", label: "Author", align: "left" },
   { key: "availability", label: "Availability", align: "right" },
   { key: "primary", label: "Primary", align: "right" },
   { key: "secondary", label: "Secondary", align: "right" },
 ];
+
+// `owner` is the handle whose algorithm is live on this feed now; empty/absent
+// falls back to the org default author.
+function displayAuthor(feed: AccuracyFeed): string {
+  const owner = typeof feed.owner === "string" ? feed.owner.trim() : "";
+  return owner || "Steven";
+}
 
 /** One headline band: big number + % sign, colored by band. */
 function Band({
@@ -187,6 +195,8 @@ export function AccuracyBoard() {
     rows.sort((a, b) => {
       let cmp: number;
       if (sort.key === "feed") cmp = a.feed.localeCompare(b.feed);
+      else if (sort.key === "author")
+        cmp = displayAuthor(a).localeCompare(displayAuthor(b));
       else {
         // Nulls (no data) sort to the weak end.
         const av = a[sort.key] ?? -Infinity;
@@ -202,7 +212,7 @@ export function AccuracyBoard() {
     setSort((prev) =>
       prev.key === key
         ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: key === "feed" ? "asc" : "desc" },
+        : { key, dir: key === "feed" || key === "author" ? "asc" : "desc" },
     );
   }
 
@@ -475,6 +485,9 @@ export function AccuracyBoard() {
                               unrewarded
                             </span>
                           ) : null}
+                        </td>
+                        <td className="px-3.5 py-1.5 text-left font-medium text-[#C7D2E1]">
+                          {displayAuthor(r)}
                         </td>
                         <td className="px-3.5 py-1.5 text-right">
                           <HeatCell value={r.availability} kind="a" />
