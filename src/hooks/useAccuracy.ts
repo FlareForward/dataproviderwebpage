@@ -39,6 +39,8 @@ export interface AccuracyFeed extends AccuracyWindow {
   feed_id: string;
   /** Whether this feed is currently part of the rewarded set. */
   is_rewarded: boolean;
+  /** Handle of whoever authored the algorithm live on this feed (owner || default). */
+  owner?: string | null;
 }
 
 export interface AccuracyData {

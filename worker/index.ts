@@ -58,16 +58,54 @@ interface ExplorerFeedRow {
   };
 }
 
-function normalizeFeeds(rows: ExplorerFeedRow[] | undefined) {
+function normalizeFeeds(
+  rows: ExplorerFeedRow[] | undefined,
+  ownerMap: Record<string, string> = {}
+) {
   if (!Array.isArray(rows)) return [];
-  return rows.map((r) => ({
-    feed: r.feed?.representation ?? "",
-    feed_id: r.feed?.feed_name ?? "",
-    is_rewarded: r.feed?.is_rewarded ?? false,
-    availability: pct(r.availability),
-    primary: pct(r.primary),
-    secondary: pct(r.secondary),
-  }));
+  return rows.map((r) => {
+    const feed = r.feed?.representation ?? "";
+    return {
+      feed,
+      feed_id: r.feed?.feed_name ?? "",
+      is_rewarded: r.feed?.is_rewarded ?? false,
+      availability: pct(r.availability),
+      primary: pct(r.primary),
+      secondary: pct(r.secondary),
+      // Who authored the algorithm live on this feed (ff/whale/ace -> handle).
+      owner: ownerMap[feed] ?? null,
+    };
+  });
+}
+
+/**
+ * Per-feed authorship (`owner`) is maintained in FlareForward's own accuracy
+ * feed, not the Explorer. Fetch it and map feed -> owner handle so the board can
+ * show who authored the algorithm live on each feed. Never throws: on any
+ * failure the map is empty and feeds carry owner:null (the UI falls back to the
+ * default author), so the board never breaks on this optional overlay.
+ */
+const OWNERSHIP_URL =
+  "https://raw.githubusercontent.com/FlareForward/ftso-accuracy-data/main/ftso-accuracy.json";
+
+async function fetchOwnerMap(): Promise<Record<string, string>> {
+  try {
+    const res = await fetch(OWNERSHIP_URL, {
+      headers: { Accept: "application/json" },
+      cf: { cacheTtl: 300, cacheEverything: true },
+    } as RequestInit);
+    if (!res.ok) return {};
+    const data = (await res.json()) as {
+      feeds?: Array<{ feed?: string; owner?: string }>;
+    };
+    const map: Record<string, string> = {};
+    for (const f of data.feeds ?? []) {
+      if (f.feed && typeof f.owner === "string" && f.owner) map[f.feed] = f.owner;
+    }
+    return map;
+  } catch {
+    return {};
+  }
 }
 
 async function fetchExplorerJson(path: string): Promise<unknown> {
@@ -97,7 +135,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 async function handleFtso(feedsOnly: boolean): Promise<Response> {
   try {
-    const [ftso, feeds] = await Promise.all([
+    const [ftso, feeds, ownerMap] = await Promise.all([
       fetchExplorerJson(`/entity/${IDENTITY_ADDRESS}/ftso`) as Promise<{
         last_6h?: ExplorerWindow;
         last_24h?: ExplorerWindow;
@@ -106,9 +144,10 @@ async function handleFtso(feedsOnly: boolean): Promise<Response> {
       fetchExplorerJson(
         `/entity/${IDENTITY_ADDRESS}/feeds?limit=100`
       ) as Promise<{ results?: ExplorerFeedRow[] }>,
+      fetchOwnerMap(),
     ]);
 
-    const normalizedFeeds = normalizeFeeds(feeds?.results);
+    const normalizedFeeds = normalizeFeeds(feeds?.results, ownerMap);
     const generated_at_unix = Math.floor(Date.now() / 1000);
 
     if (feedsOnly) {
