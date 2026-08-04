@@ -34,6 +34,21 @@ function dcentProvider(window?: any) {
   return providers?.find(isDcent);
 }
 
+/**
+ * Locate the Rabby-injected EIP-1193 provider. Rabby exposes `window.rabby`
+ * and flags its provider with `isRabby`; like D'CENT we also scan a
+ * multi-provider `providers` array in case several wallets are injected.
+ */
+function rabbyProvider(window?: any) {
+  if (window?.rabby) return window.rabby;
+  const eth = window?.ethereum;
+  if (!eth) return undefined;
+  const isRabby = (p: any) => Boolean(p && p.isRabby);
+  if (isRabby(eth)) return eth;
+  const providers = eth.providers as any[] | undefined;
+  return providers?.find(isRabby);
+}
+
 const connectors = [
   ledger({ projectId }),
   injected({
@@ -41,6 +56,13 @@ const connectors = [
       id: "dcent",
       name: "D'CENT",
       provider: dcentProvider,
+    },
+  }),
+  injected({
+    target: {
+      id: "rabby",
+      name: "Rabby",
+      provider: rabbyProvider,
     },
   }),
   injected({ target: "metaMask" }),

@@ -11,6 +11,7 @@ import {
   Fingerprint,
   QrCode,
   Loader2,
+  Rabbit,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./Button";
@@ -44,6 +45,13 @@ const WALLET_OPTIONS: WalletOption[] = [
     description: "Biometric hardware & mobile wallet",
     icon: Fingerprint,
     color: "#2A7DE1",
+  },
+  {
+    id: "rabby",
+    name: "Rabby",
+    description: "Browser extension",
+    icon: Rabbit,
+    color: "#7084FF",
   },
   {
     id: "metaMask",
@@ -134,6 +142,22 @@ export function ConnectWallet({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
       await attempt(connector);
       setPickerOpen(false);
     } catch (err: unknown) {
+      // Rabby normally injects window.rabby / isRabby, but some configurations
+      // only announce it via EIP-6963. wagmi discovers those automatically
+      // (connector id = the wallet's rdns), so fall back to that connector.
+      if (option.id === "rabby" && isProviderMissing(err)) {
+        const discovered = connectors.find((c) => c.id === "io.rabby");
+        if (discovered) {
+          try {
+            await attempt(discovered);
+            setPickerOpen(false);
+            return;
+          } catch (rabbyErr: unknown) {
+            err = rabbyErr;
+          }
+        }
+      }
+
       // D'CENT ships as an extension, a mobile app, and a hardware wallet. The
       // injected path above only covers the extension; if it isn't installed,
       // fall back to the D'CENT mobile app over WalletConnect.
