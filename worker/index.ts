@@ -219,6 +219,25 @@ interface EntityRewards {
   reward_rate_total_mirror?: number;
 }
 
+/** Find this entity's validator row in the (paginated) validators list. */
+async function findValidatorRow(
+  nodeIds: Set<string>
+): Promise<ValidatorRow | undefined> {
+  let row: ValidatorRow | undefined;
+  const first = (await fetchExplorerJson(
+    `/validators?limit=100&offset=0`
+  )) as { count?: number; results?: ValidatorRow[] };
+  const count = first.count ?? 0;
+  row = first.results?.find((r) => r.node_id && nodeIds.has(r.node_id));
+  for (let off = 100; !row && off < count && off <= 500; off += 100) {
+    const pg = (await fetchExplorerJson(
+      `/validators?limit=100&offset=${off}`
+    )) as { results?: ValidatorRow[] };
+    row = pg.results?.find((r) => r.node_id && nodeIds.has(r.node_id));
+  }
+  return row;
+}
+
 async function handleValidator(): Promise<Response> {
   try {
     const entity = (await fetchExplorerJson(
@@ -233,19 +252,7 @@ async function handleValidator(): Promise<Response> {
     const nodeIds = new Set(e?.denormalizedentity?.node_ids ?? []);
     const rewards = e?.entityrewardslatest ?? null;
 
-    // Find this entity's validator row in the (paginated) validators list.
-    let row: ValidatorRow | undefined;
-    const first = (await fetchExplorerJson(
-      `/validators?limit=100&offset=0`
-    )) as { count?: number; results?: ValidatorRow[] };
-    const count = first.count ?? 0;
-    row = first.results?.find((r) => r.node_id && nodeIds.has(r.node_id));
-    for (let off = 100; !row && off < count && off <= 500; off += 100) {
-      const pg = (await fetchExplorerJson(
-        `/validators?limit=100&offset=${off}`
-      )) as { results?: ValidatorRow[] };
-      row = pg.results?.find((r) => r.node_id && nodeIds.has(r.node_id));
-    }
+    const row = await findValidatorRow(nodeIds);
 
     const generated_at_unix = Math.floor(Date.now() / 1000);
     const nodeId = [...nodeIds][0] ?? null;
@@ -310,6 +317,160 @@ async function handleValidator(): Promise<Response> {
   }
 }
 
+/**
+ * `/api/rewards` — everything the /rewards sales page shows, in one payload.
+ *
+ * Composes the Explorer's entity record (latest-epoch reward buckets + official
+ * per-epoch reward rates + signing-policy vote power + minimal-conditions
+ * eligibility) with the validator row (stake, capacity, P-chain delegators).
+ * All rates come from the Explorer's own `reward_rate_*` fields — nothing is
+ * hand-authored; annualization is the only math applied (epoch rate x epochs
+ * per year), and the payload labels the basis so the UI can disclose it.
+ */
+interface EntityQueryResult {
+  providersuccessrate?: {
+    primary?: number;
+    secondary?: number;
+    availability?: number;
+    active?: boolean;
+  } | null;
+  entityrewardslatest?: (EntityRewards & {
+    direct?: number | string;
+    wnat?: number | string;
+    total_fee?: number | string;
+    reward_rate_wnat?: number;
+    reward_rate_mirror?: number;
+  }) | null;
+  denormalizedentity?: {
+    node_ids?: string[];
+    delegation_address?: string;
+  } | null;
+  denormalizedsigningpolicy?: {
+    reward_epoch?: number;
+    staking_weight?: number | string;
+    w_nat_weight?: number | string;
+    delegation_fee_bips?: number;
+  } | null;
+  entityminimalconditionslatest?: {
+    ftso_scaling?: boolean;
+    ftso_fast_updates?: boolean;
+    staking?: boolean;
+    fdc?: boolean;
+    eligible_for_reward?: boolean;
+  } | null;
+}
+
+/** Explorer success-rate values are basis-point-style: 10000 -> 100%. */
+function ratePct(value: unknown): number | null {
+  if (typeof value !== "number" || Number.isNaN(value)) return null;
+  return value / 100;
+}
+
+async function handleRewards(): Promise<Response> {
+  try {
+    const entity = (await fetchExplorerJson(
+      `/entity?query=${IDENTITY_ADDRESS}`
+    )) as { results?: EntityQueryResult[] };
+    const e = entity.results?.[0];
+    if (!e) throw new Error("entity not found");
+
+    const nodeIds = new Set(e.denormalizedentity?.node_ids ?? []);
+    const row = await findValidatorRow(nodeIds);
+
+    const rewards = e.entityrewardslatest ?? null;
+    const policy = e.denormalizedsigningpolicy ?? null;
+    const success = e.providersuccessrate ?? null;
+    const conditions = e.entityminimalconditionslatest ?? null;
+
+    // Official Explorer per-epoch reward rates (fractions), annualized simply.
+    const delegationEpoch =
+      typeof rewards?.reward_rate_wnat === "number"
+        ? rewards.reward_rate_wnat * 100
+        : null;
+    const stakingEpoch =
+      typeof rewards?.reward_rate_mirror === "number"
+        ? rewards.reward_rate_mirror * 100
+        : null;
+
+    const selfBond = flr(row?.self_bond, STAKE_DECIMALS);
+    const delegated = flr(row?.delegated, STAKE_DECIMALS);
+    const capacity = flr(row?.total_available_stake, STAKE_DECIMALS);
+    const totalStake =
+      selfBond != null && delegated != null ? selfBond + delegated : null;
+    const spaceLeft =
+      capacity != null && totalStake != null ? capacity - totalStake : null;
+
+    const delegators = Array.isArray(row?.delegators)
+      ? (row!.delegators as Array<Record<string, unknown>>).map((d) => ({
+          p_address: typeof d.address === "string" ? d.address : null,
+          stake_flr: flr(d.delegated, STAKE_DECIMALS),
+          start_unix:
+            typeof d.start_time === "number" ? Math.floor(d.start_time) : null,
+          end_unix:
+            typeof d.end_time === "number" ? Math.floor(d.end_time) : null,
+        }))
+      : [];
+
+    return jsonResponse({
+      generated_at_unix: Math.floor(Date.now() / 1000),
+      identity_address: IDENTITY_ADDRESS,
+      delegation_address: e.denormalizedentity?.delegation_address ?? null,
+      node_id: [...nodeIds][0] ?? null,
+      latest_reward_epoch: rewards?.reward_epoch ?? null,
+      eligible_for_reward: conditions?.eligible_for_reward ?? null,
+      conditions: {
+        ftso_scaling: conditions?.ftso_scaling ?? null,
+        ftso_fast_updates: conditions?.ftso_fast_updates ?? null,
+        staking: conditions?.staking ?? null,
+        fdc: conditions?.fdc ?? null,
+      },
+      uptime_availability_pct: ratePct(success?.availability),
+      fee_pct:
+        typeof policy?.delegation_fee_bips === "number"
+          ? policy.delegation_fee_bips / 100
+          : null,
+      vote_power: {
+        delegation_flr: flr(policy?.w_nat_weight, REWARD_DECIMALS),
+        staking_flr: flr(policy?.staking_weight, REWARD_DECIMALS),
+      },
+      rates: {
+        basis: "latest reward epoch, annualized (365 / 3.5-day epochs)",
+        delegation_epoch_pct: delegationEpoch,
+        delegation_annual_pct:
+          delegationEpoch != null ? delegationEpoch * EPOCHS_PER_YEAR : null,
+        staking_epoch_pct: stakingEpoch,
+        staking_annual_pct:
+          stakingEpoch != null ? stakingEpoch * EPOCHS_PER_YEAR : null,
+      },
+      breakdown: {
+        reward_epoch: rewards?.reward_epoch ?? null,
+        delegation_flr: flr(rewards?.wnat, REWARD_DECIMALS),
+        staking_flr: flr(rewards?.mirror, REWARD_DECIMALS),
+        direct_flr: flr(rewards?.direct, REWARD_DECIMALS),
+        fees_flr: flr(rewards?.total_fee, REWARD_DECIMALS),
+        self_bond_flr: flr(rewards?.self_bond_earnings, REWARD_DECIMALS),
+      },
+      staking: {
+        has_validator: !!row,
+        self_bond_flr: selfBond,
+        delegated_flr: delegated,
+        total_stake_flr: totalStake,
+        capacity_flr: capacity,
+        space_left_flr: spaceLeft,
+        delegators_count: delegators.length,
+        active_end_unix:
+          typeof row?.end_time === "number" ? Math.floor(row.end_time) : null,
+      },
+      delegators,
+    });
+  } catch (err) {
+    return jsonResponse(
+      { error: "Failed to load rewards data", detail: String(err) },
+      502
+    );
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -323,6 +484,9 @@ export default {
     }
     if (pathname === "/api/validator" || pathname === "/api/validator/") {
       return handleValidator();
+    }
+    if (pathname === "/api/rewards" || pathname === "/api/rewards/") {
+      return handleRewards();
     }
     if (pathname.startsWith("/api/")) {
       return jsonResponse({ error: "Not found" }, 404);
