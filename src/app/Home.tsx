@@ -16,8 +16,10 @@ import {
 import { Card, CardContent } from "./components/Card";
 import { Button } from "./components/Button";
 import { useRewards } from "../hooks/useRewards";
+import { useYouTubeFeed } from "../hooks/useYouTubeFeed";
 import { fmtFlrCompact, fmtPct } from "../lib/rewards";
 import { LINKS } from "../lib/links";
+import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 
 /**
  * / — the front door, built to sell. One job: a visitor who has never heard
@@ -236,6 +238,9 @@ export default function Home() {
           </Card>
         </section>
 
+        {/* -------------------------------------------------- Content hub */}
+        <ContentHub />
+
         {/* -------------------------------------------------- Closing CTA */}
         <section className="pb-6">
           <div className="glass-card p-8 lg:p-12 text-center">
@@ -272,6 +277,72 @@ export default function Home() {
         </section>
       </div>
     </div>
+  );
+}
+
+/**
+ * Latest videos from the FlareForward channel, via the Worker's `/api/youtube`
+ * proxy. Renders nothing when the feed is empty or unavailable — the community
+ * block above already carries the channel link, so there's no broken state.
+ */
+function ContentHub() {
+  const { videos } = useYouTubeFeed();
+  if (videos.length === 0) return null;
+
+  return (
+    <section aria-labelledby="content-heading" className="space-y-5">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <h2 id="content-heading" className="text-2xl lg:text-3xl font-bold tracking-tight">
+            See the work for yourself
+          </h2>
+          <p className="mt-2 text-sm text-[#8FA0B8]">
+            Fresh from the FlareForward channel — what we're building and teaching right now.
+          </p>
+        </div>
+        <a
+          href={LINKS.youtube}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-[#EE1A58] hover:underline shrink-0"
+        >
+          All videos <ExternalLink size={13} />
+        </a>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {videos.slice(0, 3).map((v) => (
+          <a
+            key={v.id}
+            href={v.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group glass-card glass-card-hover overflow-hidden rounded-2xl block"
+          >
+            <div className="aspect-video overflow-hidden bg-white/5">
+              <ImageWithFallback
+                src={v.thumbnail}
+                alt={v.title}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              />
+            </div>
+            <div className="p-4">
+              <h3 className="text-sm font-semibold leading-snug line-clamp-2 group-hover:text-[#EE1A58] transition-colors">
+                {v.title}
+              </h3>
+              {v.published_unix && (
+                <p className="mt-1.5 text-xs text-[#8FA0B8]">
+                  {new Date(v.published_unix * 1000).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+              )}
+            </div>
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }
 
