@@ -1,0 +1,2 @@
+date	cycle	phases	result	notes
+2026-08-10	ftso-sales-overhaul-01	kickoff,impl A-D,gate,verify,deploy	SHIPPED	Sales homepage+nav; YouTube hub; FlareForward-only purge; VeriGuard teaser; reward-epoch chart; live-verified on domain; wall-clock ~5h single session
