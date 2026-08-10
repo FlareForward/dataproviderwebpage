@@ -320,6 +320,7 @@ export function Staking() {
                         type="number"
                         value={moveAmount}
                         onChange={(e) => setMoveAmount(e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
                         placeholder="0.00"
                         className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
                       />
@@ -393,6 +394,7 @@ export function Staking() {
                               type="number"
                               value={stakeAmount}
                               onChange={(e) => setStakeAmount(e.target.value)}
+                              onWheel={(e) => e.currentTarget.blur()}
                               placeholder="0.00"
                               className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
                             />

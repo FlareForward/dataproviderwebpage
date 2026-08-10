@@ -245,3 +245,15 @@
     box-shadow: 0 0 20px rgba(238, 26, 88, 0.35), 0 4px 16px rgba(0, 0, 0, 0.35);
   }
 }
+
+/* Number inputs: kill the native spinner arrows portal-wide — amounts are
+   typed (or MAX'd), never nudged. Wheel-jog is disabled per-input via onWheel. */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
