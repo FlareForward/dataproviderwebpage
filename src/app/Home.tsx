@@ -151,6 +151,43 @@ export default function Home() {
           </div>
         </section>
 
+        {/* --------------------------------------- VeriGuard bonds teaser */}
+        <section aria-labelledby="veriguard-heading">
+          <div className="glass-card p-6 lg:p-8 border border-[#EE1A58]/20">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="max-w-2xl">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EE1A58]/15 border border-[#EE1A58]/40 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#EE1A58]">
+                    <Flame size={12} /> Coming soon
+                  </span>
+                </div>
+                <h2 id="veriguard-heading" className="mt-3 text-xl lg:text-2xl font-bold tracking-tight">
+                  VeriGuard NFT Bonds — grow the bond with us
+                </h2>
+                <p className="mt-2 text-sm text-[#8FA0B8] leading-relaxed">
+                  A new way to strengthen FlareForward's infrastructure is in the
+                  works: NFT bond raises on VeriGuard, run in 90-day cycles. A
+                  bigger bond means stronger, better-funded infrastructure —
+                  built with the community instead of around it. Terms are being
+                  finalized now; the announcement drops on our channels first.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 shrink-0">
+                <a href={LINKS.x} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" className="gap-2">
+                    <XGlyph /> Get the announcement
+                  </Button>
+                </a>
+                <a href={LINKS.youtube} target="_blank" rel="noopener noreferrer">
+                  <Button variant="ghost" className="gap-2 text-[#8FA0B8] hover:text-[#FAFAFA]">
+                    <Youtube size={16} /> Watch for updates
+                  </Button>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* -------------------------------------------------- How it works */}
         <section aria-labelledby="how-heading" className="space-y-5">
           <div className="text-center max-w-2xl mx-auto">
