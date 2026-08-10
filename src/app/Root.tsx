@@ -1,6 +1,17 @@
 import { useState } from "react";
 import { Outlet, NavLink } from "react-router";
-import { LayoutDashboard, Search, Server, Menu, X, BarChart3, Gift } from "lucide-react";
+import {
+  LayoutDashboard,
+  Menu,
+  X,
+  BarChart3,
+  Gift,
+  Wallet,
+  Landmark,
+  Youtube,
+  ExternalLink,
+} from "lucide-react";
+import { LINKS } from "../lib/links";
 import { Button } from "./components/Button";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
@@ -29,12 +40,14 @@ export function Root() {
           </div>
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Overview" />
-          <NavItem to="/providers" icon={<Server size={20} />} label="Infrastructure Providers" />
-          <NavItem to="/rewards" icon={<Gift size={20} />} label="Rewards" />
+          <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Home" />
+          <NavItem to="/delegation" icon={<Wallet size={20} />} label="Delegate" />
+          <NavItem to="/staking" icon={<Landmark size={20} />} label="Stake" />
+          <NavItem to="/rewards" icon={<Gift size={20} />} label="My Rewards" />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
         </nav>
-        <div className="p-4 border-t border-white/8">
+        <div className="p-4 border-t border-white/8 space-y-3">
+          <SocialLinks />
           <div className="glass-panel p-4">
             <h4 className="font-semibold text-sm mb-1">Network Status</h4>
             <div className="flex items-center gap-2 text-xs text-[#8FA0B8]">
@@ -65,13 +78,9 @@ export function Root() {
             </div>
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 glass-panel px-3 py-1.5 w-80 focus-within:border-[#EE1A58]/60 transition-colors">
-            <Search size={16} className="text-[#8FA0B8]" />
-            <input
-              type="text"
-              placeholder="Search providers, validators, or tokens..."
-              className="bg-transparent border-none outline-none text-sm w-full placeholder:text-[#8FA0B8] text-[#FAFAFA]"
-            />
+          <div className="hidden lg:flex items-center gap-2 text-sm text-[#8FA0B8]">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+            FlareForward — FTSO data provider &amp; validator on Flare Mainnet
           </div>
 
           <div className="flex items-center gap-3">
@@ -85,19 +94,25 @@ export function Root() {
             <NavItem
               to="/"
               icon={<LayoutDashboard size={20} />}
-              label="Overview"
+              label="Home"
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem
-              to="/providers"
-              icon={<Server size={20} />}
-              label="Infrastructure Providers"
+              to="/delegation"
+              icon={<Wallet size={20} />}
+              label="Delegate"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <NavItem
+              to="/staking"
+              icon={<Landmark size={20} />}
+              label="Stake"
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem
               to="/rewards"
               icon={<Gift size={20} />}
-              label="Rewards"
+              label="My Rewards"
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem
@@ -106,6 +121,9 @@ export function Root() {
               label="Analytics"
               onClick={() => setMobileMenuOpen(false)}
             />
+            <div className="pt-2">
+              <SocialLinks />
+            </div>
           </nav>
         )}
 
@@ -114,6 +132,29 @@ export function Root() {
           <Outlet />
         </div>
       </main>
+    </div>
+  );
+}
+
+/** Community + cross-property links — the FTSO portal is one FlareForward
+    surface; these keep YouTube, X, and the main site one click away. */
+function SocialLinks() {
+  const linkClass =
+    "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5 transition-all";
+  return (
+    <div className="space-y-0.5">
+      <a href={LINKS.site} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        <ExternalLink size={14} /> flareforward.com
+      </a>
+      <a href={LINKS.youtube} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        <Youtube size={14} /> YouTube
+      </a>
+      <a href={LINKS.x} target="_blank" rel="noopener noreferrer" className={linkClass}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+        X / Twitter
+      </a>
     </div>
   );
 }

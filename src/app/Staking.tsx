@@ -2,12 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { parseUnits } from "viem";
 import {
   Server,
-  Search,
-  CheckCircle2,
   Wallet,
   Info,
   Loader2,
-  XCircle,
   ArrowRightLeft,
   Gift,
   Download,
@@ -15,12 +12,16 @@ import {
   Layers,
   Clock,
   RefreshCw,
+  Landmark,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/Card";
 import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
 import { ConnectWallet } from "./components/ConnectWallet";
+import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useStaking } from "../hooks/useStaking";
+import { useValidatorStaking } from "../hooks/useValidatorStaking";
+import logoImage from "../imports/flareforward_logo.png";
 import {
   buildDurationOptions,
   formatFlr,
@@ -53,14 +54,19 @@ export function Staking() {
     refetchStakes,
   } = useStaking();
 
-  const [query, setQuery] = useState("");
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  // FlareForward's own validator node — the only staking target on this site.
+  const { data: ffValidator } = useValidatorStaking();
+  const ourNodeId = ffValidator?.node_id ?? null;
+
   const [moveAmount, setMoveAmount] = useState("");
   const [stakeAmount, setStakeAmount] = useState("");
   const [durationSecs, setDurationSecs] = useState<bigint | null>(null);
   const [capacity, setCapacity] = useState<bigint | null>(null);
   const [confirming, setConfirming] = useState(false);
 
+  // Pinned selection: always FlareForward's node, resolved against the live
+  // validator list so limits/durations/capacity come from on-chain data.
+  const selectedNodeId = ourNodeId;
   const selectedValidator = useMemo(
     () => validators.find((v) => v.nodeId === selectedNodeId) ?? null,
     [validators, selectedNodeId]
@@ -91,11 +97,6 @@ export function Staking() {
     };
   }, [selectedNodeId, getValidatorCapacity]);
 
-  const q = query.trim().toLowerCase();
-  const filtered = validators.filter(
-    (v) => v.nodeId.toLowerCase().includes(q) || (v.name?.toLowerCase().includes(q) ?? false)
-  );
-
   const amountWei = (() => {
     try {
       return stakeAmount ? parseUnits(stakeAmount, 18) : 0n;
@@ -117,11 +118,6 @@ export function Staking() {
     !amountError &&
     !capacityError &&
     busy === null;
-
-  function selectValidator(nodeId: string) {
-    setConfirming(false);
-    setSelectedNodeId((prev) => (prev === nodeId ? null : nodeId));
-  }
 
   async function handleEnable() {
     try {
@@ -163,7 +159,8 @@ export function Staking() {
       {isConnected && pEnabled && (
         <YourStakes
           stakes={stakes}
-          validators={validators}
+          ourNodeId={ourNodeId}
+          ourFeePct={selectedValidator?.delegationFeePct ?? null}
           totalStaked={balance.stakedOnP}
           fetching={stakesFetching}
           onchainFailed={stakesOnchainFailed}
@@ -172,89 +169,90 @@ export function Staking() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Validator list */}
+        {/* FlareForward validator — the one and only staking target on this site. */}
         <Card className="col-span-1 lg:col-span-2">
           <CardHeader className="border-b border-white/8 pb-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <CardTitle className="text-[#FAFAFA]">Available Validators</CardTitle>
-                <CardDescription className="text-[#8FA0B8]">
-                  Stake FLR on the P-chain by delegating to a validator node
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2 glass-panel px-3 py-1.5 focus-within:border-[#EE1A58]/60 transition-colors w-full sm:w-auto">
-                <Search size={16} className="text-[#8FA0B8]" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  type="text"
-                  placeholder="Search by name or NodeID..."
-                  className="bg-transparent border-none outline-none text-sm w-full placeholder:text-[#8FA0B8] text-[#FAFAFA]"
-                />
-              </div>
-            </div>
+            <CardTitle className="text-[#FAFAFA]">Your validator: FlareForward</CardTitle>
+            <CardDescription className="text-[#8FA0B8]">
+              Stake FLR on the P-chain with the FlareForward validator — run by
+              the same team signing your price feeds.
+            </CardDescription>
           </CardHeader>
-          <div className="divide-y divide-white/8 max-h-[560px] overflow-y-auto">
-            {validatorsLoading && validators.length === 0 && (
-              <div className="p-8 text-center text-[#8FA0B8] text-sm">Loading validators...</div>
-            )}
-            {!validatorsLoading && filtered.length === 0 && (
-              <div className="p-8 text-center text-[#8FA0B8] text-sm">
-                {validators.length === 0 ? "No validators found." : `No validators match "${query}".`}
+          <CardContent className="p-5 space-y-5">
+            {!selectedValidator && (validatorsLoading || !ourNodeId) ? (
+              <div className="p-8 text-center text-[#8FA0B8] text-sm flex items-center justify-center gap-2">
+                <Loader2 size={16} className="animate-spin" /> Loading the FlareForward validator…
               </div>
-            )}
-            {filtered.map((v) => {
-              const isSel = v.nodeId === selectedNodeId;
-              const disabled = !v.acceptsDelegations;
-              return (
-                <div
-                  key={v.nodeId}
-                  onClick={() => !disabled && selectValidator(v.nodeId)}
-                  className={`p-4 flex items-center justify-between transition-colors ${
-                    disabled
-                      ? "opacity-40 cursor-not-allowed"
-                      : "cursor-pointer hover:bg-white/5"
-                  } ${isSel ? "bg-[#EE1A58]/15" : ""}`}
-                >
+            ) : !selectedValidator ? (
+              <div className="p-8 text-center text-[#8FA0B8] text-sm">
+                The FlareForward validator isn't accepting new stakes right now —
+                check back soon.
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-4 min-w-0">
-                    <ValidatorAvatar name={v.name} logoURI={v.logoURI} selected={isSel} />
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
+                      <ImageWithFallback
+                        src={logoImage}
+                        alt="FlareForward"
+                        className="w-8 h-8 object-contain"
+                      />
+                    </div>
                     <div className="min-w-0">
-                      <div className="font-medium text-[#FAFAFA] flex items-center gap-2">
-                        {v.name ? (
-                          <span className="truncate" title={v.name}>
-                            {v.name}
-                          </span>
-                        ) : (
-                          <span className="font-mono truncate" title={v.nodeId}>
-                            {shortNodeId(v.nodeId)}
-                          </span>
-                        )}
-                        {isSel && <CheckCircle2 size={14} className="text-[#EE1A58] shrink-0" />}
-                      </div>
-                      {v.name && (
-                        <div
-                          className="text-xs text-[#8FA0B8] font-mono truncate"
-                          title={v.nodeId}
-                        >
-                          {shortNodeId(v.nodeId)}
-                        </div>
-                      )}
-                      <div className="text-sm text-[#8FA0B8] flex items-center gap-3 mt-1 flex-wrap">
-                        <span>Self-bond: {v.selfBondLabel} FLR</span>
-                          <span className="w-1 h-1 rounded-full bg-white/20" />
-                        <span>Fee: {v.delegationFeePct.toFixed(2)}%</span>
-                          <span className="w-1 h-1 rounded-full bg-white/20" />
-                        <span>Ends: {v.endDate.toLocaleDateString()}</span>
+                      <div className="font-semibold text-lg text-[#FAFAFA]">FlareForward</div>
+                      <div
+                        className="text-xs text-[#8FA0B8] font-mono truncate"
+                        title={selectedValidator.nodeId}
+                      >
+                        {shortNodeId(selectedValidator.nodeId, 12)}
                       </div>
                     </div>
                   </div>
-                  <Badge variant={disabled ? "dark" : "success"}>
-                    {disabled ? "Ending soon" : "Accepting"}
+                  <Badge variant={selectedValidator.acceptsDelegations ? "success" : "dark"}>
+                    {selectedValidator.acceptsDelegations ? "Accepting stakes" : "Ending soon"}
                   </Badge>
                 </div>
-              );
-            })}
-          </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="glass-panel p-3">
+                    <div className="text-xs text-[#8FA0B8] mb-1">Our self-bond</div>
+                    <div className="font-medium text-[#FAFAFA] text-sm">
+                      {selectedValidator.selfBondLabel} FLR
+                    </div>
+                  </div>
+                  <div className="glass-panel p-3">
+                    <div className="text-xs text-[#8FA0B8] mb-1">Fee</div>
+                    <div className="font-medium text-[#FAFAFA] text-sm">
+                      {selectedValidator.delegationFeePct.toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="glass-panel p-3">
+                    <div className="text-xs text-[#8FA0B8] mb-1">Stakers</div>
+                    <div className="font-medium text-[#FAFAFA] text-sm">
+                      {ffValidator?.delegators_count ?? "—"}
+                    </div>
+                  </div>
+                  <div className="glass-panel p-3">
+                    <div className="text-xs text-[#8FA0B8] mb-1">Active until</div>
+                    <div className="font-medium text-[#FAFAFA] text-sm">
+                      {selectedValidator.endDate.toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
+                  <Landmark size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                  <div className="text-[#FAFAFA]">
+                    Our own capital is self-bonded on this node — we stake
+                    alongside you. Staked FLR is locked for the duration you
+                    choose, then returns to your P-chain balance. Rewards accrue
+                    every reward epoch.
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
         </Card>
 
         {/* Staking action panel */}
@@ -348,34 +346,28 @@ export function Staking() {
                     {!selectedValidator ? (
                       <div className="text-center py-4 text-[#8FA0B8] flex flex-col items-center">
                         <Server size={28} className="mb-2 opacity-20" />
-                        <p className="text-sm">Select a validator from the list to stake.</p>
+                        <p className="text-sm">Loading the FlareForward validator…</p>
                       </div>
                     ) : (
                       <>
                         <div className="glass-panel p-3">
-                          <div className="text-xs text-[#8FA0B8] mb-1">Selected validator</div>
+                          <div className="text-xs text-[#8FA0B8] mb-1">Staking with</div>
                           <div className="flex items-center gap-2">
-                            {selectedValidator.name && (
-                              <ValidatorAvatar
-                                name={selectedValidator.name}
-                                logoURI={selectedValidator.logoURI}
-                                size={20}
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center bg-white/5 overflow-hidden shrink-0">
+                              <ImageWithFallback
+                                src={logoImage}
+                                alt="FlareForward"
+                                className="w-4 h-4 object-contain"
                               />
-                            )}
-                            {selectedValidator.name ? (
-                              <div className="min-w-0">
-                                <div className="text-sm text-[#FAFAFA] font-medium truncate">
-                                  {selectedValidator.name}
-                                </div>
-                                <div className="font-mono text-xs text-[#8FA0B8] break-all">
-                                  {shortNodeId(selectedValidator.nodeId, 10)}
-                                </div>
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm text-[#FAFAFA] font-medium truncate">
+                                FlareForward
                               </div>
-                            ) : (
-                              <div className="font-mono text-sm text-[#FAFAFA] break-all">
+                              <div className="font-mono text-xs text-[#8FA0B8] break-all">
                                 {shortNodeId(selectedValidator.nodeId, 10)}
                               </div>
-                            )}
+                            </div>
                           </div>
                           <div className="text-xs text-[#8FA0B8] mt-1">
                             Fee {selectedValidator.delegationFeePct.toFixed(2)}%
@@ -469,14 +461,7 @@ export function Staking() {
                           <div className="space-y-3">
                             <p className="text-sm text-[#FAFAFA] text-center">
                               Stake {stakeAmount} FLR to{" "}
-                              {selectedValidator.name ? (
-                                <span className="font-medium">{selectedValidator.name}</span>
-                              ) : (
-                                <span className="font-mono">
-                                  {shortNodeId(selectedValidator.nodeId)}
-                                </span>
-                              )}
-                              ?
+                              <span className="font-medium">FlareForward</span>?
                             </p>
                             <div className="flex gap-2">
                               <Button
@@ -555,27 +540,28 @@ export function Staking() {
   );
 }
 
+/**
+ * The user's own P-chain stakes. Stakes to FlareForward are branded; stakes to
+ * any other validator render as a shortened NodeID only — no other operator's
+ * name, logo, or fee appears on this site.
+ */
 function YourStakes({
   stakes,
-  validators,
+  ourNodeId,
+  ourFeePct,
   totalStaked,
   fetching,
   onchainFailed,
   onRefresh,
 }: {
   stakes: DisplayStake[];
-  validators: ValidatorRow[];
+  ourNodeId: string | null;
+  ourFeePct: number | null;
   totalStaked: bigint;
   fetching: boolean;
   onchainFailed: boolean;
   onRefresh: () => void;
 }) {
-  const metaByNode = useMemo(() => {
-    const map = new Map<string, ValidatorRow>();
-    for (const v of validators) map.set(v.nodeId, v);
-    return map;
-  }, [validators]);
-
   const nowSecs = Math.floor(Date.now() / 1000);
 
   return (
@@ -617,8 +603,8 @@ function YourStakes({
           </div>
         )}
         {stakes.map((s) => {
-          const meta = metaByNode.get(s.nodeId);
-          const fee = meta?.delegationFeePct;
+          const isUs = ourNodeId != null && s.nodeId === ourNodeId;
+          const fee = isUs ? (ourFeePct ?? undefined) : undefined;
           const unlocked = Number(s.endTime) <= nowSecs;
           return (
             <div
@@ -626,12 +612,22 @@ function YourStakes({
               className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
             >
               <div className="flex items-center gap-4 min-w-0">
-                <ValidatorAvatar name={meta?.name} logoURI={meta?.logoURI} />
+                {isUs ? (
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
+                    <ImageWithFallback
+                      src={logoImage}
+                      alt="FlareForward"
+                      className="w-7 h-7 object-contain"
+                    />
+                  </div>
+                ) : (
+                  <ValidatorAvatar />
+                )}
                 <div className="min-w-0">
-                  {meta?.name ? (
+                  {isUs ? (
                     <>
-                      <div className="text-sm text-[#FAFAFA] font-medium truncate" title={meta.name}>
-                        {meta.name}
+                      <div className="text-sm text-[#FAFAFA] font-medium truncate">
+                        FlareForward
                       </div>
                       <div
                         className="font-mono text-xs text-[#8FA0B8] truncate"

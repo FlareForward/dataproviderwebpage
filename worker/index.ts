@@ -471,6 +471,79 @@ async function handleRewards(): Promise<Response> {
   }
 }
 
+/**
+ * `/api/youtube` — latest videos from the FlareForward channel for the
+ * homepage content hub. YouTube's public Atom feed needs no API key but sends
+ * no CORS headers, so it's proxied same-origin like the Explorer endpoints.
+ * Workers have no XML parser, so entries are extracted with anchored regexes
+ * over the (machine-generated, stable-shape) feed. Failures return an empty
+ * list rather than an error — the UI falls back to a plain channel link.
+ */
+const YOUTUBE_CHANNEL_ID = "UC8isC_Zx3-O8M7VC1G1T9Ag";
+const YOUTUBE_FEED_URL = `https://www.youtube.com/feeds/videos.xml?channel_id=${YOUTUBE_CHANNEL_ID}`;
+const YOUTUBE_MAX_VIDEOS = 6;
+
+/** Minimal entity decode for feed titles (the only free-text field we ship). */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+async function handleYouTube(): Promise<Response> {
+  try {
+    const res = await fetch(YOUTUBE_FEED_URL, {
+      headers: { Accept: "application/atom+xml" },
+      cf: { cacheTtl: 1800, cacheEverything: true },
+    } as RequestInit);
+    if (!res.ok) throw new Error(`YouTube feed -> ${res.status}`);
+    const xml = await res.text();
+
+    const videos: Array<{
+      id: string;
+      title: string;
+      url: string;
+      thumbnail: string;
+      published_unix: number | null;
+    }> = [];
+    const entryRe = /<entry>([\s\S]*?)<\/entry>/g;
+    let m: RegExpExecArray | null;
+    while ((m = entryRe.exec(xml)) && videos.length < YOUTUBE_MAX_VIDEOS) {
+      const entry = m[1];
+      const id = /<yt:videoId>([\w-]+)<\/yt:videoId>/.exec(entry)?.[1];
+      const title = /<title>([\s\S]*?)<\/title>/.exec(entry)?.[1];
+      const published = /<published>([^<]+)<\/published>/.exec(entry)?.[1];
+      if (!id || !title) continue;
+      const publishedMs = published ? Date.parse(published) : NaN;
+      videos.push({
+        id,
+        title: decodeEntities(title.trim()),
+        url: `https://www.youtube.com/watch?v=${id}`,
+        thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+        published_unix: Number.isFinite(publishedMs)
+          ? Math.floor(publishedMs / 1000)
+          : null,
+      });
+    }
+
+    return jsonResponse({
+      generated_at_unix: Math.floor(Date.now() / 1000),
+      channel_id: YOUTUBE_CHANNEL_ID,
+      videos,
+    });
+  } catch {
+    // Soft-fail: the content hub renders its channel-link fallback on empty.
+    return jsonResponse({
+      generated_at_unix: Math.floor(Date.now() / 1000),
+      channel_id: YOUTUBE_CHANNEL_ID,
+      videos: [],
+    });
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -487,6 +560,9 @@ export default {
     }
     if (pathname === "/api/rewards" || pathname === "/api/rewards/") {
       return handleRewards();
+    }
+    if (pathname === "/api/youtube" || pathname === "/api/youtube/") {
+      return handleYouTube();
     }
     if (pathname.startsWith("/api/")) {
       return jsonResponse({ error: "Not found" }, 404);

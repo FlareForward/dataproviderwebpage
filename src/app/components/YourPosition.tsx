@@ -5,6 +5,7 @@ import { Search, Loader2, Wallet, Landmark, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./Card";
 import { Button } from "./Button";
 import { usePosition } from "../../hooks/usePosition";
+import { RewardEpochChart } from "./RewardEpochChart";
 import {
   daysLeft,
   fmtDate,
@@ -158,6 +159,9 @@ export function YourPosition({ rewards }: { rewards: RewardsData | null }) {
                 </Link>
               </div>
             )}
+
+            {/* Per-epoch unclaimed rewards, live from the RewardManager. */}
+            <RewardEpochChart address={submitted} />
 
             {position.ffSharePct > 0 && (
               <div className="flex flex-wrap gap-2">
