@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router";
-import { ArrowUpRight, ArrowDownRight, Shield, Loader2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -12,7 +11,6 @@ import {
 } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./Card";
 import { Badge } from "./Badge";
-import { Button } from "./Button";
 import { ImageWithFallback } from "./figma/ImageWithFallback";
 import { usePriceFeeds } from "../../hooks/usePriceFeeds";
 import { useProviders } from "../../hooks/useProviders";
@@ -25,10 +23,11 @@ function formatLarge(n: number): string {
 }
 
 /**
- * Network + market data demoted off the homepage: key network metrics, the
- * session-sampled FTSOv2 price chart, the full live feed list, and the
- * provider vote-power table. Rendered on /analytics for visitors who want the
- * numbers; the homepage sells instead.
+ * Network + market data demoted off the homepage: aggregate network metrics,
+ * the session-sampled FTSOv2 price chart, and the full live feed list.
+ * Rendered on /analytics for visitors who want the numbers; the homepage
+ * sells instead. Deliberately shows NO other provider's identity or stats —
+ * this site presents FlareForward only.
  */
 export function MarketOverview() {
   const { feeds, history, chartSymbols, timestamp, isLoading, error } = usePriceFeeds();
@@ -226,73 +225,6 @@ export function MarketOverview() {
         </Card>
       </div>
 
-      {/* Provider Vote Power Table */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-[#FAFAFA]">Data Providers by Vote Power</CardTitle>
-            <CardDescription className="text-[#8FA0B8]">Top FTSO providers on Flare Mainnet</CardDescription>
-          </div>
-          <Link to="/providers">
-            <Button variant="outline" size="sm">
-              View All
-            </Button>
-          </Link>
-        </CardHeader>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-[#FAFAFA]">
-            <thead className="bg-white/5 border-y border-white/8 text-[#8FA0B8] text-xs uppercase tracking-wider font-semibold">
-              <tr>
-                <th className="px-6 py-3">Provider</th>
-                <th className="px-6 py-3">Vote Power</th>
-                <th className="px-6 py-3">Delegation %</th>
-                <th className="px-6 py-3">Status</th>
-                <th className="px-6 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/8">
-              {providers.slice(0, 6).map((val) => (
-                <tr key={val.address} className="hover:bg-white/5 transition-colors">
-                  <td className="px-6 py-4 font-medium flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10 overflow-hidden shrink-0">
-                      {val.logoURI ? (
-                        <ImageWithFallback src={val.logoURI} alt={val.name} className="w-8 h-8 object-cover" />
-                      ) : (
-                        <Shield size={14} className="text-[#8FA0B8]" />
-                      )}
-                    </div>
-                    {val.name}
-                  </td>
-                  <td className="px-6 py-4 font-mono">{val.votePowerLabel}</td>
-                  <td className="px-6 py-4">{val.delegationPct !== null ? `${val.delegationPct.toFixed(2)}%` : "-"}</td>
-                  <td className="px-6 py-4">
-                    <Badge
-                      variant={val.status === "Active" ? "success" : val.status === "Warning" ? "outline" : "dark"}
-                      className={val.status === "Warning" ? "border-yellow-500/50 text-yellow-500" : ""}
-                    >
-                      {val.status}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <Link to="/delegation">
-                      <Button variant="ghost" size="sm" className="h-8 px-2 text-[#8FA0B8] hover:text-[#EE1A58]">
-                        Delegate
-                      </Button>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-              {providers.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="px-6 py-8 text-center text-[#8FA0B8]">
-                    Loading providers...
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </div>
   );
 }

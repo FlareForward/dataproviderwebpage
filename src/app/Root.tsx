@@ -2,8 +2,6 @@ import { useState } from "react";
 import { Outlet, NavLink } from "react-router";
 import {
   LayoutDashboard,
-  Search,
-  Server,
   Menu,
   X,
   BarChart3,
@@ -46,7 +44,6 @@ export function Root() {
           <NavItem to="/delegation" icon={<Wallet size={20} />} label="Delegate" />
           <NavItem to="/staking" icon={<Landmark size={20} />} label="Stake" />
           <NavItem to="/rewards" icon={<Gift size={20} />} label="My Rewards" />
-          <NavItem to="/providers" icon={<Server size={20} />} label="Providers" />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
         </nav>
         <div className="p-4 border-t border-white/8 space-y-3">
@@ -81,13 +78,9 @@ export function Root() {
             </div>
           </div>
 
-          <div className="hidden lg:flex items-center gap-2 glass-panel px-3 py-1.5 w-80 focus-within:border-[#EE1A58]/60 transition-colors">
-            <Search size={16} className="text-[#8FA0B8]" />
-            <input
-              type="text"
-              placeholder="Search providers, validators, or tokens..."
-              className="bg-transparent border-none outline-none text-sm w-full placeholder:text-[#8FA0B8] text-[#FAFAFA]"
-            />
+          <div className="hidden lg:flex items-center gap-2 text-sm text-[#8FA0B8]">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
+            FlareForward — FTSO data provider &amp; validator on Flare Mainnet
           </div>
 
           <div className="flex items-center gap-3">
@@ -120,12 +113,6 @@ export function Root() {
               to="/rewards"
               icon={<Gift size={20} />}
               label="My Rewards"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <NavItem
-              to="/providers"
-              icon={<Server size={20} />}
-              label="Providers"
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem

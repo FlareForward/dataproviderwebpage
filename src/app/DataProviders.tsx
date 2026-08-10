@@ -1,57 +1,45 @@
-import { useState } from "react";
 import * as Tabs from "@radix-ui/react-tabs";
-import { Search, Shield, ExternalLink } from "lucide-react";
 import { useLocation } from "react-router";
 import { Delegation } from "./Delegation";
 import { Staking } from "./Staking";
-import { Badge } from "./components/Badge";
-import { ImageWithFallback } from "./components/figma/ImageWithFallback";
-import { useProviders } from "../hooks/useProviders";
-import { shortAddress, EXPLORER_URL } from "../lib/flare";
 
+/**
+ * /delegation and /staking — the action center. Both journeys target
+ * FlareForward only: this site offers no directory of other providers or
+ * validators. (The old /providers route lands here too, on the delegate tab.)
+ */
 export function DataProviders() {
   const location = useLocation();
-  const defaultTab = location.pathname.includes("staking")
-    ? "staking"
-    : location.pathname.includes("delegation")
-      ? "delegation"
-      : "all";
+  const defaultTab = location.pathname.includes("staking") ? "staking" : "delegation";
 
   return (
     <div className="p-4 lg:p-8 flex-1 flex flex-col h-full overflow-hidden">
       <div className="max-w-7xl mx-auto w-full space-y-6 flex-1 flex flex-col">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Infrastructure Providers</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">
+            Delegate &amp; Stake with FlareForward
+          </h1>
           <p className="text-[#8FA0B8] text-sm mt-1">
-            View registered FTSO data providers and delegate your vote power.
+            Put your FLR to work with the builders — non-custodial, reversible,
+            and done in about a minute.
           </p>
         </div>
 
         <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col">
           <Tabs.List className="flex border-b border-white/8 mb-6">
             <Tabs.Trigger
-              value="all"
-              className="px-6 py-3 text-sm font-medium text-[#8FA0B8] hover:text-[#FAFAFA] border-b-2 border-transparent data-[state=active]:border-[#EE1A58] data-[state=active]:text-[#EE1A58] transition-colors"
-            >
-              All Providers
-            </Tabs.Trigger>
-            <Tabs.Trigger
               value="delegation"
               className="px-6 py-3 text-sm font-medium text-[#8FA0B8] hover:text-[#FAFAFA] border-b-2 border-transparent data-[state=active]:border-[#EE1A58] data-[state=active]:text-[#EE1A58] transition-colors"
             >
-              Delegation
+              Delegate WFLR
             </Tabs.Trigger>
             <Tabs.Trigger
               value="staking"
               className="px-6 py-3 text-sm font-medium text-[#8FA0B8] hover:text-[#FAFAFA] border-b-2 border-transparent data-[state=active]:border-[#EE1A58] data-[state=active]:text-[#EE1A58] transition-colors"
             >
-              Staking
+              Stake on P-chain
             </Tabs.Trigger>
           </Tabs.List>
-
-          <Tabs.Content value="all" className="flex-1 outline-none">
-            <AllProviders />
-          </Tabs.Content>
 
           <Tabs.Content value="delegation" className="flex-1 outline-none">
             <Delegation />
@@ -62,121 +50,6 @@ export function DataProviders() {
           </Tabs.Content>
         </Tabs.Root>
       </div>
-    </div>
-  );
-}
-
-function AllProviders() {
-  const { providers, isLoading, error } = useProviders();
-  const [q, setQ] = useState("");
-
-  const query = q.trim().toLowerCase();
-  const filtered = providers.filter(
-    (p) =>
-      p.name.toLowerCase().includes(query) ||
-      p.address.toLowerCase().includes(query) ||
-      p.identityAddress.toLowerCase().includes(query)
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 glass-panel px-3 py-2 focus-within:border-[#EE1A58]/60 transition-colors max-w-md">
-        <Search size={16} className="text-[#8FA0B8]" />
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          type="text"
-          placeholder="Search providers by name, identity or delegation address..."
-          className="bg-transparent border-none outline-none text-sm w-full placeholder:text-[#8FA0B8] text-[#FAFAFA]"
-        />
-      </div>
-
-      {error && (
-        <div className="glass-panel border-red-500/30 p-6 text-center text-red-400">
-          Failed to load providers: {error.message}
-        </div>
-      )}
-
-      {isLoading && providers.length === 0 && (
-        <div className="glass-panel p-8 text-center text-[#8FA0B8]">
-          Loading data providers...
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filtered.map((p) => (
-          <div
-            key={p.address}
-            className="glass-card glass-card-hover p-5 flex flex-col gap-3"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                  {p.logoURI ? (
-                    <ImageWithFallback src={p.logoURI} alt={p.name} className="w-10 h-10 object-cover" />
-                  ) : (
-                    <Shield size={18} className="text-[#8FA0B8]" />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-[#FAFAFA] truncate">{p.name}</div>
-                  <div className="text-xs text-[#8FA0B8] font-mono" title={p.identityAddress}>
-                    {shortAddress(p.identityAddress)}
-                  </div>
-                </div>
-              </div>
-              <Badge
-                variant={p.status === "Active" ? "success" : p.status === "Warning" ? "outline" : "dark"}
-                className={p.status === "Warning" ? "border-yellow-500/50 text-yellow-500" : ""}
-              >
-                {p.status}
-              </Badge>
-            </div>
-
-            {p.description && (
-              <p className="text-xs text-[#8FA0B8] line-clamp-3">{p.description}</p>
-            )}
-
-            <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/8 text-sm">
-              <div>
-                <div className="text-[#8FA0B8] text-xs">Vote Power</div>
-                <div className="text-[#FAFAFA] font-medium">{p.votePowerLabel}</div>
-              </div>
-              <div className="text-right">
-                <div className="text-[#8FA0B8] text-xs">Delegation</div>
-                <div className="text-[#FAFAFA] font-medium">
-                  {p.delegationPct !== null ? `${p.delegationPct.toFixed(2)}%` : "-"}
-                </div>
-              </div>
-            </div>
-
-            {p.url && (
-              <a
-                href={p.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-xs text-[#EE1A58] hover:underline flex items-center gap-1"
-              >
-                <ExternalLink size={12} />
-                Website
-              </a>
-            )}
-            <a
-              href={`${EXPLORER_URL}/address/${p.identityAddress}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-[#8FA0B8] hover:text-[#FAFAFA] flex items-center gap-1"
-            >
-              <ExternalLink size={12} />
-              View on explorer
-            </a>
-          </div>
-        ))}
-      </div>
-
-      {!isLoading && filtered.length === 0 && providers.length > 0 && (
-        <div className="text-center text-[#8FA0B8] py-8">No providers match "{q}".</div>
-      )}
     </div>
   );
 }

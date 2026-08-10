@@ -1,6 +1,20 @@
 import { useState } from "react";
 import { formatUnits } from "viem";
-import { Shield, Search, CheckCircle2, Wallet, Info, Loader2, XCircle, Users, Gift } from "lucide-react";
+import {
+  Shield,
+  Wallet,
+  Info,
+  Loader2,
+  XCircle,
+  Users,
+  Gift,
+  CheckCircle2,
+  ExternalLink,
+  GraduationCap,
+  Flame,
+  Hammer,
+} from "lucide-react";
+import { Link } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/Card";
 import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
@@ -8,14 +22,28 @@ import { ConnectWallet } from "./components/ConnectWallet";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useProviders, type ProviderRow } from "../hooks/useProviders";
 import { useDelegation } from "../hooks/useDelegation";
-import { shortAddress } from "../lib/flare";
+import { shortAddress, EXPLORER_URL } from "../lib/flare";
+import logoImage from "../imports/flareforward_logo.png";
 
 interface CurrentDelegation {
   address: `0x${string}`;
   bips: number;
 }
 
-const MAX_TARGETS = 2;
+/**
+ * FlareForward identity (pinned) — mirrors PINNED_PROVIDER_ADDRESS in
+ * useProviders. This page delegates to FlareForward only; no other provider
+ * is offered or shown.
+ */
+const FLAREFORWARD_ADDRESS =
+  "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110".toLowerCase();
+
+function isFlareForward(p: ProviderRow): boolean {
+  return (
+    p.address.toLowerCase() === FLAREFORWARD_ADDRESS ||
+    p.identityAddress.toLowerCase() === FLAREFORWARD_ADDRESS
+  );
+}
 
 export function Delegation() {
   const { providers } = useProviders();
@@ -35,44 +63,16 @@ export function Delegation() {
     claimRewards,
   } = useDelegation();
 
-  const [selected, setSelected] = useState<`0x${string}`[]>([]);
-  // Percentage of vote power assigned to the FIRST selected provider when two
-  // are chosen. The second provider receives the remainder (100 - split).
-  const [split, setSplit] = useState(50);
   const [wrapAmount, setWrapAmount] = useState("");
-  const [query, setQuery] = useState("");
   const [confirming, setConfirming] = useState(false);
 
-  const selectedProviders = selected
-    .map((addr) => providers.find((p) => p.address === addr))
-    .filter((p): p is NonNullable<typeof p> => Boolean(p));
-
-  const q = query.trim().toLowerCase();
-  const filtered = providers.filter(
-    (p) =>
-      p.name.toLowerCase().includes(q) ||
-      p.address.toLowerCase().includes(q) ||
-      p.identityAddress.toLowerCase().includes(q)
-  );
-
+  const flareForward = providers.find(isFlareForward) ?? null;
   const hasVotePower = wflrBalance > 0n;
-  const isTwo = selectedProviders.length === 2;
-
-  function shareFor(index: number) {
-    if (selectedProviders.length < 2) return 100;
-    return index === 0 ? split : 100 - split;
-  }
-
-  function toggleProvider(addr: `0x${string}`) {
-    setConfirming(false);
-    setSelected((prev) => {
-      if (prev.includes(addr)) return prev.filter((a) => a !== addr);
-      if (prev.length >= MAX_TARGETS) return prev;
-      const next = [...prev, addr];
-      if (next.length === 2) setSplit(50);
-      return next;
-    });
-  }
+  const alreadyDelegated =
+    flareForward != null &&
+    currentDelegations.some(
+      (d) => d.address.toLowerCase() === flareForward.address.toLowerCase()
+    );
 
   async function handleWrap() {
     try {
@@ -92,11 +92,9 @@ export function Delegation() {
   }
 
   async function handleConfirmDelegate() {
-    if (selectedProviders.length === 0) return;
+    if (!flareForward) return;
     try {
-      await delegate(
-        selectedProviders.map((p, i) => ({ address: p.address, sharePct: shareFor(i) }))
-      );
+      await delegate([{ address: flareForward.address, sharePct: 100 }]);
       setConfirming(false);
     } catch {
       /* toast already shown */
@@ -105,20 +103,17 @@ export function Delegation() {
 
   return (
     <div className="space-y-6">
-      {/* Your delegations — a prominent summary of who your WFLR vote power is
-          currently delegated to, mirroring the "Your Stakes" card. */}
+      {/* Your delegations — the user's own current position. */}
       {isConnected && currentDelegations.length > 0 && (
         <YourDelegations
           delegations={currentDelegations}
-          providers={providers}
+          flareForward={flareForward}
           busy={busy}
           onUndelegate={undelegate}
         />
       )}
 
-      {/* Delegation rewards — claimable FTSO rewards accrued from delegation.
-          Shown whenever connected because rewards can persist even after the
-          user has undelegated. */}
+      {/* Delegation rewards — claimable FTSO rewards accrued from delegation. */}
       {isConnected && (
         <Card>
           <CardHeader className="border-b border-white/8 pb-4">
@@ -156,96 +151,108 @@ export function Delegation() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Provider Selection List */}
+        {/* FlareForward — the one and only delegation target on this site. */}
         <Card className="col-span-1 lg:col-span-2">
           <CardHeader className="border-b border-white/8 pb-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <CardTitle className="text-[#FAFAFA]">Available Providers</CardTitle>
-                <CardDescription className="text-[#8FA0B8]">
-                  Choose up to {MAX_TARGETS} providers to split your vote power
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-2 glass-panel px-3 py-1.5 focus-within:border-[#EE1A58]/60 transition-colors w-full sm:w-auto">
-                <Search size={16} className="text-[#8FA0B8]" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  type="text"
-                  placeholder="Search providers..."
-                  className="bg-transparent border-none outline-none text-sm w-full placeholder:text-[#8FA0B8] text-[#FAFAFA]"
-                />
-              </div>
-            </div>
-            <div className="text-xs text-[#8FA0B8] mt-3">
-              {selected.length}/{MAX_TARGETS} selected
-            </div>
+            <CardTitle className="text-[#FAFAFA]">Your provider: FlareForward</CardTitle>
+            <CardDescription className="text-[#8FA0B8]">
+              This page delegates your vote power to the FlareForward data
+              provider — builders and educators on the Flare network.
+            </CardDescription>
           </CardHeader>
-          <div className="divide-y divide-white/8 max-h-[560px] overflow-y-auto">
-            {providers.length === 0 && (
-              <div className="p-8 text-center text-[#8FA0B8] text-sm">Loading providers...</div>
-            )}
-            {filtered.map((provider) => {
-              const selIndex = selected.indexOf(provider.address);
-              const isSel = selIndex !== -1;
-              const atLimit = selected.length >= MAX_TARGETS && !isSel;
-              const isCurrent = currentDelegations.some(
-                (d) => d.address.toLowerCase() === provider.address.toLowerCase()
-              );
-              return (
-                <div
-                  key={provider.address}
-                  onClick={() => !atLimit && toggleProvider(provider.address)}
-                  className={`p-4 flex items-center justify-between transition-colors ${
-                    atLimit
-                      ? "opacity-40 cursor-not-allowed"
-                      : "cursor-pointer hover:bg-white/5"
-                  } ${isSel ? "bg-[#EE1A58]/15" : ""}`}
-                >
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center border overflow-hidden shrink-0 ${
-                        isSel ? "border-[#EE1A58]" : "border-white/10"
-                      } bg-white/5`}
-                    >
-                      {provider.logoURI ? (
-                        <ImageWithFallback src={provider.logoURI} alt={provider.name} className="w-10 h-10 object-cover" />
-                      ) : (
-                        <Shield size={18} className="text-[#8FA0B8]" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-medium text-[#FAFAFA] flex items-center gap-2">
-                        <span className="truncate">{provider.name}</span>
-                        {isSel && (
-                          <span className="flex items-center gap-1 text-[#EE1A58] shrink-0">
-                            <CheckCircle2 size={14} />
-                            <span className="text-xs font-semibold">{shareFor(selIndex)}%</span>
-                          </span>
-                        )}
-                        {isCurrent && (
-                          <Badge variant="success" className="ml-1">
-                            Delegated
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-[#8FA0B8] flex items-center gap-3 mt-1">
-                        <span>VP: {provider.votePowerLabel}</span>
-                        <span className="w-1 h-1 rounded-full bg-white/20" />
-                        <span className="font-mono">{shortAddress(provider.address)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <Badge
-                    variant={provider.status === "Active" ? "success" : provider.status === "Warning" ? "outline" : "dark"}
-                    className={provider.status === "Warning" ? "border-yellow-500/50 text-yellow-500" : ""}
-                  >
-                    {provider.status}
-                  </Badge>
+          <CardContent className="p-5 space-y-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
+                  <ImageWithFallback
+                    src={logoImage}
+                    alt="FlareForward"
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
-              );
-            })}
-          </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-lg text-[#FAFAFA]">FlareForward</div>
+                  <div className="text-xs text-[#8FA0B8] font-mono">
+                    {flareForward
+                      ? shortAddress(flareForward.address)
+                      : shortAddress(FLAREFORWARD_ADDRESS as `0x${string}`)}
+                  </div>
+                </div>
+              </div>
+              <Badge variant={flareForward?.status === "Active" || !flareForward ? "success" : "outline"}>
+                {flareForward?.status ?? "Active"}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="glass-panel p-3">
+                <div className="text-xs text-[#8FA0B8] mb-1">Vote power delegated to us</div>
+                <div className="font-medium text-[#FAFAFA]">
+                  {flareForward?.votePowerLabel ?? "—"}
+                </div>
+              </div>
+              <div className="glass-panel p-3">
+                <div className="text-xs text-[#8FA0B8] mb-1">Network delegation share</div>
+                <div className="font-medium text-[#FAFAFA]">
+                  {flareForward?.delegationPct != null
+                    ? `${flareForward.delegationPct.toFixed(2)}%`
+                    : "—"}
+                </div>
+              </div>
+            </div>
+
+            <ul className="space-y-3 text-sm text-[#8FA0B8]">
+              <li className="flex gap-3">
+                <GraduationCap size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                <span>
+                  <span className="text-[#FAFAFA] font-medium">Backs education.</span>{" "}
+                  Your delegation funds DeFi University and free plain-English
+                  Flare education.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <Hammer size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                <span>
+                  <span className="text-[#FAFAFA] font-medium">Backs builders.</span>{" "}
+                  The same team signing your feeds ships tools on Flare every
+                  day.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <Flame size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                <span>
+                  <span className="text-[#FAFAFA] font-medium">Gives back.</span>{" "}
+                  Burn protocols around our systems return value to the network
+                  you're betting on.
+                </span>
+              </li>
+              <li className="flex gap-3">
+                <Shield size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                <span>
+                  <span className="text-[#FAFAFA] font-medium">Non-custodial.</span>{" "}
+                  Delegation assigns vote power only — your WFLR never leaves
+                  your wallet, and you can undelegate any time.
+                </span>
+              </li>
+            </ul>
+
+            <div className="flex flex-wrap items-center gap-4 pt-1">
+              <a
+                href={`${EXPLORER_URL}/address/${flareForward?.identityAddress ?? FLAREFORWARD_ADDRESS}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-[#8FA0B8] hover:text-[#FAFAFA] flex items-center gap-1"
+              >
+                <ExternalLink size={12} /> View on explorer
+              </a>
+              <Link
+                to="/rewards"
+                className="text-xs text-[#EE1A58] hover:underline flex items-center gap-1"
+              >
+                <Gift size={12} /> See current reward rates
+              </Link>
+            </div>
+          </CardContent>
         </Card>
 
         {/* Delegation Action Panel */}
@@ -253,7 +260,9 @@ export function Delegation() {
           <Card className="sticky top-24">
             <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Delegate Vote Power</CardTitle>
-              <CardDescription className="text-[#8FA0B8]">Delegate WFLR to earn FTSO rewards</CardDescription>
+              <CardDescription className="text-[#8FA0B8]">
+                Delegate WFLR to FlareForward and earn FTSO rewards
+              </CardDescription>
             </CardHeader>
             <CardContent className="p-5 space-y-6">
               {!isConnected ? (
@@ -261,11 +270,6 @@ export function Delegation() {
                   <Wallet size={32} className="opacity-20" />
                   <p className="text-sm">Connect your wallet to delegate on Flare Mainnet.</p>
                   <ConnectWallet size="md" />
-                </div>
-              ) : selectedProviders.length === 0 ? (
-                <div className="text-center py-8 text-[#8FA0B8] flex flex-col items-center">
-                  <Shield size={32} className="mb-3 opacity-20" />
-                  <p className="text-sm">Select one or two data providers from the list to continue.</p>
                 </div>
               ) : (
                 <>
@@ -281,56 +285,12 @@ export function Delegation() {
                     </div>
                   </div>
 
-                  {/* Selected providers */}
-                  <div className="space-y-3">
-                    <div className="text-xs text-[#8FA0B8]">
-                      Selected {selectedProviders.length === 1 ? "provider" : "providers"}
+                  {alreadyDelegated && (
+                    <div className="glass-panel p-3 flex items-center gap-2 text-sm text-emerald-400">
+                      <CheckCircle2 size={16} className="shrink-0" />
+                      You're already delegated to FlareForward. Thank you!
                     </div>
-                    {selectedProviders.map((p, i) => (
-                      <div
-                        key={p.address}
-                        className="glass-panel p-3 flex items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0">
-                          <div className="font-medium text-[#FAFAFA] truncate">{p.name}</div>
-                          <div className="text-xs text-[#8FA0B8] font-mono mt-0.5">{shortAddress(p.address)}</div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[#EE1A58] font-semibold text-sm">{shareFor(i)}%</span>
-                          <button
-                            onClick={() => toggleProvider(p.address)}
-                            className="text-[#8FA0B8] hover:text-red-400 transition-colors"
-                            aria-label={`Remove ${p.name}`}
-                          >
-                            <XCircle size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-
-                    {/* Split slider (only when two providers are selected) */}
-                    {isTwo && (
-                      <div className="glass-panel p-3 space-y-2">
-                        <div className="flex justify-between text-xs text-[#8FA0B8]">
-                          <span className="truncate max-w-[45%]">{selectedProviders[0].name}</span>
-                          <span className="truncate max-w-[45%] text-right">{selectedProviders[1].name}</span>
-                        </div>
-                        <input
-                          type="range"
-                          min={1}
-                          max={99}
-                          step={1}
-                          value={split}
-                          onChange={(e) => setSplit(Number(e.target.value))}
-                          className="w-full accent-[#EE1A58] cursor-pointer"
-                        />
-                        <div className="flex justify-between text-xs font-semibold text-[#FAFAFA]">
-                          <span>{split}%</span>
-                          <span>{100 - split}%</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                  )}
 
                   {/* Wrap step */}
                   <div className="space-y-3">
@@ -366,20 +326,9 @@ export function Delegation() {
                   <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
                     <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
                     <div className="text-[#FAFAFA]">
-                      {isTwo ? (
-                        <>
-                          Your <span className="font-semibold">{wflrLabel} WFLR</span> vote power is split{" "}
-                          <span className="font-semibold">
-                            {split}% / {100 - split}%
-                          </span>{" "}
-                          across the two providers. Your tokens never leave your wallet.
-                        </>
-                      ) : (
-                        <>
-                          Delegation assigns 100% of your <span className="font-semibold">{wflrLabel} WFLR</span> vote power to
-                          this provider. Your tokens never leave your wallet.
-                        </>
-                      )}
+                      Delegation assigns 100% of your{" "}
+                      <span className="font-semibold">{wflrLabel} WFLR</span> vote power to
+                      FlareForward. Your tokens never leave your wallet.
                     </div>
                   </div>
 
@@ -388,26 +337,20 @@ export function Delegation() {
                     <Button
                       variant="primary"
                       className="w-full py-6 text-base font-semibold"
-                      disabled={busy !== null || !hasVotePower}
+                      disabled={busy !== null || !hasVotePower || !flareForward}
                       onClick={() => setConfirming(true)}
                     >
-                      {hasVotePower ? "Delegate Vote Power" : "Wrap FLR first to get vote power"}
+                      {!hasVotePower
+                        ? "Wrap FLR first to get vote power"
+                        : !flareForward
+                          ? "Loading provider…"
+                          : "Delegate to FlareForward"}
                     </Button>
                   ) : (
                     <div className="space-y-3">
                       <p className="text-sm text-[#FAFAFA] text-center">
-                        {isTwo ? (
-                          <>
-                            Delegate your {wflrLabel} WFLR{" "}
-                            <span className="font-semibold">{split}%</span> to {selectedProviders[0].name} and{" "}
-                            <span className="font-semibold">{100 - split}%</span> to {selectedProviders[1].name}?
-                          </>
-                        ) : (
-                          <>
-                            Delegate 100% of your {wflrLabel} WFLR to{" "}
-                            <span className="font-semibold">{selectedProviders[0].name}</span>?
-                          </>
-                        )}
+                        Delegate 100% of your {wflrLabel} WFLR to{" "}
+                        <span className="font-semibold">FlareForward</span>?
                       </p>
                       <div className="flex gap-2">
                         <Button variant="outline" className="flex-1" disabled={busy !== null} onClick={() => setConfirming(false)}>
@@ -419,7 +362,6 @@ export function Delegation() {
                       </div>
                     </div>
                   )}
-
                 </>
               )}
             </CardContent>
@@ -430,14 +372,19 @@ export function Delegation() {
   );
 }
 
+/**
+ * The user's current delegations. This is the user's own on-chain position:
+ * targets other than FlareForward render as a shortened address only — no
+ * other provider's name, logo, or stats appear on this site.
+ */
 function YourDelegations({
   delegations,
-  providers,
+  flareForward,
   busy,
   onUndelegate,
 }: {
   delegations: CurrentDelegation[];
-  providers: ProviderRow[];
+  flareForward: ProviderRow | null;
   busy: null | "wrap" | "delegate" | "undelegate" | "claim";
   onUndelegate: () => void;
 }) {
@@ -473,14 +420,14 @@ function YourDelegations({
           </div>
         </div>
         <CardDescription className="text-[#8FA0B8]">
-          Providers your WFLR vote power is currently delegated to
+          Where your WFLR vote power is currently delegated
         </CardDescription>
       </CardHeader>
       <div className="divide-y divide-white/8">
         {delegations.map((d) => {
-          const provider = providers.find(
-            (p) => p.address.toLowerCase() === d.address.toLowerCase()
-          );
+          const isUs =
+            flareForward != null &&
+            d.address.toLowerCase() === flareForward.address.toLowerCase();
           return (
             <div
               key={d.address}
@@ -488,11 +435,11 @@ function YourDelegations({
             >
               <div className="flex items-center gap-4 min-w-0">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center border border-white/10 bg-white/5 overflow-hidden shrink-0">
-                  {provider?.logoURI ? (
+                  {isUs ? (
                     <ImageWithFallback
-                      src={provider.logoURI}
-                      alt={provider.name}
-                      className="w-10 h-10 object-cover"
+                      src={logoImage}
+                      alt="FlareForward"
+                      className="w-7 h-7 object-contain"
                     />
                   ) : (
                     <Shield size={18} className="text-[#8FA0B8]" />
@@ -500,7 +447,7 @@ function YourDelegations({
                 </div>
                 <div className="min-w-0">
                   <div className="font-medium text-[#FAFAFA] truncate">
-                    {provider?.name ?? "Unknown provider"}
+                    {isUs ? "FlareForward" : "Another provider"}
                   </div>
                   <div className="text-xs text-[#8FA0B8] font-mono mt-0.5">
                     {shortAddress(d.address)}
@@ -512,11 +459,10 @@ function YourDelegations({
                   <div className="text-sm font-semibold text-[#EE1A58]">
                     {(d.bips / 100).toFixed(0)}%
                   </div>
-                  {provider && (
-                    <div className="text-xs text-[#8FA0B8]">VP: {provider.votePowerLabel}</div>
-                  )}
                 </div>
-                <Badge variant="success">Delegated</Badge>
+                <Badge variant={isUs ? "success" : "dark"}>
+                  {isUs ? "FlareForward" : "Delegated"}
+                </Badge>
               </div>
             </div>
           );
