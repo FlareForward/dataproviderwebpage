@@ -120,17 +120,42 @@ async function fetchExplorerJson(path: string): Promise<unknown> {
   return res.json();
 }
 
+/**
+ * Security headers on every response. This is a non-custodial wallet dapp:
+ * the headers that matter most are the framing blocks (`frame-ancestors` /
+ * X-Frame-Options), which stop the site being embedded inside a lookalike
+ * page to clickjack wallet confirmations. A full CSP is deliberately NOT set
+ * here — wagmi/WalletConnect need a broad connect-src allowlist and a wrong
+ * one silently breaks wallet connections; tighten separately with testing.
+ */
+const SECURITY_HEADERS: Record<string, string> = {
+  "strict-transport-security": "max-age=31536000; includeSubDomains",
+  "x-frame-options": "DENY",
+  "content-security-policy": "frame-ancestors 'none'",
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()",
+};
+
+function withSecurityHeaders(res: Response): Response {
+  const out = new Response(res.body, res);
+  for (const [k, v] of Object.entries(SECURITY_HEADERS)) out.headers.set(k, v);
+  return out;
+}
+
 function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      // Same-origin in prod; `*` keeps the VITE_ACCURACY_URL override usable
-      // from a local dev server pointing at a deployed worker.
-      "access-control-allow-origin": "*",
-      "cache-control": status === 200 ? CACHE_CONTROL : "public, max-age=30",
-    },
-  });
+  return withSecurityHeaders(
+    new Response(JSON.stringify(body), {
+      status,
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        // Same-origin in prod; `*` keeps the VITE_ACCURACY_URL override usable
+        // from a local dev server pointing at a deployed worker.
+        "access-control-allow-origin": "*",
+        "cache-control": status === 200 ? CACHE_CONTROL : "public, max-age=30",
+      },
+    })
+  );
 }
 
 async function handleFtso(feedsOnly: boolean): Promise<Response> {
@@ -569,7 +594,7 @@ export default {
     }
 
     // Anything non-API falls through to the static SPA assets.
-    if (env.ASSETS) return env.ASSETS.fetch(request);
+    if (env.ASSETS) return withSecurityHeaders(await env.ASSETS.fetch(request));
     return new Response("Not found", { status: 404 });
   },
 };
