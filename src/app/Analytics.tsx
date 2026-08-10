@@ -5,6 +5,7 @@ import { Badge } from "./components/Badge";
 import { PerformanceChart } from "./components/PerformanceChart";
 import { AccuracyBoard } from "./components/AccuracyBoard";
 import { ValidatorStaking } from "./components/ValidatorStaking";
+import { MarketOverview } from "./components/MarketOverview";
 import {
   usePerformanceHistory,
   type PerformancePoint,
@@ -198,6 +199,24 @@ export default function Analytics() {
 
         {/* Validator staking — P-chain stake, capacity, and staking rewards. */}
         <ValidatorStaking />
+
+        {/* Network & market data — moved here from the homepage so the front
+            door can sell; the raw numbers live on this page instead. */}
+        <section aria-labelledby="network-market-heading" className="space-y-4">
+          <div>
+            <h2
+              id="network-market-heading"
+              className="text-[1.25rem] font-semibold tracking-tight text-[#FAFAFA]"
+            >
+              Network &amp; Market
+            </h2>
+            <p className="mt-0.5 text-[0.8125rem] text-[#8FA0B8]">
+              Live FTSOv2 price feeds, network vote power, and the provider
+              field across Flare Mainnet.
+            </p>
+          </div>
+          <MarketOverview />
+        </section>
       </div>
     </div>
   );
