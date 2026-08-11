@@ -5,7 +5,8 @@
  * Handles are authoritative as of 2026-08-11:
  *   Whale @whale589 · Steven @hudspeth589 · Ace @AceThaGreatest
  * Two YouTube channels: the FlareForward main channel, and Ace's own
- * (AFHD Media). The community card credits people; the sidebar credits the org.
+ * (AFHD Media). The community card credits all three people by name;
+ * the sidebar credits the org.
  */
 export const LINKS = {
   site: "https://flareforward.com",

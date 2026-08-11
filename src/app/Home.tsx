@@ -241,7 +241,7 @@ export default function Home() {
                     <span className="text-xs font-bold uppercase tracking-wider">Community</span>
                   </div>
                   <h2 id="community-heading" className="mt-2 text-xl lg:text-2xl font-bold tracking-tight">
-                    Built in the open by Whale &amp; Ace
+                    Built in the open by Whale, Steven &amp; Ace
                   </h2>
                   <p className="mt-2 text-sm text-[#8FA0B8] leading-relaxed">
                     We show our work — breakdowns, tutorials, and honest takes on
