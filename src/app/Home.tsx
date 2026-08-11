@@ -131,12 +131,13 @@ export default function Home() {
               icon={<GraduationCap size={20} />}
               title="We teach this network"
               body="FlareForward runs DeFi University — free, plain-English education that turns curious FLR holders into confident ones. Your delegation funds people bringing the next wave of users into Flare."
-              cta={{ label: "Visit flareforward.com", href: LINKS.site, external: true }}
+              cta={{ label: "Visit DeFi University", href: LINKS.university, external: true }}
             />
             <WhyCard
               icon={<Hammer size={20} />}
               title="We build here, every day"
               body="We're a builder collective, not a passive node operator. Trading tools, payment rails, data infrastructure — shipped on Flare, by the same team signing your feeds."
+              cta={{ label: "See what we've built", href: LINKS.site, external: true }}
             />
             <WhyCard
               icon={<Flame size={20} />}
@@ -157,7 +158,7 @@ export default function Home() {
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
               <div className="max-w-2xl">
                 <div className="flex items-center gap-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EE1A58]/15 border border-[#EE1A58]/40 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#EE1A58]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EE1A58] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-[0_0_20px_rgba(238,26,88,0.45)]">
                     <Flame size={12} /> Coming soon
                   </span>
                 </div>
@@ -249,9 +250,9 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
-                  <a href={LINKS.youtube} target="_blank" rel="noopener noreferrer">
+                  <a href={LINKS.youtubeAce} target="_blank" rel="noopener noreferrer">
                     <Button variant="outline" className="gap-2">
-                      <Youtube size={16} /> YouTube
+                      <Youtube size={16} /> AFHD Media
                     </Button>
                   </a>
                   <a href={LINKS.x} target="_blank" rel="noopener noreferrer">
@@ -262,6 +263,11 @@ export default function Home() {
                   <a href={LINKS.xWhale} target="_blank" rel="noopener noreferrer">
                     <Button variant="ghost" className="gap-2 text-[#8FA0B8] hover:text-[#FAFAFA]">
                       <XGlyph /> Whale
+                    </Button>
+                  </a>
+                  <a href={LINKS.xSteven} target="_blank" rel="noopener noreferrer">
+                    <Button variant="ghost" className="gap-2 text-[#8FA0B8] hover:text-[#FAFAFA]">
+                      <XGlyph /> Steven
                     </Button>
                   </a>
                   <a href={LINKS.xAce} target="_blank" rel="noopener noreferrer">
