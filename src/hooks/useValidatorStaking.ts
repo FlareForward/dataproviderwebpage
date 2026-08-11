@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { loadCachedStats, saveCachedStats } from "../lib/statsCache";
 
 /**
  * Flare Forward's validator staking metrics, sourced from the Flare Systems
@@ -44,6 +46,9 @@ export function useValidatorStaking() {
     staleTime: 5 * 60_000,
     refetchInterval: 10 * 60_000,
     refetchOnWindowFocus: false,
+    // Paint the validator card with the last visit's numbers while the live
+    // explorer read runs; plain JSON, so the snapshot round-trips as-is.
+    placeholderData: () => loadCachedStats<ValidatorStaking>("validatorStaking"),
     queryFn: async (): Promise<ValidatorStaking> => {
       const res = await fetch(VALIDATOR_URL, { cache: "no-cache" });
       if (!res.ok)
@@ -51,6 +56,11 @@ export function useValidatorStaking() {
       return (await res.json()) as ValidatorStaking;
     },
   });
+
+  useEffect(() => {
+    if (query.data && !query.isPlaceholderData)
+      saveCachedStats("validatorStaking", query.data);
+  }, [query.data, query.isPlaceholderData]);
 
   return {
     data: query.data ?? null,

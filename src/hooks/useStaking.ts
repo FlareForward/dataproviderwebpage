@@ -25,6 +25,7 @@ import {
   type ValidatorMeta,
   type ValidatorRow,
 } from "../lib/staking";
+import { loadCachedStats, saveCachedStats } from "../lib/statsCache";
 import { fetchProviderMetadata } from "./useProviders";
 import {
   CONTRACT_REGISTRY_ADDRESS,
@@ -114,9 +115,12 @@ export function useStaking() {
 
   // Protocol stake limits and the validator roster are public P-chain reads and
   // do not require the user's public key, so they load as soon as possible.
+  // Both hydrate from the last visit's localStorage snapshot (placeholderData)
+  // so the page paints instantly while the slow public-RPC reads run.
   const limits = useQuery({
     queryKey: ["stakeLimits"],
     staleTime: 5 * 60_000,
+    placeholderData: () => loadCachedStats<StakeLimits>("stakeLimits"),
     queryFn: async (): Promise<StakeLimits> => network.getStakeLimits(),
   });
 
@@ -125,11 +129,21 @@ export function useStaking() {
     staleTime: 60_000,
     refetchInterval: 60_000,
     enabled: !!limits.data,
+    placeholderData: () => loadCachedStats<ValidatorRow[]>("validatorsOnP"),
     queryFn: async (): Promise<ValidatorRow[]> => {
       const raw = await network.getValidatorsOnP();
       return aggregateValidators(raw, limits.data!.minStakeDuration);
     },
   });
+
+  // Snapshot fresh (non-placeholder) results for the next page load.
+  useEffect(() => {
+    if (limits.data && !limits.isPlaceholderData) saveCachedStats("stakeLimits", limits.data);
+  }, [limits.data, limits.isPlaceholderData]);
+  useEffect(() => {
+    if (validatorsQuery.data && !validatorsQuery.isPlaceholderData)
+      saveCachedStats("validatorsOnP", validatorsQuery.data);
+  }, [validatorsQuery.data, validatorsQuery.isPlaceholderData]);
 
   // Link P-chain node ids back to the FTSO entities that registered them, so we
   // can show the provider's name and logo next to each validator. The mapping
@@ -262,8 +276,17 @@ export function useStaking() {
     queryKey: ["pchain-balance", publicKey],
     enabled: !!publicKey,
     refetchInterval: 15_000,
+    // Last-known balances for this account paint immediately; the live read
+    // replaces them within seconds and every 15s after.
+    placeholderData: () =>
+      publicKey ? loadCachedStats<Balance>(`balance:${publicKey}`) : undefined,
     queryFn: async (): Promise<Balance> => network.getBalance(publicKey!),
   });
+
+  useEffect(() => {
+    if (publicKey && balance.data && !balance.isPlaceholderData)
+      saveCachedStats(`balance:${publicKey}`, balance.data);
+  }, [balance.data, balance.isPlaceholderData, publicKey]);
 
   // On-chain stakes via a single `getCurrentValidators` call, filtered by the
   // wallet's P-address client-side. This avoids the SDK's `getStakesOnP`, which
