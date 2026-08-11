@@ -17,4 +17,9 @@ export const LINKS = {
   xWhale: "https://x.com/whale589",
   xSteven: "https://x.com/hudspeth589",
   xAce: "https://x.com/AceThaGreatest",
+  /**
+   * Apex docs, Fees section — documents the 10 bps split including the 1 bp
+   * FLR burn via BurnRouter. Anchor id verified on the live page 2026-08-11.
+   */
+  apexDocsFees: "https://apexhammer.app/docs#fees-heading",
 } as const;
