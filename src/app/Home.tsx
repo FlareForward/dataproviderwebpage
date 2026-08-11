@@ -264,14 +264,14 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
-                  <a href={LINKS.youtubeAce} target="_blank" rel="noopener noreferrer">
+                  <a href={LINKS.youtube} target="_blank" rel="noopener noreferrer">
                     <Button variant="outline" className="gap-2">
-                      <Youtube size={16} /> AFHD Media
+                      <Youtube size={16} /> FlareForward
                     </Button>
                   </a>
-                  <a href={LINKS.x} target="_blank" rel="noopener noreferrer">
+                  <a href={LINKS.youtubeAce} target="_blank" rel="noopener noreferrer">
                     <Button variant="outline" className="gap-2">
-                      <XGlyph /> @flareforward
+                      <Youtube size={16} /> Ace
                     </Button>
                   </a>
                   <a href={LINKS.xWhale} target="_blank" rel="noopener noreferrer">
