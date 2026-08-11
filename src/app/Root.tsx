@@ -6,6 +6,7 @@ import {
   X,
   BarChart3,
   Gift,
+  Gem,
   Wallet,
   Landmark,
   Youtube,
@@ -44,6 +45,7 @@ export function Root() {
           <NavItem to="/delegation" icon={<Wallet size={20} />} label="Delegate" />
           <NavItem to="/staking" icon={<Landmark size={20} />} label="Stake" />
           <NavItem to="/rewards" icon={<Gift size={20} />} label="My Rewards" />
+          <NavItem to="/nft" icon={<Gem size={20} />} label="NFT Bond Series" />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
         </nav>
         <div className="p-4 border-t border-white/8 space-y-3">
@@ -113,6 +115,12 @@ export function Root() {
               to="/rewards"
               icon={<Gift size={20} />}
               label="My Rewards"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <NavItem
+              to="/nft"
+              icon={<Gem size={20} />}
+              label="NFT Bond Series"
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem
