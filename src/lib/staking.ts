@@ -221,6 +221,17 @@ export function formatFlr(wei: bigint, maxFractionDigits = 4): string {
   });
 }
 
+/**
+ * Plain (unlocalized) FLR amount for prefilling numeric inputs. `formatFlr`
+ * adds locale grouping ("1,234.5"), which `<input type="number">` rejects and
+ * `Number()` parses as NaN — so MAX buttons must use this instead.
+ */
+export function formatFlrPlain(wei: bigint, maxFractionDigits = 6): string {
+  const [int, frac = ""] = formatUnits(wei, 18).split(".");
+  const trimmed = frac.slice(0, maxFractionDigits).replace(/0+$/, "");
+  return trimmed ? `${int}.${trimmed}` : int;
+}
+
 /** Compact form of a NodeID for tight UI spots (keeps the recognizable head/tail). */
 export function shortNodeId(nodeId: string, chars = 6): string {
   if (!nodeId) return "";

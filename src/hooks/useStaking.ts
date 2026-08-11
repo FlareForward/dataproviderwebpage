@@ -39,7 +39,15 @@ import {
 const network = Network.FLARE;
 const API_ORIGIN = deriveApiOrigin(FLARE_RPC_URL);
 
-export type StakingBusy = null | "enableP" | "moveToP" | "stake" | "claim" | "withdraw";
+export type StakingBusy =
+  | null
+  | "enableP"
+  | "moveToP"
+  | "stake"
+  | "claim"
+  | "withdraw"
+  | "importToP"
+  | "importToC";
 
 export interface StakeParams {
   /** Amount to stake, in whole FLR (string, as entered by the user). */
@@ -350,16 +358,57 @@ export function useStaking() {
         const wallet = await getWallet();
         await network.transferToP(wallet, Amount.nats(amountFlr));
         toast.success(`Moved ${amountFlr} FLR to the P-chain`, { id: t });
-        refresh();
       } catch (e: any) {
         toast.error(e?.shortMessage ?? e?.message ?? "Transfer to P-chain failed", { id: t });
         throw e;
       } finally {
         setBusy(null);
+        // Refresh even on failure: if the export landed but the import didn't,
+        // the balance now carries a non-zero `notImportedToP` and the UI shows
+        // the pending-import recovery notice.
+        refresh();
       }
     },
     [getWallet, refresh]
   );
+
+  /**
+   * Finish a C→P transfer whose import step never completed (e.g. the user
+   * rejected or missed the second wallet confirmation). Imports every UTXO
+   * waiting in the P-chain import queue for this account.
+   */
+  const importToP = useCallback(async () => {
+    setBusy("importToP");
+    const t = toast.loading("Finishing the import to the P-chain...");
+    try {
+      const wallet = await getWallet();
+      await network.importToP(wallet);
+      toast.success("FLR imported to the P-chain", { id: t });
+    } catch (e: any) {
+      toast.error(e?.shortMessage ?? e?.message ?? "Import to P-chain failed", { id: t });
+      throw e;
+    } finally {
+      setBusy(null);
+      refresh();
+    }
+  }, [getWallet, refresh]);
+
+  /** Counterpart of {@link importToP} for a stalled P→C withdrawal. */
+  const importToC = useCallback(async () => {
+    setBusy("importToC");
+    const t = toast.loading("Finishing the import to the C-chain...");
+    try {
+      const wallet = await getWallet();
+      await network.importToC(wallet);
+      toast.success("FLR imported to the C-chain", { id: t });
+    } catch (e: any) {
+      toast.error(e?.shortMessage ?? e?.message ?? "Import to C-chain failed", { id: t });
+      throw e;
+    } finally {
+      setBusy(null);
+      refresh();
+    }
+  }, [getWallet, refresh]);
 
   const stake = useCallback(
     async ({ amountFlr, nodeId, durationSecs, validatorEndTime }: StakeParams) => {
@@ -431,12 +480,13 @@ export function useStaking() {
         const wallet = await getWallet();
         await network.transferToC(wallet, amountFlr ? Amount.nats(amountFlr) : undefined);
         toast.success("Withdrawal to C-chain submitted", { id: t });
-        refresh();
       } catch (e: any) {
         toast.error(e?.shortMessage ?? e?.message ?? "Withdrawal failed", { id: t });
         throw e;
       } finally {
         setBusy(null);
+        // Same recovery story as moveToP: surface `notImportedToC` right away.
+        refresh();
       }
     },
     [getWallet, refresh]
@@ -478,6 +528,8 @@ export function useStaking() {
     busy,
     enableP,
     moveToP,
+    importToP,
+    importToC,
     stake,
     claimRewards,
     withdrawToC,

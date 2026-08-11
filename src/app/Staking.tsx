@@ -25,6 +25,7 @@ import logoImage from "../imports/flareforward_logo.png";
 import {
   buildDurationOptions,
   formatFlr,
+  formatFlrPlain,
   shortNodeId,
   validateStakeAmount,
   type DisplayStake,
@@ -47,6 +48,8 @@ export function Staking() {
     busy,
     enableP,
     moveToP,
+    importToP,
+    importToC,
     stake,
     claimRewards,
     withdrawToC,
@@ -97,6 +100,19 @@ export function Staking() {
     };
   }, [selectedNodeId, getValidatorCapacity]);
 
+  // The SDK capacity above is the protocol-wide per-validator cap (~300M), not
+  // what this node can actually accept — the node's own cap scales with its
+  // self-bond and comes from the explorer. Use whichever is tighter so we never
+  // advertise room the node doesn't have.
+  const effectiveCapacity = useMemo(() => {
+    const cap = ffValidator?.capacity_flr;
+    const total = ffValidator?.total_stake_flr;
+    if (cap == null || total == null) return capacity;
+    const nodeSpaceLeft = parseUnits(Math.max(0, cap - total).toFixed(9), 18);
+    if (capacity === null) return nodeSpaceLeft;
+    return capacity < nodeSpaceLeft ? capacity : nodeSpaceLeft;
+  }, [capacity, ffValidator]);
+
   const amountWei = (() => {
     try {
       return stakeAmount ? parseUnits(stakeAmount, 18) : 0n;
@@ -108,8 +124,8 @@ export function Staking() {
   const amountError =
     limits && stakeAmount ? validateStakeAmount(amountWei, limits, balance.availableOnP) : null;
   const capacityError =
-    capacity !== null && amountWei > capacity
-      ? `Exceeds validator's remaining capacity of ${formatFlr(capacity, 0)} FLR.`
+    effectiveCapacity !== null && amountWei > effectiveCapacity
+      ? `Exceeds validator's remaining capacity of ${formatFlr(effectiveCapacity, 0)} FLR.`
       : null;
   const canStake =
     !!selectedValidator &&
@@ -295,21 +311,21 @@ export function Staking() {
                 </div>
               ) : (
                 <>
-                  {/* Balances */}
-                  <div className="grid grid-cols-3 gap-2">
-                    <BalanceTile label="C-chain" value={formatFlr(balance.availableOnC)} />
-                    <BalanceTile label="P-chain" value={formatFlr(balance.availableOnP)} />
-                    <BalanceTile label="Staked" value={formatFlr(balance.stakedOnP)} />
-                  </div>
-
-                  {/* Move FLR to P-chain */}
+                  {/* C-chain: the spendable balance and the move-to-P control,
+                      grouped so everything C-chain lives in one section. */}
                   <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#8FA0B8]">C-chain balance</span>
+                      <span className="text-[#FAFAFA] font-medium">
+                        {formatFlr(balance.availableOnC)} FLR
+                      </span>
+                    </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[#8FA0B8] flex items-center gap-2">
                         <ArrowRightLeft size={14} /> Move FLR to P-chain
                       </span>
                       <button
-                        onClick={() => setMoveAmount(formatFlr(balance.availableOnC, 6))}
+                        onClick={() => setMoveAmount(formatFlrPlain(balance.availableOnC))}
                         className="text-xs text-[#EE1A58] hover:underline"
                       >
                         MAX
@@ -340,10 +356,38 @@ export function Staking() {
                         "Move to P-chain"
                       )}
                     </Button>
+                    {busy === "moveToP" && (
+                      <p className="text-xs text-[#8FA0B8]">
+                        This takes two wallet confirmations — export from the C-chain, then import
+                        to the P-chain. Approve both and keep this tab open until they complete.
+                      </p>
+                    )}
+                    {balance.notImportedToP > 0n && (
+                      <PendingImportNotice
+                        amount={balance.notImportedToP}
+                        target="P-chain"
+                        finishing={busy === "importToP"}
+                        disabled={busy !== null}
+                        onFinish={() => importToP().catch(() => {})}
+                      />
+                    )}
                   </div>
 
-                  {/* Stake form */}
+                  {/* P-chain: what has arrived and what's staked, directly above
+                      the stake form that spends it. */}
                   <div className="pt-4 border-t border-white/8 space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#8FA0B8]">P-chain balance</span>
+                      <span className="text-[#FAFAFA] font-medium">
+                        {formatFlr(balance.availableOnP)} FLR
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#8FA0B8]">Currently staked</span>
+                      <span className="text-[#FAFAFA] font-medium">
+                        {formatFlr(balance.stakedOnP)} FLR
+                      </span>
+                    </div>
                     {!selectedValidator ? (
                       <div className="text-center py-4 text-[#8FA0B8] flex flex-col items-center">
                         <Server size={28} className="mb-2 opacity-20" />
@@ -351,31 +395,13 @@ export function Staking() {
                       </div>
                     ) : (
                       <>
-                        <div className="glass-panel p-3">
-                          <div className="text-xs text-[#8FA0B8] mb-1">Staking with</div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center bg-white/5 overflow-hidden shrink-0">
-                              <ImageWithFallback
-                                src={logoImage}
-                                alt="FlareForward"
-                                className="w-4 h-4 object-contain"
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <div className="text-sm text-[#FAFAFA] font-medium truncate">
-                                FlareForward
-                              </div>
-                              <div className="font-mono text-xs text-[#8FA0B8] break-all">
-                                {shortNodeId(selectedValidator.nodeId, 10)}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-xs text-[#8FA0B8] mt-1">
-                            Fee {selectedValidator.delegationFeePct.toFixed(2)}%
-                            {capacity !== null && (
-                              <> · Capacity {formatFlr(capacity, 0)} FLR</>
-                            )}
-                          </div>
+                        {/* The FlareForward card next to this panel already
+                            carries the branding — keep only the numbers here. */}
+                        <div className="glass-panel p-3 flex items-center justify-between text-xs text-[#8FA0B8]">
+                          <span>Fee {selectedValidator.delegationFeePct.toFixed(2)}%</span>
+                          {effectiveCapacity !== null && (
+                            <span>Open capacity {formatFlr(effectiveCapacity, 0)} FLR</span>
+                          )}
                         </div>
 
                         {/* Amount */}
@@ -383,7 +409,7 @@ export function Staking() {
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-[#8FA0B8]">Amount to stake</span>
                             <button
-                              onClick={() => setStakeAmount(formatFlr(balance.availableOnP, 6))}
+                              onClick={() => setStakeAmount(formatFlrPlain(balance.availableOnP))}
                               className="text-xs text-[#EE1A58] hover:underline"
                             >
                               MAX
@@ -531,6 +557,15 @@ export function Staking() {
                         </>
                       )}
                     </Button>
+                    {balance.notImportedToC > 0n && (
+                      <PendingImportNotice
+                        amount={balance.notImportedToC}
+                        target="C-chain"
+                        finishing={busy === "importToC"}
+                        disabled={busy !== null}
+                        onFinish={() => importToC().catch(() => {})}
+                      />
+                    )}
                   </div>
                 </>
               )}
@@ -726,13 +761,41 @@ function ValidatorAvatar({
   );
 }
 
-function BalanceTile({ label, value }: { label: string; value: string }) {
+/**
+ * Shown when FLR is stuck between chains: the export transaction confirmed but
+ * the matching import never did, so the funds appear in no balance row. One
+ * click finishes the import (a single wallet confirmation).
+ */
+function PendingImportNotice({
+  amount,
+  target,
+  finishing,
+  disabled,
+  onFinish,
+}: {
+  amount: bigint;
+  target: "P-chain" | "C-chain";
+  finishing: boolean;
+  disabled: boolean;
+  onFinish: () => void;
+}) {
   return (
-    <div className="glass-panel p-3">
-      <div className="text-xs text-[#8FA0B8] mb-1">{label}</div>
-      <div className="font-medium text-[#FAFAFA] text-sm truncate" title={value}>
-        {value}
+    <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3 space-y-3 text-sm">
+      <div className="flex gap-3">
+        <Clock size={16} className="text-yellow-500 shrink-0 mt-0.5" />
+        <div className="text-[#FAFAFA]">
+          <span className="font-semibold">{formatFlr(amount)} FLR</span> is part-way to the{" "}
+          {target}. The export step confirmed, but the import step hasn't. Your FLR is safe — it
+          just needs one more confirmation to land in your {target} balance.
+        </div>
       </div>
+      <Button variant="secondary" className="w-full" disabled={disabled} onClick={onFinish}>
+        {finishing ? (
+          <Loader2 className="animate-spin" size={16} />
+        ) : (
+          `Finish import to ${target}`
+        )}
+      </Button>
     </div>
   );
 }

@@ -104,9 +104,18 @@ export default function Home() {
                 <ProofStat
                   label="Delegated to us"
                   value={`${fmtFlrCompact(rewards.vote_power.delegation_flr)} FLR`}
-                  sub={`+ ${fmtFlrCompact(rewards.staking.total_stake_flr)} FLR staked`}
+                  sub={`+ ${fmtFlrCompact(rewards.vote_power.staking_flr)} FLR staked · current epoch snapshot`}
                 />
               </div>
+              {rewards.staking.has_validator &&
+                rewards.staking.capacity_flr != null &&
+                rewards.staking.total_stake_flr != null && (
+                  <StakingCapacityStrip
+                    staked={rewards.staking.total_stake_flr}
+                    capacity={rewards.staking.capacity_flr}
+                    spaceLeft={rewards.staking.space_left_flr}
+                  />
+                )}
               <p className="mt-2 text-[11px] text-[#8FA0B8] text-center">
                 Sourced live from the Flare Systems Explorer and Flare RPC. Rates
                 vary epoch to epoch and are not a guarantee of future rewards.
@@ -395,6 +404,52 @@ function XGlyph() {
     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
     </svg>
+  );
+}
+
+/**
+ * How full the FlareForward validator is, in plain numbers. The staking pot on
+ * a node is shared pro-rata by everyone staked on it, so open capacity is the
+ * honest sales angle: the more room left, the less a new stake is diluted.
+ */
+function StakingCapacityStrip({
+  staked,
+  capacity,
+  spaceLeft,
+}: {
+  staked: number;
+  capacity: number;
+  spaceLeft: number | null;
+}) {
+  const open = spaceLeft ?? Math.max(0, capacity - staked);
+  // Keep a sliver of bar visible even at ~1% fill so the strip reads as a bar.
+  const fillPct = capacity > 0 ? Math.max(1, Math.min(100, (staked / capacity) * 100)) : 0;
+  return (
+    <div className="mt-4 glass-panel p-4 space-y-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <span className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+          Validator staking capacity
+        </span>
+        <span className="text-xs text-[#8FA0B8]">
+          Staking rewards are shared by everyone on the node — the bigger the
+          open gap, the less your stake is diluted.
+        </span>
+      </div>
+      <div className="h-2 rounded-full bg-white/5 overflow-hidden" aria-hidden="true">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-[#EE1A58] to-[#E85A95]"
+          style={{ width: `${fillPct}%` }}
+        />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
+        <span className="text-[#FAFAFA] font-medium tabular-nums">
+          {fmtFlrCompact(staked)} FLR staked
+        </span>
+        <span className="text-[#8FA0B8] tabular-nums">
+          {fmtFlrCompact(open)} FLR open of {fmtFlrCompact(capacity)} FLR total
+        </span>
+      </div>
+    </div>
   );
 }
 
