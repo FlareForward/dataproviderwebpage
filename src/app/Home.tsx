@@ -152,6 +152,11 @@ export default function Home() {
               icon={<Flame size={20} />}
               title="We give value back"
               body="We've engineered burn protocols around our systems so the things we build return value to the network — and we keep working on bonding structures designed to push more of what we earn back to you."
+              cta={{
+                label: "See the FLR burn in Apex's fee split",
+                href: LINKS.apexDocsFees,
+                external: true,
+              }}
             />
             <WhyCard
               icon={<Scale size={20} />}
