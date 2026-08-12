@@ -11,6 +11,7 @@ import {
 import { Card, CardContent } from "./components/Card";
 import { Button } from "./components/Button";
 import { YourPosition } from "./components/YourPosition";
+import { MyBonds } from "./components/MyBonds";
 import { RewardsBreakdown } from "./components/RewardsBreakdown";
 import { useRewards } from "../hooks/useRewards";
 import { fmtFlrCompact, fmtPct } from "../lib/rewards";
@@ -128,6 +129,9 @@ export default function Rewards() {
 
             {/* Your Position — the reason to come back */}
             <YourPosition rewards={rewards} />
+
+            {/* Bond NFTs held by this wallet, read from the lot contracts. */}
+            <MyBonds compact />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <RewardsBreakdown rewards={rewards} />

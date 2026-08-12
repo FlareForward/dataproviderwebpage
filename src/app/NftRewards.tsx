@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { MintLot } from "./components/MintLot";
+import { MyBonds } from "./components/MyBonds";
 import { CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity } from "lucide-react";
 
@@ -302,6 +303,10 @@ export default function NftRewards() {
 
       {/* Current lot — the storefront. Reads every term from the contract. */}
       <CurrentLot />
+
+      {/* Immediately below the mint: proof the buyer owns what they just bought,
+          read from the contract rather than any wallet or indexer. */}
+      <MyBonds compact />
 
       {/* How it works */}
       <h2 className="mt-10 text-xl font-semibold">How a lot works</h2>

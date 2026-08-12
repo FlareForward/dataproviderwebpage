@@ -59,6 +59,15 @@ export const bondLotAbi = [
     inputs: [{ name: "quantity", type: "uint256" }],
     outputs: [],
   },
+  // ERC721Enumerable — lets the site list a wallet's tokens straight from the
+  // contract, with no dependence on a third-party NFT indexer.
+  {
+    type: "function",
+    name: "tokenOfOwnerByIndex",
+    stateMutability: "view",
+    inputs: [{ type: "address" }, { type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
 ] as const;
 
 /** Contract-enforced cap on a single mint call. */
