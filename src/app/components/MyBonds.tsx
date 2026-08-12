@@ -1,7 +1,9 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAccount, useReadContracts } from "wagmi";
-import { Gem, ExternalLink } from "lucide-react";
-import { ConnectWallet } from "./ConnectWallet";
+import { Gem, ExternalLink, Search } from "lucide-react";
+import { useSearchParams } from "react-router";
+import { isAddress } from "viem";
+import { Button } from "./Button";
 import { bondLotAbi, CURRENT_LOT, IPFS_GATEWAY, type BondTier } from "../../lib/bondLot";
 
 /**
@@ -24,7 +26,35 @@ const LIVE_TIERS = CURRENT_LOT.tiers.filter(
 const MAX_ENUMERATE = 50;
 
 export function MyBonds({ compact = false }: { compact?: boolean }) {
-  const { address, isConnected } = useAccount();
+  const { address: connectedAddress } = useAccount();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Holdings are public chain data — no wallet connection required. Paste an
+  // address, or share a ?address=0x… link. A connected wallet just prefills it.
+  const [input, setInput] = useState("");
+  const [submitted, setSubmitted] = useState<`0x${string}` | "">("");
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("address");
+    if (fromUrl && isAddress(fromUrl)) {
+      setSubmitted(fromUrl as `0x${string}`);
+      setInput(fromUrl);
+    } else if (connectedAddress) {
+      setSubmitted(connectedAddress);
+    }
+  }, [searchParams, connectedAddress]);
+
+  const address = submitted || connectedAddress;
+  const valid = !!address && isAddress(address);
+
+  function lookUp() {
+    const v = input.trim();
+    if (!isAddress(v)) return;
+    setSubmitted(v as `0x${string}`);
+    const next = new URLSearchParams(searchParams);
+    next.set("address", v);
+    setSearchParams(next, { replace: true });
+  }
 
   // Pass 1: how many does this wallet hold in each tier?
   const { data: balances, isLoading: loadingBalances } = useReadContracts({
@@ -34,7 +64,7 @@ export function MyBonds({ compact = false }: { compact?: boolean }) {
       functionName: "balanceOf" as const,
       args: [address ?? "0x0000000000000000000000000000000000000000"] as const,
     })),
-    query: { enabled: isConnected && !!address && LIVE_TIERS.length > 0 },
+    query: { enabled: valid && LIVE_TIERS.length > 0 },
   });
 
   // Pass 2: enumerate the actual token ids behind those balances.
@@ -56,7 +86,7 @@ export function MyBonds({ compact = false }: { compact?: boolean }) {
       functionName: "tokenOfOwnerByIndex" as const,
       args: [address ?? "0x0000000000000000000000000000000000000000", BigInt(c.index)] as const,
     })),
-    query: { enabled: isConnected && !!address && indexCalls.length > 0 },
+    query: { enabled: valid && indexCalls.length > 0 },
   });
 
   const held = useMemo(() => {
@@ -83,22 +113,44 @@ export function MyBonds({ compact = false }: { compact?: boolean }) {
         </h2>
       </div>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        Read directly from the bond contracts — not from a wallet or an NFT indexer. If you have
-        just minted, your token appears here immediately, even while your wallet app still shows
-        nothing.
+        Read directly from the bond contracts — not from a wallet or an NFT indexer. Holdings are
+        public, so any address can be checked without connecting anything. If you have just minted,
+        your token appears here immediately, even while your wallet app still shows nothing.
       </p>
 
-      {!isConnected ? (
-        <div className="mt-4 max-w-sm">
-          <ConnectWallet />
+      <div className="mt-4 flex max-w-xl flex-wrap items-center gap-2">
+        <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2">
+          <Search size={14} className="shrink-0 text-[#8FA0B8]" />
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && lookUp()}
+            placeholder="0x… any address"
+            spellCheck={false}
+            className="w-full border-none bg-transparent font-mono text-sm text-[#FAFAFA] outline-none placeholder:text-[#8FA0B8]"
+          />
+        </div>
+        <Button variant="primary" size="sm" onClick={lookUp} disabled={!isAddress(input.trim())}>
+          Look up
+        </Button>
+      </div>
+      {valid && (
+        <p className="mt-2 font-mono text-xs text-[#8FA0B8]">
+          Showing {address}
+          {connectedAddress?.toLowerCase() === address?.toLowerCase() ? " (connected wallet)" : ""}
+        </p>
+      )}
+
+      {!valid ? (
+        <div className="glass-panel mt-4 p-6 text-sm text-[#8FA0B8]">
+          Paste any Flare address to see the bonds it holds. Holdings are public on-chain data — no
+          wallet connection needed.
         </div>
       ) : loading ? (
         <div className="glass-panel mt-4 p-6 text-sm text-[#8FA0B8]">Reading the contracts…</div>
       ) : held.length === 0 ? (
         <div className="glass-panel mt-4 p-6">
-          <p className="text-sm text-[#8FA0B8]">
-            This wallet holds no FlareForward Bonds yet.
-          </p>
+          <p className="text-sm text-[#8FA0B8]">This address holds no FlareForward Bonds yet.</p>
         </div>
       ) : (
         <>
