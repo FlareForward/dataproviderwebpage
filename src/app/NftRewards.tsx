@@ -1,4 +1,142 @@
-import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity } from "lucide-react";
+
+/**
+ * Measured bond performance, served by /api/bond-yield (worker/bondYield.ts).
+ * Everything shown is observed — the only derived figure is annualization, a
+ * labelled restatement of an observed epoch rate. No projections, ever: the
+ * whole premise of FlareForward Bonds is that we publish what was measured.
+ */
+const BOND_YIELD_URL = import.meta.env.VITE_BOND_YIELD_URL ?? "/api/bond-yield";
+
+interface Bucket {
+  label: string;
+  epoch_count: number;
+  bond_rate_annualized_pct: number | null;
+  provider_income_flr: number | null;
+}
+
+interface BondYield {
+  logged_epochs?: number;
+  total_epochs?: number;
+  current?: {
+    reward_epoch: number;
+    bond_rate_annualized_pct: number | null;
+    staking_component_pct: number | null;
+    pure_component_pct: number | null;
+    provider_income_flr: number | null;
+  } | null;
+  weeks?: Bucket[];
+  overall?: Bucket | null;
+}
+
+function pct(v: number | null | undefined): string {
+  return typeof v === "number" ? `${v.toFixed(2)}%` : "—";
+}
+
+function MeasuredPerformance() {
+  const { data, isLoading } = useQuery<BondYield>({
+    queryKey: ["bond-yield"],
+    queryFn: async () => {
+      const res = await fetch(BOND_YIELD_URL, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`bond-yield ${res.status}`);
+      return res.json();
+    },
+    staleTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const cur = data?.current;
+  const weeks = data?.weeks ?? [];
+
+  return (
+    <section className="mt-10">
+      <div className="flex items-center gap-3">
+        <Activity size={20} className="text-[#E85A95]" />
+        <h2 className="text-xl font-semibold">What the bond actually earns</h2>
+      </div>
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
+        Post-FIP.16 the validator bond is where provider economics live — and nobody has been
+        keeping the receipts, because Flare&apos;s explorer only retains the most recent reward
+        epoch. So we started the record ourselves. These are measured rates from closed epochs, not
+        forecasts. We publish them whether they look good or not.
+      </p>
+
+      {isLoading && (
+        <div className="glass-panel mt-4 p-6 text-sm text-[#8FA0B8]">Reading the chain…</div>
+      )}
+
+      {!isLoading && cur && (
+        <>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="glass-panel p-4">
+              <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
+                Bond rate — epoch {cur.reward_epoch}
+              </p>
+              <p className="mt-1 text-2xl font-semibold">{pct(cur.bond_rate_annualized_pct)}</p>
+              <p className="mt-1 text-xs text-[#8FA0B8]">
+                staking {pct(cur.staking_component_pct)} + pure {pct(cur.pure_component_pct)}
+              </p>
+            </div>
+            <div className="glass-panel p-4">
+              <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
+                Provider income this epoch
+              </p>
+              <p className="mt-1 text-2xl font-semibold">
+                {cur.provider_income_flr != null
+                  ? `${Math.round(cur.provider_income_flr).toLocaleString("en-US")} FLR`
+                  : "—"}
+              </p>
+              <p className="mt-1 text-xs text-[#8FA0B8]">the pool holder rewards come from</p>
+            </div>
+            <div className="glass-panel p-4">
+              <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">Epochs on record</p>
+              <p className="mt-1 text-2xl font-semibold">{data?.total_epochs ?? 0}</p>
+              <p className="mt-1 text-xs text-[#8FA0B8]">3.5 days each · log grows every epoch</p>
+            </div>
+          </div>
+
+          {weeks.length > 0 && (
+            <div className="glass-panel mt-3 overflow-x-auto p-0">
+              <table className="w-full min-w-[420px] text-left text-sm">
+                <thead className="text-xs uppercase tracking-wide text-[#8FA0B8]">
+                  <tr className="border-b border-white/8">
+                    <th className="px-4 py-3">Period</th>
+                    <th className="px-4 py-3">Epochs</th>
+                    <th className="px-4 py-3">Measured bond rate</th>
+                    <th className="px-4 py-3">Provider income</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...weeks, ...(data?.overall ? [data.overall] : [])].map((w) => (
+                    <tr key={w.label} className="border-b border-white/5 last:border-0">
+                      <td className="px-4 py-2.5 font-medium">{w.label}</td>
+                      <td className="px-4 py-2.5 text-[#8FA0B8]">{w.epoch_count}</td>
+                      <td className="px-4 py-2.5 tabular-nums">
+                        {pct(w.bond_rate_annualized_pct)}
+                      </td>
+                      <td className="px-4 py-2.5 tabular-nums text-[#8FA0B8]">
+                        {w.provider_income_flr != null
+                          ? `${Math.round(w.provider_income_flr).toLocaleString("en-US")} FLR`
+                          : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <p className="mt-3 max-w-3xl text-xs leading-relaxed text-[#8FA0B8]/80">
+            Rates are the observed per-epoch bond rate restated annually (×365/3.5) — a restatement
+            of what happened, not a prediction of what will. Past epochs do not guarantee future
+            ones, and nothing here is a promised return.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
 
 /**
  * NFT Bond Series hub — the sales-journey landing for FlareForward's
@@ -129,6 +267,8 @@ export default function NftRewards() {
       </div>
 
       {/* The three surfaces */}
+      <MeasuredPerformance />
+
       <h2 className="mt-10 text-xl font-semibold">The series lives in three places</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         <SurfaceCard

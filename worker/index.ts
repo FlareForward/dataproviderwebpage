@@ -15,6 +15,7 @@
  */
 
 import { handleNftRewards } from "./nftRewards";
+import { handleBondYield } from "./bondYield";
 
 /** Flare Forward identity (pinned) — mirrors PINNED_PROVIDER_ADDRESS in the app. */
 const IDENTITY_ADDRESS = "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
@@ -593,6 +594,9 @@ export default {
     }
     if (pathname === "/api/nft-rewards" || pathname === "/api/nft-rewards/") {
       return handleNftRewards(request);
+    }
+    if (pathname === "/api/bond-yield" || pathname === "/api/bond-yield/") {
+      return handleBondYield();
     }
     if (pathname.startsWith("/api/")) {
       return jsonResponse({ error: "Not found" }, 404);
