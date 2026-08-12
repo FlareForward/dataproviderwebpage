@@ -1,4 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import { useSearchParams } from "react-router";
+import { MintLot } from "./components/MintLot";
+import { CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity } from "lucide-react";
 
 /**
@@ -183,6 +186,50 @@ function MeasuredPerformance() {
  * personal view, not a public wall of token IDs.
  */
 
+
+/**
+ * The current lot's storefront. Renders one card per tier; each is a
+ * "coming soon" placeholder until that tier's contract address is set in
+ * lib/bondLot.ts (addresses land at launch, because deploying opens the mint).
+ * `?lot=0x...` points both cards at one deployed contract for verification.
+ */
+function CurrentLot() {
+  const [searchParams] = useSearchParams();
+  const previewAddr = searchParams.get("lot");
+  const preview = previewAddr && ADDRESS_RE.test(previewAddr) ? (previewAddr as `0x${string}`) : null;
+
+  const tiers: BondTier[] = preview
+    ? [{ ...CURRENT_LOT.tiers[0], address: preview, name: "Preview lot", blurb: "Verification against a deployed contract — not a FlareForward offering." }]
+    : CURRENT_LOT.tiers;
+
+  const anyLive = tiers.some((t) => t.address);
+
+  return (
+    <section className="mt-8">
+      <div className="flex flex-wrap items-center gap-3">
+        <h2 className="text-xl font-semibold">
+          {CURRENT_LOT.label} {anyLive ? "" : "— opening soon"}
+        </h2>
+        {!anyLive && (
+          <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-300">
+            MINT NOT YET OPEN
+          </span>
+        )}
+      </div>
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
+        {anyLive
+          ? "Priced in FLR. The mint window stays open until our next P-chain bond window — then the lot closes and caps at whatever sold. Every term below is read live from the contract."
+          : "Supply, price and dates announced here first. The mint window stays open until our next P-chain bond window — then the lot closes and caps at whatever sold, and the money goes to work."}
+      </p>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {tiers.map((t) => (
+          <MintLot key={t.key} tier={t} preview={!!preview} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function Step({
   n,
   icon,
@@ -253,20 +300,8 @@ export default function NftRewards() {
         </p>
       </div>
 
-      {/* Current lot */}
-      <div className="glass-panel mt-8 max-w-3xl border border-[#E85A95]/25 p-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-xl font-semibold">Lot 1 — opening soon</h2>
-          <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-300">
-            MINT NOT YET OPEN
-          </span>
-        </div>
-        <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-          Supply, price and dates announced here first. The mint window stays open until our next
-          P-chain bond window — then the lot closes and caps at whatever sold, and the money goes
-          to work.
-        </p>
-      </div>
+      {/* Current lot — the storefront. Reads every term from the contract. */}
+      <CurrentLot />
 
       {/* How it works */}
       <h2 className="mt-10 text-xl font-semibold">How a lot works</h2>
