@@ -15,9 +15,12 @@
  *
  * RATE SEMANTICS — verified against live epoch 422 data, three identities that
  * hold to full float precision. Do not "simplify" these without re-deriving:
- *   self_bond_earnings = self_bond      x reward_rate_pure
- *   pure               = delegated_stake x reward_rate_pure
+ *   self_bond_earnings = self_bond x reward_rate_pure
  *   reward_rate_total_mirror = reward_rate_mirror + reward_rate_pure
+ *   fee       = 0.25 x (wnat + mirror)   <- so wnat/mirror are NET of the 20%
+ *                                           delegation fee (net = 80% of gross
+ *                                           => fee = 25% of net)
+ *   total_fee = fee + pure_fee + self_bond_earnings  <- do NOT add sbe again
  *
  * The consequence matters: `self_bond_earnings / self_bond` is ONLY the `pure`
  * component (3.60% annualized at epoch 422) — it is NOT the bond's return. The
@@ -129,10 +132,11 @@ async function main() {
     staking_rewards_flr: num(rewards.mirror, REWARD_DECIMALS),
     delegation_rewards_flr: num(rewards.wnat, REWARD_DECIMALS),
     fees_flr: totalFee,
-    // The pool holder distributions are funded from: what the bonded capital
-    // itself earned, plus the provider fees that bond capacity makes possible.
-    provider_income_flr:
-      selfBondEarnings != null && totalFee != null ? selfBondEarnings + totalFee : null,
+    // The pool holder distributions are funded from. NOTE: `total_fee` already
+    // INCLUDES self_bond_earnings — verified identity:
+    //   total_fee = fee + pure_fee + self_bond_earnings
+    // so summing them would double-count the self-bond earnings.
+    provider_income_flr: totalFee,
     // Explorer's canonical per-epoch rates (fractions of stake, NOT annualized
     // and NOT projections — these are what the epoch actually paid).
     bond_rate_epoch:

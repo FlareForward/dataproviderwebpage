@@ -22,6 +22,8 @@ interface BondYield {
   current?: {
     reward_epoch: number;
     bond_rate_annualized_pct: number | null;
+    delegator_staking_pct: number | null;
+    delegation_fee_pct: number | null;
     staking_component_pct: number | null;
     pure_component_pct: number | null;
     provider_income_flr: number | null;
@@ -68,16 +70,45 @@ function MeasuredPerformance() {
 
       {!isLoading && cur && (
         <>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="glass-panel p-4">
+          {/* The comparison IS the point: the bond and P-chain staking are two
+              different rates on the same validator, and the difference is what
+              the Bonds product is actually selling. */}
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="glass-panel border border-[#E85A95]/30 p-5">
               <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                Bond rate — epoch {cur.reward_epoch}
+                Bond APY — what the bond earns
               </p>
-              <p className="mt-1 text-2xl font-semibold">{pct(cur.bond_rate_annualized_pct)}</p>
+              <p className="mt-1 text-3xl font-semibold text-[#FAFAFA]">
+                {pct(cur.bond_rate_annualized_pct)}
+              </p>
               <p className="mt-1 text-xs text-[#8FA0B8]">
-                staking {pct(cur.staking_component_pct)} + pure {pct(cur.pure_component_pct)}
+                staking {pct(cur.staking_component_pct)} + pure {pct(cur.pure_component_pct)} ·
+                epoch {cur.reward_epoch}
               </p>
             </div>
+            <div className="glass-panel p-5">
+              <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
+                P-chain staking APY — what a delegator earns
+              </p>
+              <p className="mt-1 text-3xl font-semibold">{pct(cur.delegator_staking_pct)}</p>
+              <p className="mt-1 text-xs text-[#8FA0B8]">
+                after our {cur.delegation_fee_pct ?? 20}% provider fee
+              </p>
+            </div>
+          </div>
+
+          <div className="glass-panel mt-3 border-l-2 border-[#E85A95]/50 p-4">
+            <p className="text-sm leading-relaxed text-[#8FA0B8]">
+              <span className="font-semibold text-[#FAFAFA]">Why the bond earns more.</span> Two
+              reasons, both structural. The staking APY a delegator sees is already{" "}
+              <em>net of the {cur.delegation_fee_pct ?? 20}% provider fee</em> — the bond is our own
+              stake, so no delegation fee comes off it. And the bond earns a second component on top
+              of the staking rate that delegated stake does not. That gap is the whole reason these
+              NFTs exist.
+            </p>
+          </div>
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div className="glass-panel p-4">
               <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
                 Provider income this epoch

@@ -36,7 +36,6 @@ const CACHE_SECONDS = 1800;
 const BOND_OPEN_EPOCH: number | null = null;
 
 const REWARD_DECIMALS = 1e18;
-const STAKE_DECIMALS = 1e9;
 
 interface EpochRow {
   reward_epoch: number;
@@ -47,6 +46,7 @@ interface EpochRow {
   self_bond_earnings_flr?: number | null;
   fees_flr?: number | null;
   provider_income_flr?: number | null;
+  delegation_fee_pct?: number | null;
   bond_rate_epoch?: number | null;
   staking_rate_epoch?: number | null;
   pure_rate_epoch?: number | null;
@@ -97,9 +97,13 @@ async function loadCurrent(): Promise<EpochRow | null> {
       observed_at_unix: Math.floor(Date.now() / 1000),
       self_bond_earnings_flr: selfBondEarnings,
       fees_flr: fees,
-      provider_income_flr:
-        selfBondEarnings != null && fees != null ? selfBondEarnings + fees : null,
+      // `total_fee` already INCLUDES self_bond_earnings (verified identity:
+      // total_fee = fee + pure_fee + self_bond_earnings). Adding them
+      // double-counts the self-bond earnings.
+      provider_income_flr: fees,
       total_stake_flr: flr(policy.staking_weight, REWARD_DECIMALS),
+      delegation_fee_pct:
+        typeof policy.delegation_fee_bips === "number" ? policy.delegation_fee_bips / 100 : null,
       bond_rate_epoch:
         typeof r.reward_rate_total_mirror === "number" ? r.reward_rate_total_mirror : null,
       staking_rate_epoch:
@@ -194,7 +198,7 @@ export async function handleBondYield(): Promise<Response> {
     generated_at_unix: Math.floor(Date.now() / 1000),
     identity_address: IDENTITY_ADDRESS,
     basis:
-      "Measured per-reward-epoch bond rate (reward_rate_total_mirror = staking + pure). Epochs are 3.5 days; 2 per week. Annualized figures restate an observed rate (x365/3.5) and are not forecasts.",
+      "Measured per-reward-epoch bond rate (reward_rate_total_mirror = staking + pure). The delegator staking rate (reward_rate_mirror) is NET of the provider's delegation fee; the self-bond pays no such fee, which is part of why the bond rate is higher. Epochs are 3.5 days; 2 per week. Annualized figures restate an observed rate (x365/3.5) and are not forecasts.",
     mode: BOND_OPEN_EPOCH != null ? "since_bond_open" : "trailing",
     bond_open_epoch: BOND_OPEN_EPOCH,
     logged_epochs: history.length,
@@ -208,6 +212,13 @@ export async function handleBondYield(): Promise<Response> {
             current.bond_rate_epoch != null
               ? current.bond_rate_epoch * EPOCHS_PER_YEAR * 100
               : null,
+          // What a P-chain DELEGATOR receives — net of our 20% fee.
+          // Verified: fee = 0.25 x (wnat + mirror), i.e. these reward figures
+          // are already net (net = 80% of gross => fee = 25% of net).
+          delegator_staking_pct:
+            current.staking_rate_epoch != null
+              ? current.staking_rate_epoch * EPOCHS_PER_YEAR * 100
+              : null,
           staking_component_pct:
             current.staking_rate_epoch != null
               ? current.staking_rate_epoch * EPOCHS_PER_YEAR * 100
@@ -217,6 +228,7 @@ export async function handleBondYield(): Promise<Response> {
               ? current.pure_rate_epoch * EPOCHS_PER_YEAR * 100
               : null,
           provider_income_flr: current.provider_income_flr,
+          delegation_fee_pct: current.delegation_fee_pct ?? null,
         }
       : null,
     weeks,
