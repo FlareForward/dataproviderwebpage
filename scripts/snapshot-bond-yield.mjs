@@ -49,17 +49,22 @@
  * Env:
  *   EXPLORER_BASE  Flare Systems Explorer backend
  *   IDENTITY       entity identity address (default: FlareForward)
- *   HISTORY_URL    existing history to extend (default: public repo)
+ *   HISTORY_PATH   existing history to extend, read from disk. PREFERRED in CI:
+ *                  reading the checked-out branch file means each run extends
+ *                  the exact committed state, with no risk of a stale CDN copy
+ *                  silently dropping rows.
+ *   HISTORY_URL    fallback source when HISTORY_PATH is unset (public repo)
  *   OUT_PATH       where to write (default: ./bond-yield-history.json)
  */
 
-import { writeFile } from "node:fs/promises";
+import { writeFile, readFile } from "node:fs/promises";
 
 const EXPLORER_BASE =
   process.env.EXPLORER_BASE ??
   "https://flare-systems-explorer-backend.flare.network/api/v0";
 const IDENTITY =
   process.env.IDENTITY ?? "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
+const HISTORY_PATH = process.env.HISTORY_PATH ?? null;
 const HISTORY_URL =
   process.env.HISTORY_URL ??
   "https://raw.githubusercontent.com/FlareForward/ftso-accuracy-data/bond-yield/bond-yield-history.json";
@@ -83,6 +88,15 @@ function num(raw, decimals) {
 
 /** Existing history, or an empty log on first run / unreachable source. */
 async function loadHistory() {
+  if (HISTORY_PATH) {
+    try {
+      const data = JSON.parse(await readFile(HISTORY_PATH, "utf8"));
+      if (Array.isArray(data?.epochs)) return data.epochs;
+    } catch {
+      // File absent on the first run of a fresh branch — start the record here.
+    }
+    return [];
+  }
   try {
     const data = await getJson(HISTORY_URL);
     if (Array.isArray(data?.epochs)) return data.epochs;
