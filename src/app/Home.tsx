@@ -83,7 +83,7 @@ export default function Home() {
             </div>
           ) : rewards ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <ProofStat
                   label="Delegation APY"
                   value={fmtPct(rewards.rates.delegation_annual_pct)}
@@ -94,6 +94,15 @@ export default function Home() {
                   label="Staking APY"
                   value={fmtPct(rewards.rates.staking_annual_pct)}
                   sub="Current rate, P-chain stakers"
+                  emphasize
+                />
+                {/* Shown beside the staking rate on purpose: the bond earns more
+                    than a delegator does, and that difference is what the Bonds
+                    series sells. */}
+                <ProofStat
+                  label="Bond APY"
+                  value={fmtPct(rewards.rates.bond_annual_pct)}
+                  sub="What the validator bond earns"
                   emphasize
                 />
                 <ProofStat

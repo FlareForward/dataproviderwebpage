@@ -12,6 +12,14 @@ export interface RewardsRates {
   delegation_annual_pct: number | null;
   staking_epoch_pct: number | null;
   staking_annual_pct: number | null;
+  /**
+   * What the validator self-bond earns (reward_rate_total_mirror). Runs higher
+   * than `staking_annual_pct`, which is a delegator's rate net of our
+   * delegation fee — the self-bond pays no such fee and earns an extra
+   * component. See worker/bondYield.ts for the verified identities.
+   */
+  bond_epoch_pct?: number | null;
+  bond_annual_pct?: number | null;
 }
 
 export interface RewardsBreakdownData {

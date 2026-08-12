@@ -1,0 +1,94 @@
+name: Snapshot bond yield history
+
+# Builds the measured record of what the FlareForward validator bond actually
+# earns, one row per reward epoch, and publishes it to the `bond-yield` branch
+# of the PUBLIC FlareForward/ftso-accuracy-data repo, which the Bonds page reads
+# over raw.githubusercontent.com (worker/bondYield.ts).
+#
+# Why this job exists at all: the Flare Systems Explorer exposes only the LATEST
+# reward epoch's reward figures. There is no historical rewards endpoint, so if
+# nobody records an epoch while it is current, that epoch's numbers are gone for
+# good. This job is the record.
+#
+# Why a separate public repo + branch: mirrors snapshot-performance.yml — this
+# repo is PRIVATE (its raw URLs 404 for anonymous browsers), and the accuracy box
+# force-pushes ftso-accuracy-data's `main`, so we publish to a dedicated branch
+# the box never touches.
+#
+# Setup: reuses the same `ACCURACY_DATA_TOKEN` secret as snapshot-performance.yml
+# (write access to FlareForward/ftso-accuracy-data). The `bond-yield` branch is
+# created automatically on the first successful run.
+
+on:
+  schedule:
+    # Hourly. Reward epochs are 3.5 days, so this is far more often than needed
+    # to catch every epoch — the margin is deliberate, because a missed epoch is
+    # unrecoverable. Rows are keyed by reward_epoch and the current (still
+    # accruing) epoch is refreshed in place until it closes.
+    - cron: "17 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: snapshot-bond-yield
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout scripts (this repo)
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Snapshot bond yield and publish
+        env:
+          TOKEN: ${{ secrets.ACCURACY_DATA_TOKEN }}
+          # Read AND write the accumulated history from the checked-out branch,
+          # so each run extends the exact committed state. Reading it over the
+          # CDN instead could serve a stale copy and silently drop a row.
+          HISTORY_PATH: bond-data/bond-yield-history.json
+          OUT_PATH: bond-data/bond-yield-history.json
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TOKEN:-}" ]; then
+            echo "::error::ACCURACY_DATA_TOKEN secret is not set. It needs write access to FlareForward/ftso-accuracy-data (same secret snapshot-performance.yml uses)."
+            exit 1
+          fi
+
+          REPO="https://x-access-token:${TOKEN}@github.com/FlareForward/ftso-accuracy-data.git"
+
+          # Clone the bond-yield branch; create it as an orphan on first run.
+          if git clone --depth 1 --branch bond-yield "$REPO" bond-data 2>/dev/null; then
+            echo "Extending existing bond-yield branch."
+          else
+            echo "bond-yield branch not found; creating it."
+            git clone --depth 1 "$REPO" bond-data
+            (
+              cd bond-data
+              git checkout --orphan bond-yield
+              git rm -rf . >/dev/null 2>&1 || true
+            )
+          fi
+
+          node scripts/snapshot-bond-yield.mjs
+
+          cd bond-data
+          git config user.name "flareforward-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add bond-yield-history.json
+          # --cached catches new (untracked) as well as modified files, so this
+          # works on the very first run before the file exists on the branch.
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "data: bond-yield-history.json $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push origin HEAD:bond-yield

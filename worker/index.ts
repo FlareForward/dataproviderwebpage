@@ -15,6 +15,7 @@
  */
 
 import { handleNftRewards } from "./nftRewards";
+import { handleBondYield } from "./bondYield";
 
 /** Flare Forward identity (pinned) — mirrors PINNED_PROVIDER_ADDRESS in the app. */
 const IDENTITY_ADDRESS = "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
@@ -418,6 +419,13 @@ async function handleRewards(): Promise<Response> {
       typeof rewards?.reward_rate_mirror === "number"
         ? rewards.reward_rate_mirror * 100
         : null;
+    // What the self-bond earns: reward_rate_total_mirror = mirror + pure.
+    // Higher than the staking rate above, which is a DELEGATOR's rate net of
+    // our delegation fee. See worker/bondYield.ts for the verified identities.
+    const bondEpoch =
+      typeof rewards?.reward_rate_total_mirror === "number"
+        ? rewards.reward_rate_total_mirror * 100
+        : null;
 
     const selfBond = flr(row?.self_bond, STAKE_DECIMALS);
     const delegated = flr(row?.delegated, STAKE_DECIMALS);
@@ -468,6 +476,8 @@ async function handleRewards(): Promise<Response> {
         staking_epoch_pct: stakingEpoch,
         staking_annual_pct:
           stakingEpoch != null ? stakingEpoch * EPOCHS_PER_YEAR : null,
+        bond_epoch_pct: bondEpoch,
+        bond_annual_pct: bondEpoch != null ? bondEpoch * EPOCHS_PER_YEAR : null,
       },
       breakdown: {
         reward_epoch: rewards?.reward_epoch ?? null,
@@ -593,6 +603,9 @@ export default {
     }
     if (pathname === "/api/nft-rewards" || pathname === "/api/nft-rewards/") {
       return handleNftRewards(request);
+    }
+    if (pathname === "/api/bond-yield" || pathname === "/api/bond-yield/") {
+      return handleBondYield();
     }
     if (pathname.startsWith("/api/")) {
       return jsonResponse({ error: "Not found" }, 404);
