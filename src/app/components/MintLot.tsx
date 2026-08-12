@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { formatEther } from "viem";
 import { Loader2, Check, ExternalLink } from "lucide-react";
@@ -43,10 +43,44 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
 
   const { writeContractAsync, isPending } = useWriteContract();
   const [txHash, setTxHash] = useState<`0x${string}` | undefined>();
-  const { isLoading: confirming, isSuccess: confirmed } = useWaitForTransactionReceipt({
+  const {
+    data: receipt,
+    isLoading: confirming,
+    isSuccess: confirmed,
+  } = useWaitForTransactionReceipt({
     hash: txHash,
     query: { enabled: !!txHash },
   });
+
+  /**
+   * A completed mint latches here and REPLACES the mint button until the buyer
+   * explicitly chooses to buy again. Leaving a live "Mint · 10,000 FLR" button
+   * sitting under a small success note is how people spend twice by accident.
+   */
+  const [minted, setMinted] = useState<{ tokenIds: number[]; hash: `0x${string}` } | null>(null);
+
+  useEffect(() => {
+    if (!confirmed || !receipt || !txHash) return;
+    // Idempotent per transaction: without this, an unstable `refetch` identity
+    // would re-run the effect after every refetch and loop on the RPC.
+    if (minted?.hash === txHash) return;
+    // ERC-721 Transfer(address,address,uint256): mints come from the zero
+    // address and carry the token id in the last indexed topic.
+    const TRANSFER = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+    const ids = receipt.logs
+      .filter(
+        (l) =>
+          l.address.toLowerCase() === (address ?? "").toLowerCase() &&
+          l.topics[0]?.toLowerCase() === TRANSFER &&
+          l.topics.length === 4 &&
+          BigInt(l.topics[1] as string) === 0n,
+      )
+      .map((l) => Number(BigInt(l.topics[3] as string)));
+    setMinted({ tokenIds: ids, hash: txHash });
+    // Update the sold counter straight away rather than waiting for the poll —
+    // watching it sit at the old number is what makes a mint feel unfinished.
+    void refetch();
+  }, [confirmed, receipt, txHash, address, refetch, minted]);
 
   const remaining = useMemo(
     () => (maxSupply != null && sold != null ? Number(maxSupply - sold) : null),
@@ -159,6 +193,42 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
             <div className="mt-4">
               <ConnectWallet />
             </div>
+          ) : minted ? (
+            /* Terminal state: no mint button here at all, so a second purchase
+               has to be a deliberate act. */
+            <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4">
+              <p className="flex items-center gap-2 font-semibold text-emerald-300">
+                <Check size={18} />
+                {minted.tokenIds.length > 1
+                  ? `${minted.tokenIds.length} minted — tokens #${minted.tokenIds.join(", #")} are yours`
+                  : `Minted — token #${minted.tokenIds[0] ?? "?"} is yours`}
+              </p>
+              <p className="mt-1 text-sm text-[#8FA0B8]">
+                Paid from your wallet and confirmed on Flare. It can take a day to appear in your
+                wallet app — that is the wallet indexing a new collection, not a problem with your
+                token.
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <a
+                  href={`https://flarescan.com/tx/${minted.hash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-[#E85A95] underline"
+                >
+                  View transaction <ExternalLink size={12} />
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMinted(null);
+                    setQty(1);
+                  }}
+                  className="text-sm text-[#8FA0B8] underline transition hover:text-[#FAFAFA]"
+                >
+                  Mint another
+                </button>
+              </div>
+            </div>
           ) : (
             <>
               <div className="mt-4 flex items-center gap-2">
@@ -196,20 +266,6 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                 )}
               </Button>
 
-              {confirmed && txHash && (
-                <p className="mt-2 flex items-center gap-1.5 text-sm text-emerald-400">
-                  <Check size={14} /> Minted.
-                  <a
-                    href={`https://flarescan.com/tx/${txHash}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 underline"
-                    onClick={() => refetch()}
-                  >
-                    View <ExternalLink size={12} />
-                  </a>
-                </p>
-              )}
             </>
           )}
         </>
