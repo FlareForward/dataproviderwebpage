@@ -5,7 +5,7 @@ import { Loader2, Check, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./Button";
 import { ConnectWallet } from "./ConnectWallet";
-import { bondLotAbi, MAX_BATCH_MINT, type BondTier } from "../../lib/bondLot";
+import { bondLotAbi, IPFS_GATEWAY, MAX_BATCH_MINT, type BondTier } from "../../lib/bondLot";
 
 /** FLR amounts on a sales page need separators: "10,000" not "10000". */
 function fmtFlr(wei: bigint): string {
@@ -81,18 +81,39 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
 
   if (!address) {
     return (
-      <div className="glass-panel p-5">
-        <h3 className="font-semibold">{tier.name}</h3>
-        <p className="mt-2 text-sm text-[#8FA0B8]">{tier.blurb}</p>
-        <span className="mt-4 inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-300">
-          OPENS WITH LOT 1
-        </span>
+      <div className="glass-panel overflow-hidden p-0">
+        {tier.imageCid && (
+          <img
+            src={`${IPFS_GATEWAY}/${tier.imageCid}`}
+            alt={`FlareForward Bonds ${tier.name} artwork`}
+            loading="lazy"
+            className="aspect-square w-full object-cover"
+          />
+        )}
+        <div className="p-5">
+          <h3 className="font-semibold">{tier.name}</h3>
+          <p className="mt-2 text-sm text-[#8FA0B8]">{tier.blurb}</p>
+          <span className="mt-4 inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-300">
+            OPENS WITH LOT 1
+          </span>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="glass-panel p-5">
+    <div className="glass-panel overflow-hidden p-0">
+      {/* The artwork a buyer actually receives — same image the token metadata
+          points at, so the card and the marketplace show the same thing. */}
+      {tier.imageCid && (
+        <img
+          src={`${IPFS_GATEWAY}/${tier.imageCid}`}
+          alt={`FlareForward Bonds ${tier.name} artwork`}
+          loading="lazy"
+          className="aspect-square w-full object-cover"
+        />
+      )}
+      <div className="p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-lg font-semibold">{tier.name}</h3>
         {preview && (
@@ -193,6 +214,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

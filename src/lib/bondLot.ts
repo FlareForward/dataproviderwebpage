@@ -72,7 +72,18 @@ export interface BondTier {
   address: `0x${string}` | null;
   /** One line on who this tier is for. */
   blurb: string;
+  /**
+   * IPFS CID of the tier's artwork — the same image referenced by the token
+   * metadata this lot was deployed with, so the card shows exactly what a
+   * buyer receives. Sourced from config rather than the contract because
+   * `tokenURI()` reverts for a token that doesn't exist yet, and a lot with
+   * nothing minted has no token to read.
+   */
+  imageCid: string;
 }
+
+/** Public IPFS gateway used for artwork. */
+export const IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs";
 
 export interface BondLotConfig {
   /** e.g. "Lot 1" */
@@ -96,12 +107,14 @@ export const CURRENT_LOT: BondLotConfig = {
       name: "10,000 FLR",
       address: "0x697e2ece036253afb08ee35cb1bcb83fec361736",
       blurb: "The larger position — 250 available.",
+      imageCid: "bafkreigm7v2lvlfy7dt44sfgt6b4lygrm3dqo4oc2varpb6uadnjvi6vfm",
     },
     {
       key: "tier-b",
       name: "2,500 FLR",
       address: "0xbfa14e5949eae2180af20bb30511d9023c67daf9",
       blurb: "The accessible entry — 1,000 available.",
+      imageCid: "bafkreidvawf44wunnoabyz3kr2q4llv34ayekmz4vj3o3ygjihlstni37a",
     },
   ],
 };
