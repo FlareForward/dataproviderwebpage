@@ -105,7 +105,7 @@ export function MyBonds({ compact = false }: { compact?: boolean }) {
   if (LIVE_TIERS.length === 0) return null;
 
   return (
-    <section className={compact ? "mt-8" : "p-4 lg:p-8"}>
+    <section id="your-bonds" className={compact ? "mt-8 scroll-mt-20" : "p-4 lg:p-8 scroll-mt-20"}>
       <div className="flex items-center gap-3">
         <Gem size={compact ? 20 : 24} className="text-[#E85A95]" />
         <h2 className={compact ? "text-xl font-semibold" : "text-2xl font-bold tracking-tight"}>

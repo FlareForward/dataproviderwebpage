@@ -196,26 +196,53 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
           ) : minted ? (
             /* Terminal state: no mint button here at all, so a second purchase
                has to be a deliberate act. */
-            <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4">
-              <p className="flex items-center gap-2 font-semibold text-emerald-300">
-                <Check size={18} />
+            <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-5">
+              <p className="flex items-center gap-2 text-lg font-semibold text-emerald-300">
+                <Check size={20} />
+                Thank you for being here at the start.
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-[#FAFAFA]/90">
                 {minted.tokenIds.length > 1
-                  ? `${minted.tokenIds.length} minted — tokens #${minted.tokenIds.join(", #")} are yours`
-                  : `Minted — token #${minted.tokenIds[0] ?? "?"} is yours`}
+                  ? `Tokens #${minted.tokenIds.join(", #")} are yours`
+                  : `Token #${minted.tokenIds[0] ?? "?"} is yours`}
+                , from the Genesis lot — the very first FlareForward Bonds ever issued. Nothing
+                about this works without people willing to go first, and you did. We&apos;re
+                genuinely grateful for this community and for the support that gets independent
+                infrastructure off the ground. You&apos;re part of the journey now, not a customer
+                of it.
               </p>
-              <p className="mt-1 text-sm text-[#8FA0B8]">
-                Paid from your wallet and confirmed on Flare. It can take a day to appear in your
-                wallet app — that is the wallet indexing a new collection, not a problem with your
-                token.
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
+
+              <ol className="mt-4 space-y-2 text-sm leading-relaxed text-[#8FA0B8]">
+                <li>
+                  <span className="font-medium text-[#FAFAFA]">Today.</span> Your FLR goes
+                  straight to work — delegated to our FTSO provider, earning from now rather than
+                  from the day the bond opens.
+                </li>
+                <li>
+                  <span className="font-medium text-[#FAFAFA]">At our next P-chain window.</span>{" "}
+                  This lot closes, supply caps at whatever sold, and the capital moves into the
+                  validator self-bond.
+                </li>
+                <li>
+                  <span className="font-medium text-[#FAFAFA]">From there, monthly.</span> You
+                  share what the infrastructure earns, claimed per token, for as long as you hold.
+                </li>
+              </ol>
+
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                <a
+                  href="#your-bonds"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-[#E85A95] underline"
+                >
+                  See your bonds
+                </a>
                 <a
                   href={`https://flarescan.com/tx/${minted.hash}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-sm text-[#E85A95] underline"
+                  className="inline-flex items-center gap-1 text-sm text-[#8FA0B8] underline transition hover:text-[#FAFAFA]"
                 >
-                  View transaction <ExternalLink size={12} />
+                  Receipt <ExternalLink size={12} />
                 </a>
                 <button
                   type="button"
@@ -228,6 +255,16 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                   Mint another
                 </button>
               </div>
+
+              <p className="mt-4 border-t border-white/10 pt-3 text-xs leading-relaxed text-[#8FA0B8]/80">
+                Your wallet app may take a day to show it — that is the wallet indexing a brand-new
+                collection, not a problem with your token. It is on-chain and yours the moment this
+                transaction confirmed; &ldquo;See your bonds&rdquo; reads it straight from the
+                contract.
+              </p>
+              <p className="mt-2 text-xs italic text-[#8FA0B8]/70">
+                Grateful to God, and to you, for the start of this.
+              </p>
             </div>
           ) : (
             <>
