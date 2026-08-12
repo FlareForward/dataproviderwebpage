@@ -71,7 +71,7 @@ export default function NftRewards() {
       <div className="max-w-3xl">
         <div className="flex items-center gap-3">
           <Gem size={24} className="text-[#E85A95]" />
-          <h1 className="text-2xl font-bold tracking-tight">NFT Bond Series</h1>
+          <h1 className="text-2xl font-bold tracking-tight">FlareForward Bonds</h1>
         </div>
         <p className="mt-3 text-lg leading-relaxed text-[#FAFAFA]/90">
           Back the FlareForward validator bond. Earn a share of provider rewards, monthly, for as
