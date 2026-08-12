@@ -1,11 +1,17 @@
 import { useMemo, useState } from "react";
 import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
-import { formatEther, parseEther } from "viem";
+import { formatEther } from "viem";
 import { Loader2, Check, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./Button";
 import { ConnectWallet } from "./ConnectWallet";
 import { bondLotAbi, MAX_BATCH_MINT, type BondTier } from "../../lib/bondLot";
+
+/** FLR amounts on a sales page need separators: "10,000" not "10000". */
+function fmtFlr(wei: bigint): string {
+  const n = Number(formatEther(wei));
+  return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+}
 
 /**
  * Storefront for one bond lot tier.
@@ -113,7 +119,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
               {sold != null ? sold.toString() : "—"} / {maxSupply != null ? maxSupply.toString() : "—"} minted
             </span>
             <span className="text-[#8FA0B8]">
-              {price != null ? `${formatEther(price)} FLR each` : "—"}
+              {price != null ? `${fmtFlr(price)} FLR each` : "—"}
             </span>
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/8">
@@ -165,7 +171,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                 ) : remaining === 0 ? (
                   "Sold out"
                 ) : (
-                  `Mint ${qty} · ${total != null ? formatEther(total) : "—"} FLR`
+                  `Mint ${qty} · ${total != null ? fmtFlr(total) : "—"} FLR`
                 )}
               </Button>
 

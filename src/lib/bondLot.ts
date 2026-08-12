@@ -94,13 +94,13 @@ export const CURRENT_LOT: BondLotConfig = {
     {
       key: "tier-a",
       name: "10,000 FLR",
-      address: null,
+      address: "0x697e2ece036253afb08ee35cb1bcb83fec361736",
       blurb: "The larger position — 250 available.",
     },
     {
       key: "tier-b",
       name: "2,500 FLR",
-      address: null,
+      address: "0xbfa14e5949eae2180af20bb30511d9023c67daf9",
       blurb: "The accessible entry — 1,000 available.",
     },
   ],
