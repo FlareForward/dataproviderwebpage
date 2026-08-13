@@ -7,7 +7,6 @@ import {
   Loader2,
   ArrowRightLeft,
   Gift,
-  Download,
   ShieldCheck,
   Layers,
   Clock,
@@ -62,6 +61,7 @@ export function Staking() {
   const ourNodeId = ffValidator?.node_id ?? null;
 
   const [moveAmount, setMoveAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
   const [stakeAmount, setStakeAmount] = useState("");
   const [durationSecs, setDurationSecs] = useState<bigint | null>(null);
   const [capacity, setCapacity] = useState<bigint | null>(null);
@@ -85,6 +85,12 @@ export function Staking() {
   useEffect(() => {
     setDurationSecs(durationOptions[0]?.seconds ?? null);
   }, [durationOptions]);
+
+  useEffect(() => {
+    if (balance.availableOnP === 0n && withdrawAmount) {
+      setWithdrawAmount("");
+    }
+  }, [balance.availableOnP, withdrawAmount]);
 
   // Lazily fetch the remaining delegation capacity for the selected validator.
   useEffect(() => {
@@ -134,6 +140,21 @@ export function Staking() {
     !amountError &&
     !capacityError &&
     busy === null;
+  const nextUnlockingStake = useMemo(() => {
+    const nowSecs = BigInt(Math.floor(Date.now() / 1000));
+    return stakes.reduce<DisplayStake | null>((soonest, stake) => {
+      if (stake.endTime <= nowSecs) return soonest;
+      return !soonest || stake.endTime < soonest.endTime ? stake : soonest;
+    }, null);
+  }, [stakes]);
+  const withdrawUnavailableMessage =
+    balance.availableOnP === 0n
+      ? nextUnlockingStake
+        ? `Nothing available yet — ${formatFlr(nextUnlockingStake.amount)} FLR unlocks ${new Date(
+            Number(nextUnlockingStake.endTime) * 1000
+          ).toLocaleDateString()}`
+        : "No FLR on the P-chain to move."
+      : null;
 
   async function handleEnable() {
     try {
@@ -147,6 +168,15 @@ export function Staking() {
     try {
       await moveToP(moveAmount);
       setMoveAmount("");
+    } catch {
+      /* toast already shown */
+    }
+  }
+
+  async function handleWithdraw() {
+    try {
+      await withdrawToC(withdrawAmount);
+      setWithdrawAmount("");
     } catch {
       /* toast already shown */
     }
@@ -388,6 +418,69 @@ export function Staking() {
                         {formatFlr(balance.stakedOnP)} FLR
                       </span>
                     </div>
+                    <div className="pt-4 border-t border-white/8 space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-[#8FA0B8] flex items-center gap-2">
+                          <ArrowRightLeft size={14} /> Move FLR back to your wallet
+                        </span>
+                        {!withdrawUnavailableMessage && (
+                          <button
+                            onClick={() => setWithdrawAmount(formatFlrPlain(balance.availableOnP))}
+                            className="text-xs text-[#EE1A58] hover:underline"
+                          >
+                            MAX
+                          </button>
+                        )}
+                      </div>
+                      {withdrawUnavailableMessage ? (
+                        <p className="text-xs text-[#8FA0B8]">
+                          {withdrawUnavailableMessage}
+                        </p>
+                      ) : (
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={withdrawAmount}
+                            onChange={(e) => setWithdrawAmount(e.target.value)}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            placeholder="0.00"
+                            className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">
+                            FLR
+                          </span>
+                        </div>
+                      )}
+                      <Button
+                        variant="secondary"
+                        className="w-full"
+                        disabled={
+                          busy !== null || !withdrawAmount || Number(withdrawAmount) <= 0
+                        }
+                        onClick={handleWithdraw}
+                      >
+                        {busy === "withdraw" ? (
+                          <Loader2 className="animate-spin" size={16} />
+                        ) : (
+                          "Move to wallet (C-chain)"
+                        )}
+                      </Button>
+                      {busy === "withdraw" && (
+                        <p className="text-xs text-[#8FA0B8]">
+                          This takes two wallet confirmations — export from the P-chain, then import
+                          to the C-chain. Approve both and keep this tab open until they complete.
+                        </p>
+                      )}
+                      {balance.notImportedToC > 0n && (
+                        <PendingImportNotice
+                          amount={balance.notImportedToC}
+                          target="C-chain"
+                          finishing={busy === "importToC"}
+                          disabled={busy !== null}
+                          onFinish={() => importToC().catch(() => {})}
+                        />
+                      )}
+                    </div>
                     {!selectedValidator ? (
                       <div className="text-center py-4 text-[#8FA0B8] flex flex-col items-center">
                         <Server size={28} className="mb-2 opacity-20" />
@@ -519,7 +612,7 @@ export function Staking() {
                     )}
                   </div>
 
-                  {/* Rewards + withdraw */}
+                  {/* Rewards */}
                   <div className="pt-4 border-t border-white/8 space-y-3">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[#8FA0B8] flex items-center gap-2">
@@ -543,29 +636,6 @@ export function Staking() {
                         </>
                       )}
                     </Button>
-                    <Button
-                      variant="ghost"
-                      className="w-full gap-2"
-                      disabled={busy !== null || balance.availableOnP <= 0n}
-                      onClick={() => withdrawToC()}
-                    >
-                      {busy === "withdraw" ? (
-                        <Loader2 className="animate-spin" size={16} />
-                      ) : (
-                        <>
-                          <Download size={16} /> Withdraw P-chain balance to C-chain
-                        </>
-                      )}
-                    </Button>
-                    {balance.notImportedToC > 0n && (
-                      <PendingImportNotice
-                        amount={balance.notImportedToC}
-                        target="C-chain"
-                        finishing={busy === "importToC"}
-                        disabled={busy !== null}
-                        onFinish={() => importToC().catch(() => {})}
-                      />
-                    )}
                   </div>
                 </>
               )}
