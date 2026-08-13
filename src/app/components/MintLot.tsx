@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import { formatEther } from "viem";
 import { Loader2, Check, ExternalLink } from "lucide-react";
@@ -236,12 +237,12 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
               </ol>
 
               <div className="mt-4 flex flex-wrap items-center gap-4">
-                <a
-                  href="#your-bonds"
+                <Link
+                  to="/bonds"
                   className="inline-flex items-center gap-1 text-sm font-medium text-[#E85A95] underline"
                 >
                   See your bonds
-                </a>
+                </Link>
                 <a
                   href={`https://flarescan.com/tx/${minted.hash}`}
                   target="_blank"
