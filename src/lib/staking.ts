@@ -448,7 +448,9 @@ export function validateTransferAmount(
 ): string | null {
   if (amountWei <= 0n) return "Enter an amount to move.";
   if (amountWei > available) {
-    return `Only ${formatFlr(available)} FLR available on the ${sourceLabel}.`;
+    // `sourceLabel` is a full phrase ("in your wallet", "on the P-chain") so
+    // each side reads naturally — users don't need to know what the C-chain is.
+    return `Only ${formatFlr(available)} FLR available ${sourceLabel}.`;
   }
   return null;
 }

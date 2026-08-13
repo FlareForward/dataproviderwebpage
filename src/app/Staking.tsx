@@ -65,6 +65,10 @@ export function Staking() {
   const ourNodeId = ffValidator?.node_id ?? null;
 
   const [amount, setAmount] = useState("");
+  // Which way the user last signalled they want to move FLR. One input feeds
+  // two buttons, so MAX has to carry intent — otherwise filling from the wallet
+  // balance leaves both directions looking equally plausible.
+  const [intent, setIntent] = useState<"toP" | "toC" | null>(null);
   const [stakeAmount, setStakeAmount] = useState("");
   const [durationSecs, setDurationSecs] = useState<bigint | null>(null);
   const [capacity, setCapacity] = useState<bigint | null>(null);
@@ -136,10 +140,10 @@ export function Staking() {
       ? validateStakeAmount(stakeAmountWei, limits, balance.availableOnP)
       : null;
   const toPError = amount
-    ? validateTransferAmount(amountWei, balance.availableOnC, "C-chain")
+    ? validateTransferAmount(amountWei, balance.availableOnC, "in your wallet")
     : null;
   const toCError = amount
-    ? validateTransferAmount(amountWei, balance.availableOnP, "P-chain")
+    ? validateTransferAmount(amountWei, balance.availableOnP, "on the P-chain")
     : null;
   const capacityError =
     effectiveCapacity !== null && stakeAmountWei > effectiveCapacity
@@ -343,11 +347,33 @@ export function Staking() {
           <Card className="sticky top-24">
             <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Stake on the P-chain</CardTitle>
-              <CardDescription className="text-[#8FA0B8]">
-                Delegate FLR to a validator to earn staking rewards
-              </CardDescription>
             </CardHeader>
             <CardContent className="p-5 space-y-6">
+                  {/* Rewards */}
+                  <div className="pt-4 border-t border-white/8 space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#8FA0B8] flex items-center gap-2">
+                        <Gift size={14} /> Claimable rewards
+                      </span>
+                      <span className="text-[#FAFAFA] font-medium">
+                        {formatFlr(claimableReward)} FLR
+                      </span>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      className="w-full gap-2"
+                      disabled={busy !== null || claimableReward <= 0n}
+                      onClick={() => claimRewards()}
+                    >
+                      {busy === "claim" ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : (
+                        <>
+                          <Gift size={16} /> Claim staking rewards
+                        </>
+                      )}
+                    </Button>
+                  </div>
               {!isConnected ? (
                 <div className="text-center py-8 text-[#8FA0B8] flex flex-col items-center gap-4">
                   <Wallet size={32} className="opacity-20" />
@@ -386,12 +412,15 @@ export function Staking() {
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[#8FA0B8] shrink-0">Wallet (C-chain)</span>
+                        <span className="text-[#8FA0B8] shrink-0">Wallet</span>
                         <span className="text-[#FAFAFA] font-medium tabular-nums truncate">
                           {formatFlr(balance.availableOnC)}
                         </span>
                         <button
-                          onClick={() => setAmount(formatFlrPlain(balance.availableOnC))}
+                          onClick={() => {
+                            setAmount(formatFlrPlain(balance.availableOnC));
+                            setIntent("toP");
+                          }}
                           className="text-[#EE1A58] hover:underline shrink-0"
                         >
                           MAX
@@ -403,7 +432,10 @@ export function Staking() {
                           {formatFlr(balance.availableOnP)}
                         </span>
                         <button
-                          onClick={() => setAmount(formatFlrPlain(balance.availableOnP))}
+                          onClick={() => {
+                            setAmount(formatFlrPlain(balance.availableOnP));
+                            setIntent("toC");
+                          }}
                           className="text-[#EE1A58] hover:underline shrink-0"
                         >
                           MAX
@@ -414,7 +446,10 @@ export function Staking() {
                       <input
                         type="number"
                         value={amount}
-                        onChange={(e) => setAmount(e.target.value)}
+                        onChange={(e) => {
+                          setAmount(e.target.value);
+                          setIntent(null);
+                        }}
                         onWheel={(e) => e.currentTarget.blur()}
                         placeholder="0.00"
                         className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
@@ -431,7 +466,7 @@ export function Staking() {
                     )}
                     <div className="grid grid-cols-2 gap-2">
                       <Button
-                        variant="secondary"
+                        variant={intent === "toP" ? "primary" : "secondary"}
                         className="w-full"
                         disabled={busy !== null || !amount || Number(amount) <= 0 || !!toPError}
                         onClick={handleMove}
@@ -443,7 +478,7 @@ export function Staking() {
                         )}
                       </Button>
                       <Button
-                        variant="secondary"
+                        variant={intent === "toC" ? "primary" : "secondary"}
                         className="w-full"
                         disabled={busy !== null || !amount || Number(amount) <= 0 || !!toCError}
                         onClick={handleWithdraw}
@@ -462,14 +497,14 @@ export function Staking() {
                     )}
                     {busy === "moveToP" && (
                       <p className="text-xs text-[#8FA0B8]">
-                        This takes two wallet confirmations — export from the C-chain, then import
+                        This takes two wallet confirmations — export from your wallet, then import
                         to the P-chain. Approve both and keep this tab open until they complete.
                       </p>
                     )}
                     {balance.notImportedToP > 0n && (
                       <PendingImportNotice
                         amount={balance.notImportedToP}
-                        target="P-chain"
+                        target="the P-chain"
                         finishing={busy === "importToP"}
                         disabled={busy !== null}
                         onFinish={() => importToP().catch(() => {})}
@@ -478,13 +513,13 @@ export function Staking() {
                     {busy === "withdraw" && (
                       <p className="text-xs text-[#8FA0B8]">
                         This takes two wallet confirmations — export from the P-chain, then import
-                        to the C-chain. Approve both and keep this tab open until they complete.
+                        to your wallet. Approve both and keep this tab open until they complete.
                       </p>
                     )}
                     {balance.notImportedToC > 0n && (
                       <PendingImportNotice
                         amount={balance.notImportedToC}
-                        target="C-chain"
+                        target="your wallet"
                         finishing={busy === "importToC"}
                         disabled={busy !== null}
                         onFinish={() => importToC().catch(() => {})}
@@ -583,8 +618,7 @@ export function Staking() {
                           <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
                           <div className="text-[#FAFAFA]">
                             Staked FLR is locked for the chosen duration. When the stake ends the
-                            FLR returns to your P-chain balance, ready to withdraw back to the
-                            C-chain.
+                            FLR returns to your P-chain balance, ready to move back to your wallet.
                           </div>
                         </div>
 
@@ -631,31 +665,6 @@ export function Staking() {
                     )}
                   </div>
 
-                  {/* Rewards */}
-                  <div className="pt-4 border-t border-white/8 space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8] flex items-center gap-2">
-                        <Gift size={14} /> Claimable rewards
-                      </span>
-                      <span className="text-[#FAFAFA] font-medium">
-                        {formatFlr(claimableReward)} FLR
-                      </span>
-                    </div>
-                    <Button
-                      variant="secondary"
-                      className="w-full gap-2"
-                      disabled={busy !== null || claimableReward <= 0n}
-                      onClick={() => claimRewards()}
-                    >
-                      {busy === "claim" ? (
-                        <Loader2 className="animate-spin" size={16} />
-                      ) : (
-                        <>
-                          <Gift size={16} /> Claim staking rewards
-                        </>
-                      )}
-                    </Button>
-                  </div>
                 </>
               )}
             </CardContent>
@@ -863,7 +872,7 @@ function PendingImportNotice({
   onFinish,
 }: {
   amount: bigint;
-  target: "P-chain" | "C-chain";
+  target: "the P-chain" | "your wallet";
   finishing: boolean;
   disabled: boolean;
   onFinish: () => void;
@@ -873,9 +882,9 @@ function PendingImportNotice({
       <div className="flex gap-3">
         <Clock size={16} className="text-yellow-500 shrink-0 mt-0.5" />
         <div className="text-[#FAFAFA]">
-          <span className="font-semibold">{formatFlr(amount)} FLR</span> is part-way to the{" "}
-          {target}. The export step confirmed, but the import step hasn't. Your FLR is safe — it
-          just needs one more confirmation to land in your {target} balance.
+          <span className="font-semibold">{formatFlr(amount)} FLR</span> is part-way to {target}. The
+          export step confirmed, but the import step hasn't. Your FLR is safe — it just needs one
+          more confirmation to land.
         </div>
       </div>
       <Button variant="secondary" className="w-full" disabled={disabled} onClick={onFinish}>
