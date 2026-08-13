@@ -175,81 +175,41 @@ export default function Home() {
           </div>
         </section>
 
-        {/* --------------------------------------- VeriGuard bonds teaser */}
-        <section aria-labelledby="veriguard-heading">
-          <div className="glass-card p-6 lg:p-8 border border-[#EE1A58]/20">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-              <div className="max-w-2xl">
-                <div className="flex items-center gap-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EE1A58] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-white shadow-[0_0_20px_rgba(238,26,88,0.45)]">
-                    <Flame size={12} /> Coming soon
-                  </span>
-                </div>
-                <h2 id="veriguard-heading" className="mt-3 text-xl lg:text-2xl font-bold tracking-tight">
-                  VeriGuard NFT Bonds — grow the bond with us
-                </h2>
-                <p className="mt-2 text-sm text-[#8FA0B8] leading-relaxed">
-                  A new way to strengthen FlareForward's infrastructure is in the
-                  works: NFT bond raises on VeriGuard, run in 90-day cycles. A
-                  bigger bond means stronger, better-funded infrastructure —
-                  built with the community instead of around it. Terms are being
-                  finalized now; the announcement drops on our channels first.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 shrink-0">
-                <a href={LINKS.x} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" className="gap-2">
-                    <XGlyph /> Get the announcement
-                  </Button>
-                </a>
-                <a href={LINKS.youtube} target="_blank" rel="noopener noreferrer">
-                  <Button variant="ghost" className="gap-2 text-[#8FA0B8] hover:text-[#FAFAFA]">
-                    <Youtube size={16} /> Watch for updates
-                  </Button>
-                </a>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* -------------------------------------------------- How it works */}
         <section aria-labelledby="how-heading" className="space-y-5">
           <div className="text-center max-w-2xl mx-auto">
             <h2 id="how-heading" className="text-2xl lg:text-3xl font-bold tracking-tight">
-              Put your FLR to work in three steps
+              Support us in any of these ways
             </h2>
             <p className="mt-2 text-sm text-[#8FA0B8]">
-              No experience needed. Your tokens stay in your wallet the whole time.
+              Pick whichever suits you. Your tokens stay in your wallet throughout.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StepCard
-              step={1}
-              title="Connect your wallet"
-              body="Use the wallet you already have. Connecting is read-only — nothing moves without your signature."
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <SupportCard
+              to="/delegation"
+              icon={<Wallet size={18} />}
+              title="Delegate WFLR"
+              body="Point your vote power at our data provider. Reversible any time, about a minute to do."
             />
-            <StepCard
-              step={2}
-              title="Delegate or stake"
-              body="Delegate wrapped FLR (WFLR) to our data provider, or stake to our validator on the P-chain. Both take about a minute."
+            <SupportCard
+              to="/staking"
+              icon={<Landmark size={18} />}
+              title="Stake on P-chain"
+              body="Stake FLR to our validator for the bond period you choose."
             />
-            <StepCard
-              step={3}
-              title="Earn every epoch"
-              body="Rewards accrue every ~3.5-day reward epoch. Track and claim them any time on your My Rewards page."
+            <SupportCard
+              to="/nft"
+              icon={<Flame size={18} />}
+              title="FlareForward Bonds"
+              body="Mint a bond NFT and fund the validator self-bond directly. Lot 1 is open now."
             />
-          </div>
-          <div className="flex justify-center gap-3">
-            <Link to="/delegation">
-              <Button variant="primary" className="gap-2">
-                <Wallet size={16} /> Start delegating
-              </Button>
-            </Link>
-            <Link to="/staking">
-              <Button variant="outline" className="gap-2">
-                <Landmark size={16} /> Start staking
-              </Button>
-            </Link>
+            <SupportCard
+              to="/rewards"
+              icon={<Gift size={18} />}
+              title="See what you've earned"
+              body="Your delegation, staking and bonds in one place — and what's ready to claim."
+            />
           </div>
         </section>
 
@@ -320,24 +280,12 @@ export default function Home() {
               Two minutes to set up. Non-custodial from start to finish. And it
               funds a team that gives back to the network you're betting on.
             </p>
-            <div className="mt-6 flex flex-wrap justify-center gap-3">
-              <Link to="/delegation">
-                <Button variant="primary" size="lg" className="gap-2">
-                  <Wallet size={18} /> Delegate now <ArrowRight size={16} />
-                </Button>
-              </Link>
-              <Link to="/staking">
-                <Button variant="outline" size="lg" className="gap-2">
-                  <Landmark size={18} /> Stake now
-                </Button>
-              </Link>
-            </div>
             <p className="mt-4 text-xs text-[#8FA0B8]">
-              Want the raw numbers first?{" "}
+              Pick a way to support us above, or{" "}
               <Link to="/analytics" className="text-[#EE1A58] hover:underline">
-                See our full performance analytics
-              </Link>
-              .
+                see our full performance analytics
+              </Link>{" "}
+              first.
             </p>
           </div>
         </section>
@@ -529,18 +477,38 @@ function WhyCard({
   );
 }
 
-function StepCard({ step, title, body }: { step: number; title: string; body: string }) {
+/**
+ * One way to support FlareForward. The whole card is the link — the page used
+ * to repeat "Delegate" and "Stake" as buttons in three separate places, so
+ * these carry the navigation instead of another row of CTAs.
+ */
+function SupportCard({
+  to,
+  icon,
+  title,
+  body,
+}: {
+  to: string;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
   return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#EE1A58] to-[#E85A95] text-sm font-bold text-white">
-            {step}
+    <Link to={to} className="group block h-full">
+      <Card className="h-full transition-colors group-hover:border-[#EE1A58]/40">
+        <CardContent className="p-6 flex h-full flex-col">
+          <div className="flex items-center gap-3">
+            <span className="text-[#EE1A58]">{icon}</span>
+            <h3 className="text-base font-semibold tracking-tight group-hover:text-[#EE1A58] transition-colors">
+              {title}
+            </h3>
           </div>
-          <h3 className="text-base font-semibold tracking-tight">{title}</h3>
-        </div>
-        <p className="mt-3 text-sm text-[#8FA0B8] leading-relaxed">{body}</p>
-      </CardContent>
-    </Card>
+          <p className="mt-3 flex-1 text-sm text-[#8FA0B8] leading-relaxed">{body}</p>
+          <span className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[#EE1A58]">
+            Go <ArrowRight size={13} />
+          </span>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
