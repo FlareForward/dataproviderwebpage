@@ -44,8 +44,8 @@ export function Root() {
           <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Home" />
           <NavItem to="/delegation" icon={<Wallet size={20} />} label="Delegate" />
           <NavItem to="/staking" icon={<Landmark size={20} />} label="Stake" />
+          <NavItem to="/bonds" icon={<Gem size={20} />} label="Bonds" />
           <NavItem to="/rewards" icon={<Gift size={20} />} label="My Rewards" />
-          <NavItem to="/nft" icon={<Gem size={20} />} label="FlareForward Bonds" />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
         </nav>
         <div className="p-4 border-t border-white/8 space-y-3">
@@ -112,15 +112,15 @@ export function Root() {
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem
-              to="/rewards"
-              icon={<Gift size={20} />}
-              label="My Rewards"
+              to="/bonds"
+              icon={<Gem size={20} />}
+              label="Bonds"
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem
-              to="/nft"
-              icon={<Gem size={20} />}
-              label="FlareForward Bonds"
+              to="/rewards"
+              icon={<Gift size={20} />}
+              label="My Rewards"
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem

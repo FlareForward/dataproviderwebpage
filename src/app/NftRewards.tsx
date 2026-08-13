@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { useReadContracts } from "wagmi";
 import { MintLot } from "./components/MintLot";
-import { MyBonds } from "./components/MyBonds";
 import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity } from "lucide-react";
@@ -622,8 +621,6 @@ export default function NftRewards() {
         </div>
       </section>
 
-      <MyBonds compact />
-
       <div className="glass-panel mt-10 max-w-3xl p-5">
         <h3 className="font-semibold">The plain-English terms</h3>
         <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#8FA0B8]">
@@ -632,16 +629,16 @@ export default function NftRewards() {
             redeem-for-principal.
           </li>
           <li>
-            • Distributions are equal per NFT within a lot, enforced by the distribution contract
-            on-chain.
+            • Distributions will be equal per NFT within a lot, enforced on-chain by that
+            lot&apos;s distribution contract once it is deployed.
           </li>
           <li>
             • Never burn a series NFT — a burned token&apos;s share of future distributions is gone
             for good. Sell it instead.
           </li>
           <li>
-            • Reward amounts follow what the infrastructure actually earns. We publish real
-            distribution numbers every month; we don&apos;t publish projections.
+            • Reward amounts follow what the infrastructure actually earns. Once distributions
+            begin we will publish the real numbers; we do not publish projections.
           </li>
         </ul>
       </div>
