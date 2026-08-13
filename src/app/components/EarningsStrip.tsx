@@ -15,7 +15,7 @@ interface EarningsStripProps {
   emptyMessage: string;
 }
 
-function formatAmount(wei: bigint, digits = 4): string {
+function formatAmount(wei: bigint, digits = 2): string {
   return Number(formatUnits(wei, 18)).toLocaleString(undefined, {
     maximumFractionDigits: digits,
   });
@@ -25,7 +25,7 @@ function formatAnnualAtRate(amountWei: bigint, ratePct: number | null | undefine
   if (ratePct == null || !Number.isFinite(ratePct)) return DASH;
   const amount = Number(formatUnits(amountWei, 18));
   return `${((amount * ratePct) / 100).toLocaleString(undefined, {
-    maximumFractionDigits: 4,
+    maximumFractionDigits: 2,
   })} FLR per year`;
 }
 

@@ -255,96 +255,10 @@ export function Staking() {
         />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* FlareForward validator — the one and only staking target on this site. */}
-        <Card className="col-span-1 lg:col-span-2">
-          <CardHeader className="border-b border-white/8 pb-4">
-            <CardTitle className="text-[#FAFAFA]">Your validator: FlareForward</CardTitle>
-            <CardDescription className="text-[#8FA0B8]">
-              Stake FLR on the P-chain with the FlareForward validator — run by
-              the same team signing your price feeds.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-5 space-y-5">
-            {!selectedValidator && (validatorsLoading || !ourNodeId) ? (
-              <div className="p-8 text-center text-[#8FA0B8] text-sm flex items-center justify-center gap-2">
-                <Loader2 size={16} className="animate-spin" /> Loading the FlareForward validator…
-              </div>
-            ) : !selectedValidator ? (
-              <div className="p-8 text-center text-[#8FA0B8] text-sm">
-                The FlareForward validator isn't accepting new stakes right now —
-                check back soon.
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
-                      <ImageWithFallback
-                        src={logoImage}
-                        alt="FlareForward"
-                        className="w-8 h-8 object-contain"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-lg text-[#FAFAFA]">FlareForward</div>
-                      <div
-                        className="text-xs text-[#8FA0B8] font-mono truncate"
-                        title={selectedValidator.nodeId}
-                      >
-                        {shortNodeId(selectedValidator.nodeId, 12)}
-                      </div>
-                    </div>
-                  </div>
-                  <Badge variant={selectedValidator.acceptsDelegations ? "success" : "dark"}>
-                    {selectedValidator.acceptsDelegations ? "Accepting stakes" : "Ending soon"}
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="glass-panel p-3">
-                    <div className="text-xs text-[#8FA0B8] mb-1">Our self-bond</div>
-                    <div className="font-medium text-[#FAFAFA] text-sm">
-                      {selectedValidator.selfBondLabel} FLR
-                    </div>
-                  </div>
-                  <div className="glass-panel p-3">
-                    <div className="text-xs text-[#8FA0B8] mb-1">Fee</div>
-                    <div className="font-medium text-[#FAFAFA] text-sm">
-                      {selectedValidator.delegationFeePct.toFixed(2)}%
-                    </div>
-                  </div>
-                  <div className="glass-panel p-3">
-                    <div className="text-xs text-[#8FA0B8] mb-1">Stakers</div>
-                    <div className="font-medium text-[#FAFAFA] text-sm">
-                      {ffValidator?.delegators_count ?? "—"}
-                    </div>
-                  </div>
-                  <div className="glass-panel p-3">
-                    <div className="text-xs text-[#8FA0B8] mb-1">Active until</div>
-                    <div className="font-medium text-[#FAFAFA] text-sm">
-                      {selectedValidator.endDate.toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
-                  <Landmark size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                  <div className="text-[#FAFAFA]">
-                    Our own capital is self-bonded on this node — we stake
-                    alongside you. Staked FLR is locked for the duration you
-                    choose, then returns to your P-chain balance. Rewards accrue
-                    every reward epoch.
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="max-w-2xl">
         {/* Staking action panel */}
-        <div className="col-span-1">
-          <Card className="sticky top-24">
+        <div>
+          <Card>
             <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Stake on the P-chain</CardTitle>
             </CardHeader>

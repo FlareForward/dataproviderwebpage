@@ -129,6 +129,7 @@ export function Delegation() {
         />
       )}
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
       {/* Your delegations — the user's own current position. */}
       {isConnected && currentDelegations.length > 0 && (
         <YourDelegations
@@ -175,6 +176,7 @@ export function Delegation() {
           </CardContent>
         </Card>
       )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* FlareForward — the one and only delegation target on this site. */}
@@ -208,23 +210,6 @@ export function Delegation() {
               <Badge variant={flareForward?.status === "Active" || !flareForward ? "success" : "outline"}>
                 {flareForward?.status ?? "Active"}
               </Badge>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="glass-panel p-3">
-                <div className="text-xs text-[#8FA0B8] mb-1">Vote power delegated to us</div>
-                <div className="font-medium text-[#FAFAFA]">
-                  {flareForward?.votePowerLabel ?? "—"}
-                </div>
-              </div>
-              <div className="glass-panel p-3">
-                <div className="text-xs text-[#8FA0B8] mb-1">Network delegation share</div>
-                <div className="font-medium text-[#FAFAFA]">
-                  {flareForward?.delegationPct != null
-                    ? `${flareForward.delegationPct.toFixed(2)}%`
-                    : "—"}
-                </div>
-              </div>
             </div>
 
             <ul className="space-y-3 text-sm text-[#8FA0B8]">

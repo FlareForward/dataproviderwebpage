@@ -215,7 +215,7 @@ const BIPS_DENOMINATOR = 10000;
  */
 export const STAKE_LATENCY_BUFFER = 3600n;
 
-export function formatFlr(wei: bigint, maxFractionDigits = 4): string {
+export function formatFlr(wei: bigint, maxFractionDigits = 2): string {
   return Number(formatUnits(wei, 18)).toLocaleString(undefined, {
     maximumFractionDigits: maxFractionDigits,
   });
