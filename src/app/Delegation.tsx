@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { formatUnits } from "viem";
 import {
   Shield,
@@ -19,9 +19,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./com
 import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
 import { ConnectWallet } from "./components/ConnectWallet";
+import { EarningsStrip } from "./components/EarningsStrip";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useProviders, type ProviderRow } from "../hooks/useProviders";
 import { useDelegation } from "../hooks/useDelegation";
+import { useRewards } from "../hooks/useRewards";
 import { shortAddress, EXPLORER_URL } from "../lib/flare";
 import logoImage from "../imports/flareforward_logo.png";
 
@@ -47,6 +49,7 @@ function isFlareForward(p: ProviderRow): boolean {
 
 export function Delegation() {
   const { providers } = useProviders();
+  const { data: rewards } = useRewards();
   const {
     isConnected,
     flrBalance,
@@ -67,6 +70,16 @@ export function Delegation() {
   const [confirming, setConfirming] = useState(false);
 
   const flareForward = providers.find(isFlareForward) ?? null;
+  const flareForwardDelegationAddress =
+    flareForward?.address.toLowerCase() ?? rewards?.delegation_address?.toLowerCase() ?? null;
+  const delegatedWflr = useMemo(() => {
+    if (!flareForwardDelegationAddress) return 0n;
+    const delegatedBips =
+      currentDelegations.find(
+        (d) => d.address.toLowerCase() === flareForwardDelegationAddress
+      )?.bips ?? 0;
+    return (wflrBalance * BigInt(delegatedBips)) / 10_000n;
+  }, [currentDelegations, flareForwardDelegationAddress, wflrBalance]);
   const hasVotePower = wflrBalance > 0n;
   const alreadyDelegated =
     flareForward != null &&
@@ -103,6 +116,19 @@ export function Delegation() {
 
   return (
     <div className="space-y-6">
+      {isConnected && (
+        <EarningsStrip
+          rateLabel="Delegation APY"
+          ratePct={rewards?.rates.delegation_annual_pct}
+          positionLabel="Your delegated WFLR"
+          positionAmount={delegatedWflr}
+          positionUnit="WFLR"
+          claimableReward={claimableReward}
+          basis={rewards?.rates.basis}
+          emptyMessage="Delegate WFLR to FlareForward when you're ready."
+        />
+      )}
+
       {/* Your delegations — the user's own current position. */}
       {isConnected && currentDelegations.length > 0 && (
         <YourDelegations

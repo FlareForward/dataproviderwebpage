@@ -17,9 +17,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./com
 import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
 import { ConnectWallet } from "./components/ConnectWallet";
+import { EarningsStrip } from "./components/EarningsStrip";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useStaking } from "../hooks/useStaking";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
+import { useRewards } from "../hooks/useRewards";
 import logoImage from "../imports/flareforward_logo.png";
 import {
   buildDurationOptions,
@@ -34,6 +36,7 @@ import {
 } from "../lib/staking";
 
 export function Staking() {
+  const { data: rewards } = useRewards();
   const {
     isConnected,
     pEnabled,
@@ -168,6 +171,10 @@ export function Staking() {
       return !soonest || stake.endTime < soonest.endTime ? stake : soonest;
     }, null);
   }, [stakes]);
+  const totalStakedForStrip = useMemo(
+    () => stakes.reduce((sum, stake) => sum + stake.amount, 0n),
+    [stakes]
+  );
   const withdrawUnavailableMessage =
     balance.availableOnP === 0n
       ? nextUnlockingStake
@@ -221,6 +228,19 @@ export function Staking() {
 
   return (
     <div className="space-y-6">
+      {isConnected && (
+        <EarningsStrip
+          rateLabel="Staking APY"
+          ratePct={rewards?.rates.staking_annual_pct}
+          positionLabel="Your total staked"
+          positionAmount={totalStakedForStrip}
+          positionUnit="FLR"
+          claimableReward={claimableReward}
+          basis={rewards?.rates.basis}
+          emptyMessage="Stake FLR with FlareForward when you're ready."
+        />
+      )}
+
       {/* Your stakes — always visible once enabled, so users can see who they
           are staked to without searching the validator list again. */}
       {isConnected && pEnabled && (
