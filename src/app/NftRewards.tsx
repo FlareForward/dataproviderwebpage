@@ -421,7 +421,11 @@ function RabbyArtworkNote() {
 /**
  * When the lot closes, tied to the thing that actually decides it: the current
  * bond period on FlareForward's validator. The mint closes as that period ends,
- * because that is when the raised capital is bonded and the next lot opens.
+ * because that is when the raised capital is bonded.
+ *
+ * Deliberately says nothing about when the NEXT lot opens — it does not follow
+ * straight on from this one, and the timing is not settled. Do not reintroduce
+ * a "next lot opens then" claim here without confirming it first.
  *
  * `active_end_unix` is the validator's live registration end from the Explorer,
  * so this date maintains itself — re-bonding moves it forward with no config to
@@ -436,7 +440,7 @@ function LotCloseLine() {
     return (
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
         This lot closes as the current bond period ends, when the raised capital is bonded to the
-        validator and the next lot opens.
+        validator.
       </p>
     );
   }
@@ -451,8 +455,8 @@ function LotCloseLine() {
         {end.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
       </span>
       {daysLeft > 0 && <> ({daysLeft} {daysLeft === 1 ? "day" : "days"} away)</>} — when the raised
-      capital is bonded to the validator and the next lot opens. The date tracks the validator's
-      current bond period on-chain; the mint contract itself has no deadline.
+      capital is bonded to the validator. The date tracks the validator's current bond period
+      on-chain; the mint contract itself has no deadline.
     </p>
   );
 }
@@ -584,7 +588,7 @@ export default function NftRewards() {
           n={2}
           icon={<Landmark size={18} />}
           title="Bond"
-          body="As the current bond period ends, minting closes and the raised FLR moves into FlareForward's validator self-bond. That is also when the next lot opens."
+          body="As the current bond period ends, minting closes and the raised FLR moves into FlareForward's validator self-bond."
         />
         <Step
           n={3}
