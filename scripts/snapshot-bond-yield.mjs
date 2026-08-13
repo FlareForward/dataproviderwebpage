@@ -74,6 +74,88 @@ const OUT_PATH = process.env.OUT_PATH ?? "./bond-yield-history.json";
 const STAKE_DECIMALS = 1e9;
 const REWARD_DECIMALS = 1e18;
 
+// ── Lot-window position (read from chain, not the explorer) ───────────────
+// The epoch rates above describe the VALIDATOR. During an open mint window the
+// buyers' capital is not in the bond yet — it is wrapped WFLR delegated to our
+// own provider. Without these fields the record would silently skip the entire
+// window, which is exactly the period lot 1's story is about.
+const RPC_URL = process.env.FLARE_RPC_URL ?? "https://flare-api.flare.network/ext/C/rpc";
+const TREASURY = "0xc166b192f8e1f16ce4998de6d6893b3970781b1b";
+const WFLR_ADDRESS = "0x1d80c49bbbcd1c0911346656b529df9e5c2f783d";
+const DELEGATION_ADDRESS = "0xce2c92c54f7307894725e8ceb16424b7c9c18807";
+const LOT_ADDRESSES = [
+  "0x697e2ece036253afb08ee35cb1bcb83fec361736", // Lot 1 Tier A
+  "0xbfa14e5949eae2180af20bb30511d9023c67daf9", // Lot 1 Tier B
+];
+// Selectors generated with `cast sig`, never recalled.
+const SEL_BALANCE_OF = "0x70a08231";
+const SEL_DELEGATES_OF = "0x7de5b8ed";
+
+async function rpc(method, params) {
+  const res = await fetch(RPC_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+  });
+  const j = await res.json();
+  if (j.error) throw new Error(`${method}: ${j.error.message}`);
+  return j.result;
+}
+
+const padAddr = (a) => a.toLowerCase().replace("0x", "").padStart(64, "0");
+
+/** Everything about the treasury's window position. Never throws the job. */
+async function readLotPosition() {
+  try {
+    const wflrHex = await rpc("eth_call", [
+      { to: WFLR_ADDRESS, data: SEL_BALANCE_OF + padAddr(TREASURY) },
+      "latest",
+    ]);
+    const wflr = Number(BigInt(wflrHex)) / REWARD_DECIMALS;
+
+    let unswept = 0;
+    for (const lot of LOT_ADDRESSES) {
+      unswept += Number(BigInt(await rpc("eth_getBalance", [lot, "latest"]))) / REWARD_DECIMALS;
+    }
+
+    // Percentage delegation: confirm it is still 100% to us. If this ever drops,
+    // the capital stopped earning and no other field would reveal it.
+    const raw = (
+      await rpc("eth_call", [
+        { to: WFLR_ADDRESS, data: SEL_DELEGATES_OF + padAddr(TREASURY) },
+        "latest",
+      ])
+    ).slice(2);
+    const w = raw.match(/.{64}/g) ?? [];
+    let bipsToUs = 0;
+    try {
+      const n = parseInt(w[4], 16);
+      for (let i = 0; i < n; i++) {
+        const addr = "0x" + w[5 + i].slice(24);
+        const bips = parseInt(w[5 + n + 1 + i], 16);
+        if (addr === DELEGATION_ADDRESS) bipsToUs += bips;
+      }
+    } catch {
+      bipsToUs = null;
+    }
+
+    return {
+      treasury_wflr_flr: wflr,
+      lot_unswept_flr: unswept,
+      treasury_delegated_bips_to_us: bipsToUs,
+    };
+  } catch (err) {
+    // A chain hiccup must not cost us the epoch row — the rates are the
+    // irreplaceable part; these fields can be null for one hour.
+    console.warn(`lot position unavailable: ${err.message}`);
+    return {
+      treasury_wflr_flr: null,
+      lot_unswept_flr: null,
+      treasury_delegated_bips_to_us: null,
+    };
+  }
+}
+
 async function getJson(url) {
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`${url} -> ${res.status}`);
@@ -135,9 +217,12 @@ async function main() {
   const selfBondEarnings = num(rewards.self_bond_earnings, REWARD_DECIMALS);
   const totalFee = num(rewards.total_fee, REWARD_DECIMALS);
 
+  const position = await readLotPosition();
+
   const record = {
     reward_epoch: rewards.reward_epoch,
     observed_at_unix: Math.floor(Date.now() / 1000),
+    ...position,
     self_bond_flr: selfBond,
     delegated_stake_flr: delegatedStake,
     total_stake_flr:

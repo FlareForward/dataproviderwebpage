@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { useAccount, useReadContracts, useWaitForTransactionReceipt, useWriteContract } from "wagmi";
+import {
+  useAccount,
+  useReadContracts,
+  useSwitchChain,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 import { formatEther } from "viem";
-import { Loader2, Check, ExternalLink } from "lucide-react";
+import { Loader2, Check, ExternalLink, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./Button";
 import { ConnectWallet } from "./ConnectWallet";
+import { chain } from "../../lib/flare";
 import { bondLotAbi, IPFS_GATEWAY, MAX_BATCH_MINT, type BondTier } from "../../lib/bondLot";
 
 /** FLR amounts on a sales page need separators: "10,000" not "10000". */
@@ -21,11 +28,20 @@ function fmtFlr(wei: bigint): string {
  * contract wouldn't honour.
  */
 export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }) {
-  const { isConnected } = useAccount();
+  const { isConnected, chainId: walletChainId } = useAccount();
   const [qty, setQty] = useState(1);
   const address = tier.address;
 
-  const contract = { address: address ?? undefined, abi: bondLotAbi } as const;
+  /**
+   * A wallet sitting on another network is the difference between a mint and a
+   * permanent loss: these lot addresses hold no code on Ethereum, so a native
+   * send there goes to an address nobody controls. Every read and the write are
+   * pinned to Flare, and the mint button is replaced until the wallet agrees.
+   */
+  const onFlare = !isConnected || walletChainId === chain.id;
+  const { switchChainAsync, isPending: switching } = useSwitchChain();
+
+  const contract = { address: address ?? undefined, abi: bondLotAbi, chainId: chain.id } as const;
   const { data, isLoading, refetch } = useReadContracts({
     contracts: [
       { ...contract, functionName: "maxSupply" },
@@ -49,6 +65,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
     isSuccess: confirmed,
   } = useWaitForTransactionReceipt({
     hash: txHash,
+    chainId: chain.id,
     query: { enabled: !!txHash },
   });
 
@@ -93,6 +110,18 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
   const maxQty = Math.max(1, Math.min(MAX_BATCH_MINT, remaining ?? MAX_BATCH_MINT));
   const total = price != null ? price * BigInt(qty) : undefined;
 
+  async function onSwitch() {
+    try {
+      await switchChainAsync({ chainId: chain.id });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (/rejected|denied|User rejected/i.test(msg)) return;
+      toast.error("Could not switch network", {
+        description: "Select the Flare network in your wallet, then try again.",
+      });
+    }
+  }
+
   async function onMint() {
     if (!address || total == null) return;
     try {
@@ -102,6 +131,10 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
         functionName: "mint",
         args: [BigInt(qty)],
         value: total,
+        // Pinning the chain makes wagmi refuse to sign anywhere but Flare
+        // rather than quietly building the transaction on whatever network the
+        // wallet happens to be on.
+        chainId: chain.id,
       });
       setTxHash(hash);
       toast.success("Mint submitted", { description: "Waiting for confirmation…" });
@@ -265,6 +298,30 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
               <p className="mt-2 text-xs italic text-[#8FA0B8]/70">
                 Grateful to God, and to you, for the start of this.
               </p>
+            </div>
+          ) : !onFlare ? (
+            /* No quantity box and no mint button here on purpose: the only
+               action offered while the wallet is on another network is the one
+               that fixes it. */
+            <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4">
+              <p className="flex items-center gap-2 text-sm font-semibold text-amber-300">
+                <AlertTriangle size={16} />
+                Your wallet is on another network
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-[#FAFAFA]/90">
+                These bonds exist only on Flare. Switch networks and the price will read in FLR —
+                if your wallet quotes you ETH or any other coin, do not sign it.
+              </p>
+              <Button className="mt-3 w-full" onClick={onSwitch} disabled={switching}>
+                {switching ? (
+                  <span className="flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin" />
+                    Check your wallet…
+                  </span>
+                ) : (
+                  "Switch to Flare"
+                )}
+              </Button>
             </div>
           ) : (
             <>
