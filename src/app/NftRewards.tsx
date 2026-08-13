@@ -381,6 +381,7 @@ function CurrentLot({
           : "Price, supply, sold count, remaining supply, and mint state will be read from each tier contract once deployed."}
       </p>
       <LotCloseLine />
+      <RabbyArtworkNote />
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {tiers.map((tier) => (
           <TierOffer
@@ -393,6 +394,27 @@ function CurrentLot({
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * Rabby does not pull this collection's artwork in on its own yet, so a freshly
+ * minted bond can land in the wallet's hidden section looking like nothing
+ * happened. Sits outside `MintLot` so it stays on screen after a mint, which is
+ * exactly when someone goes looking for the token and does not find it.
+ */
+function RabbyArtworkNote() {
+  return (
+    <div className="mt-3 flex max-w-3xl gap-3 rounded-lg border border-amber-400/25 bg-amber-400/10 p-3">
+      <Wallet size={16} className="mt-0.5 shrink-0 text-amber-300" />
+      <p className="text-sm leading-relaxed text-[#FAFAFA]/90">
+        <span className="font-medium">Using Rabby?</span> Rabby doesn&apos;t pull this
+        collection&apos;s artwork in automatically yet, so your bond may show up under the
+        wallet&apos;s hidden section rather than with the rest of your NFTs. It is still yours and
+        still on-chain — check the hidden section to see it. We&apos;ve submitted the collection
+        details to Rabby; until they pick them up, the artwork may not render there.
+      </p>
+    </div>
   );
 }
 
