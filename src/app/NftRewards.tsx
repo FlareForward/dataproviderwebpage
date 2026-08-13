@@ -5,6 +5,7 @@ import { useReadContracts } from "wagmi";
 import { MintLot } from "./components/MintLot";
 import { MyBonds } from "./components/MyBonds";
 import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
+import { useValidatorStaking } from "../hooks/useValidatorStaking";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity } from "lucide-react";
 
 /**
@@ -379,7 +380,7 @@ function CurrentLot({
           ? "Price, supply, sold count, remaining supply, and mint state are read live from each tier contract."
           : "Price, supply, sold count, remaining supply, and mint state will be read from each tier contract once deployed."}
       </p>
-      <LotCloseLine expectedClose={CURRENT_LOT.expectedClose} />
+      <LotCloseLine />
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {tiers.map((tier) => (
           <TierOffer
@@ -395,21 +396,41 @@ function CurrentLot({
   );
 }
 
-function LotCloseLine({ expectedClose }: { expectedClose?: string }) {
-  if (expectedClose) {
+/**
+ * When the lot closes, tied to the thing that actually decides it: the current
+ * bond period on FlareForward's validator. The mint closes as that period ends,
+ * because that is when the raised capital is bonded and the next lot opens.
+ *
+ * `active_end_unix` is the validator's live registration end from the Explorer,
+ * so this date maintains itself — re-bonding moves it forward with no config to
+ * update here. The bond contract itself carries no deadline, so the wording must
+ * not read as a contractual cutoff.
+ */
+function LotCloseLine() {
+  const { data: validator } = useValidatorStaking();
+  const endUnix = validator?.active_end_unix ?? null;
+
+  if (!endUnix) {
     return (
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        Expected to close around {expectedClose} — the contract has no deadline; the lot closes when
-        we close it as the P-chain staking window opens, at which point the raised capital is bonded
-        to the validator.
+        This lot closes as the current bond period ends, when the raised capital is bonded to the
+        validator and the next lot opens.
       </p>
     );
   }
 
+  const end = new Date(endUnix * 1000);
+  const daysLeft = Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86_400_000));
+
   return (
     <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-      This lot closes when the P-chain staking window opens, at which point the raised capital is
-      bonded to the validator.
+      This lot closes as the current bond period ends —{" "}
+      <span className="text-[#FAFAFA] font-medium">
+        {end.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
+      </span>
+      {daysLeft > 0 && <> ({daysLeft} {daysLeft === 1 ? "day" : "days"} away)</>} — when the raised
+      capital is bonded to the validator and the next lot opens. The date tracks the validator's
+      current bond period on-chain; the mint contract itself has no deadline.
     </p>
   );
 }
