@@ -7,6 +7,7 @@ import {
   BarChart3,
   Gift,
   Gem,
+  Coins,
   Wallet,
   Landmark,
   Youtube,
@@ -44,7 +45,8 @@ export function Root() {
           <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Home" />
           <NavItem to="/delegation" icon={<Wallet size={20} />} label="Delegate" />
           <NavItem to="/staking" icon={<Landmark size={20} />} label="Stake" />
-          <NavItem to="/bonds" icon={<Gem size={20} />} label="Bonds" alsoActiveOn={["/nft"]} />
+          <NavItem to="/bonds" icon={<Gem size={20} />} label="Bonds" />
+          <NavItem to="/nft" icon={<Coins size={20} />} label="Mint a Bond" />
           <NavItem to="/rewards" icon={<Gift size={20} />} label="My Rewards" />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
         </nav>
@@ -115,7 +117,12 @@ export function Root() {
               to="/bonds"
               icon={<Gem size={20} />}
               label="Bonds"
-              alsoActiveOn={["/nft"]}
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <NavItem
+              to="/nft"
+              icon={<Coins size={20} />}
+              label="Mint a Bond"
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem
