@@ -607,15 +607,17 @@ export default function NftRewards() {
 
       <section className="mt-10 max-w-3xl">
         <div className="glass-panel p-5">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Store size={18} className="text-[#E85A95]" />
-            <h3 className="font-semibold">Buying from another holder</h3>
+            <h3 className="font-semibold">Marketplace</h3>
+            <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+              Coming soon
+            </span>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            A marketplace for these bonds is being built, so holders can sell and buyers can pick
-            up a bond that already carries unclaimed rewards instead of minting a new one. It
-            isn&apos;t open yet, and we&apos;d rather not put a date on it than give you one we
-            might miss.
+            Buy a bond from another holder instead of minting a new one. A listed bond can carry
+            unclaimed rewards, so both sides can see what it&apos;s actually worth. Holders will be
+            able to list at whatever price they choose. In build now.
           </p>
         </div>
       </section>
