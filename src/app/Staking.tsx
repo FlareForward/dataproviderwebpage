@@ -171,9 +171,17 @@ export function Staking() {
       return !soonest || stake.endTime < soonest.endTime ? stake : soonest;
     }, null);
   }, [stakes]);
-  const totalStakedForStrip = useMemo(
-    () => stakes.reduce((sum, stake) => sum + stake.amount, 0n),
-    [stakes]
+  // Only stake held with OUR validator, because the rate shown beside it is
+  // ours. Summing every stake would apply FlareForward's rate to capital
+  // staked with someone else and overstate what the user actually earns here.
+  const stakedWithUs = useMemo(
+    () =>
+      ourNodeId
+        ? stakes
+            .filter((stake) => stake.nodeId === ourNodeId)
+            .reduce((sum, stake) => sum + stake.amount, 0n)
+        : 0n,
+    [stakes, ourNodeId]
   );
   const withdrawUnavailableMessage =
     balance.availableOnP === 0n
@@ -232,8 +240,8 @@ export function Staking() {
         <EarningsStrip
           rateLabel="Staking APY"
           ratePct={rewards?.rates.staking_annual_pct}
-          positionLabel="Your total staked"
-          positionAmount={totalStakedForStrip}
+          positionLabel="Staked with FlareForward"
+          positionAmount={stakedWithUs}
           positionUnit="FLR"
           claimableReward={claimableReward}
           basis={rewards?.rates.basis}

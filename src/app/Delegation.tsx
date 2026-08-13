@@ -120,7 +120,7 @@ export function Delegation() {
         <EarningsStrip
           rateLabel="Delegation APY"
           ratePct={rewards?.rates.delegation_annual_pct}
-          positionLabel="Your delegated WFLR"
+          positionLabel="Delegated to FlareForward"
           positionAmount={delegatedWflr}
           positionUnit="WFLR"
           claimableReward={claimableReward}
