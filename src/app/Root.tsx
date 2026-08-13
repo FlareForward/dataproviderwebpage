@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet, NavLink } from "react-router";
+import { Outlet, NavLink, useLocation } from "react-router";
 import {
   LayoutDashboard,
   Menu,
@@ -44,7 +44,7 @@ export function Root() {
           <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Home" />
           <NavItem to="/delegation" icon={<Wallet size={20} />} label="Delegate" />
           <NavItem to="/staking" icon={<Landmark size={20} />} label="Stake" />
-          <NavItem to="/bonds" icon={<Gem size={20} />} label="Bonds" />
+          <NavItem to="/bonds" icon={<Gem size={20} />} label="Bonds" alsoActiveOn={["/nft"]} />
           <NavItem to="/rewards" icon={<Gift size={20} />} label="My Rewards" />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
         </nav>
@@ -115,6 +115,7 @@ export function Root() {
               to="/bonds"
               icon={<Gem size={20} />}
               label="Bonds"
+              alsoActiveOn={["/nft"]}
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem
@@ -172,20 +173,29 @@ function NavItem({
   label,
   to,
   onClick,
+  alsoActiveOn,
 }: {
   icon: React.ReactNode;
   label: string;
   to: string;
   onClick?: () => void;
+  /**
+   * Extra routes this item owns. The mint page has no nav entry of its own —
+   * without this it sits on a route nothing in the nav is highlighted for,
+   * which reads as having fallen off the site.
+   */
+  alsoActiveOn?: string[];
 }) {
+  const location = useLocation();
+  const ownsRoute = alsoActiveOn?.includes(location.pathname) ?? false;
   return (
     <NavLink
       to={to}
       end
       onClick={onClick}
-      className={({ isActive }) =>
+      className={({ isActive: exact }) =>
         `flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
-          isActive
+          exact || ownsRoute
             ? "bg-[#EE1A58]/15 text-[#EE1A58] border border-[#EE1A58]/30 glass-glow"
             : "text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5"
         }`
