@@ -22,7 +22,13 @@ import {
  * that earns at our current reward rates. All reads are public chain/indexer
  * state; no connection or signature required.
  */
-export function YourPosition({ rewards }: { rewards: RewardsData | null }) {
+export function YourPosition({
+  rewards,
+  compact = false,
+}: {
+  rewards: RewardsData | null;
+  compact?: boolean;
+}) {
   const { address: connectedAddress } = useAccount();
   const [input, setInput] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -30,11 +36,11 @@ export function YourPosition({ rewards }: { rewards: RewardsData | null }) {
   // Prefill (and auto-check) with the connected wallet, but never clobber an
   // address the visitor typed themselves.
   useEffect(() => {
-    if (connectedAddress && !input && !submitted) {
+    if (!compact && connectedAddress && !input && !submitted) {
       setInput(connectedAddress);
       setSubmitted(connectedAddress);
     }
-  }, [connectedAddress]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [compact, connectedAddress]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { kind, position, isLoading, error } = usePosition(submitted, rewards);
 
@@ -48,11 +54,11 @@ export function YourPosition({ rewards }: { rewards: RewardsData | null }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your Position</CardTitle>
+        <CardTitle>{compact ? "Address lookup" : "Your Position"}</CardTitle>
         <CardDescription>
-          See where you stand with FlareForward — paste your C-chain (0x…) or
-          P-chain (P-flare…) address, or connect your wallet. Read-only; no
-          signature ever requested.
+          {compact
+            ? "Check another C-chain (0x…) or P-chain (P-flare…) address. Read-only; no signature ever requested."
+            : "See where you stand with FlareForward — paste your C-chain (0x…) or P-chain (P-flare…) address, or connect your wallet. Read-only; no signature ever requested."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -119,15 +125,15 @@ export function YourPosition({ rewards }: { rewards: RewardsData | null }) {
                 accent={position.claimableFlr > 0}
               />
               <Stat
-                label="Projected / year"
+                label="At the current rate"
                 value={
                   delegationApy != null && position.ffDelegatedWflr > 0
-                    ? `~${fmtFlr((position.ffDelegatedWflr * delegationApy) / 100, 1)} FLR`
+                    ? `${fmtFlr((position.ffDelegatedWflr * delegationApy) / 100, 1)} FLR per year`
                     : "—"
                 }
                 sub={
                   delegationApy != null
-                    ? `at ${fmtPct(delegationApy)} current rate`
+                    ? `${fmtPct(delegationApy)} current rate`
                     : undefined
                 }
               />
@@ -138,12 +144,11 @@ export function YourPosition({ rewards }: { rewards: RewardsData | null }) {
                 <div className="text-sm text-[#8FA0B8]">
                   {position.wflr > 0 && delegationApy != null ? (
                     <>
-                      You're not delegating to FlareForward yet. Your{" "}
-                      {fmtFlr(position.wflr, 0)} WFLR would earn{" "}
+                      You're not delegating to FlareForward yet. At the current rate,{" "}
+                      {fmtFlr(position.wflr, 0)} WFLR corresponds to{" "}
                       <span className="text-emerald-400 font-semibold">
-                        ~{fmtFlr((position.wflr * delegationApy) / 100, 0)} FLR/yr
-                      </span>{" "}
-                      at our current rate.
+                        {fmtFlr((position.wflr * delegationApy) / 100, 0)} FLR per year
+                      </span>.
                     </>
                   ) : (
                     <>
@@ -191,15 +196,15 @@ export function YourPosition({ rewards }: { rewards: RewardsData | null }) {
                     accent
                   />
                   <Stat
-                    label="Projected / year"
+                    label="At the current rate"
                     value={
                       stakingApy != null && position.stake.stake_flr != null
-                        ? `~${fmtFlr((position.stake.stake_flr * stakingApy) / 100, 0)} FLR`
+                        ? `${fmtFlr((position.stake.stake_flr * stakingApy) / 100, 0)} FLR per year`
                         : "—"
                     }
                     sub={
                       stakingApy != null
-                        ? `at ${fmtPct(stakingApy)} current rate`
+                        ? `${fmtPct(stakingApy)} current rate`
                         : undefined
                     }
                   />
@@ -215,8 +220,8 @@ export function YourPosition({ rewards }: { rewards: RewardsData | null }) {
                   />
                 </div>
                 <p className="text-[11px] text-[#8FA0B8]">
-                  Projection uses the latest epoch's staking reward rate,
-                  annualized — actual rewards vary epoch to epoch.
+                  At the current rate uses the latest epoch's staking reward rate,
+                  annualized. Actual rewards vary epoch to epoch.
                 </p>
               </div>
             ) : (

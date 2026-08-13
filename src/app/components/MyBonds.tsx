@@ -117,6 +117,9 @@ export function MyBonds({ compact = false }: { compact?: boolean }) {
         public, so any address can be checked without connecting anything. If you have just minted,
         your token appears here immediately, even while your wallet app still shows nothing.
       </p>
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
+        Distributions open once the lot closes and its distribution contract is deployed.
+      </p>
 
       <div className="mt-4 flex max-w-xl flex-wrap items-center gap-2">
         <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2">
@@ -165,7 +168,9 @@ export function MyBonds({ compact = false }: { compact?: boolean }) {
                 />
                 <div className="p-4">
                   <p className="font-semibold">#{tokenId}</p>
-                  <p className="mt-0.5 text-sm text-[#8FA0B8]">{tier.name} tier</p>
+                  <p className="mt-0.5 text-sm text-[#8FA0B8]">
+                    {CURRENT_LOT.label} · {tier.name} tier
+                  </p>
                   <a
                     href={`https://flare-explorer.flare.network/token/${tier.address}/instance/${tokenId}`}
                     target="_blank"
@@ -179,8 +184,8 @@ export function MyBonds({ compact = false }: { compact?: boolean }) {
             ))}
           </div>
           <p className="mt-3 text-xs text-[#8FA0B8]/80">
-            Holding {held.length} bond{held.length === 1 ? "" : "s"}. Distributions are claimed per
-            token once a lot closes and its distribution contract is deployed.
+            Holding {held.length} bond{held.length === 1 ? "" : "s"}. Distributions open once the
+            lot closes and its distribution contract is deployed.
           </p>
         </>
       )}

@@ -1,60 +1,115 @@
+import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import {
-  Loader2,
-  ShieldCheck,
-  Wallet,
-  Landmark,
   ArrowRight,
   CheckCircle2,
+  Clock,
+  Gift,
+  Landmark,
+  Loader2,
+  Wallet,
   XCircle,
 } from "lucide-react";
-import { Card, CardContent } from "./components/Card";
+import { formatUnits } from "viem";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/Card";
 import { Button } from "./components/Button";
+import { ConnectWallet } from "./components/ConnectWallet";
+import { EarningsStrip } from "./components/EarningsStrip";
 import { YourPosition } from "./components/YourPosition";
 import { MyBonds } from "./components/MyBonds";
-import { RewardsBreakdown } from "./components/RewardsBreakdown";
+import { useDelegation } from "../hooks/useDelegation";
 import { useRewards } from "../hooks/useRewards";
-import { fmtFlrCompact, fmtPct } from "../lib/rewards";
+import { useStaking } from "../hooks/useStaking";
+import { fmtDate, fmtPct } from "../lib/rewards";
+import { formatFlr, type DisplayStake } from "../lib/staking";
+
+type ClaimSource = "delegation" | "staking";
+type ClaimState = "idle" | "claiming" | "claimed" | "failed";
+
+const FLAREFORWARD_ADDRESS =
+  "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110".toLowerCase();
 
 /**
- * /rewards — FlareForward's sales page. One job: show why delegating or
- * staking with us is worth it (real, sourced numbers only) and let a visitor
- * check their own standing without leaving our site.
+ * /rewards is the connected wallet's member page: delegation, staking, and
+ * bond holdings in one place. Bond distributions are status-only here because
+ * no claim contract exists yet.
  */
 export default function Rewards() {
   const { data: rewards, isLoading, error } = useRewards();
+  const delegation = useDelegation();
+  const staking = useStaking();
+  const [claimState, setClaimState] = useState<Record<ClaimSource, ClaimState>>({
+    delegation: "idle",
+    staking: "idle",
+  });
 
-  const conditions = rewards?.conditions;
-  const allConditions = [
-    { label: "FTSO price feeds", ok: conditions?.ftso_scaling },
-    { label: "Fast updates", ok: conditions?.ftso_fast_updates },
-    { label: "Staking", ok: conditions?.staking },
-    { label: "Data connector (FDC)", ok: conditions?.fdc },
-  ];
+  const isConnected = delegation.isConnected || staking.isConnected;
+  const ffDelegationAddress =
+    rewards?.delegation_address?.toLowerCase() ?? FLAREFORWARD_ADDRESS;
+  const delegatedWflr = useMemo(() => {
+    const delegatedBips =
+      delegation.currentDelegations.find(
+        (d) => d.address.toLowerCase() === ffDelegationAddress
+      )?.bips ?? 0;
+    return (delegation.wflrBalance * BigInt(delegatedBips)) / 10_000n;
+  }, [delegation.currentDelegations, delegation.wflrBalance, ffDelegationAddress]);
+
+  const stakedWithUs = useMemo(
+    () => totalStakedWithNode(staking.stakes, rewards?.node_id ?? null),
+    [staking.stakes, rewards?.node_id]
+  );
+  const soonestUnlock = useMemo(
+    () => soonestFutureStake(staking.stakes, rewards?.node_id ?? null),
+    [staking.stakes, rewards?.node_id]
+  );
+  const totalClaimable = delegation.claimableReward + staking.claimableReward;
+  const claimBusy =
+    delegation.busy === "claim" ||
+    staking.busy === "claim" ||
+    claimState.delegation === "claiming" ||
+    claimState.staking === "claiming";
+
+  function setSourceState(source: ClaimSource, state: ClaimState) {
+    setClaimState((current) => ({ ...current, [source]: state }));
+  }
+
+  async function claimSource(source: ClaimSource) {
+    const amount =
+      source === "delegation" ? delegation.claimableReward : staking.claimableReward;
+    if (amount <= 0n) return;
+
+    setSourceState(source, "claiming");
+    try {
+      if (source === "delegation") {
+        await delegation.claimRewards();
+      } else {
+        await staking.claimRewards();
+      }
+      setSourceState(source, "claimed");
+    } catch {
+      setSourceState(source, "failed");
+    }
+  }
+
+  async function claimBoth() {
+    if (claimBusy) return;
+    if (delegation.claimableReward > 0n) await claimSource("delegation");
+    if (staking.claimableReward > 0n) await claimSource("staking");
+  }
 
   return (
     <div className="p-4 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">Rewards</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">My Rewards</h1>
             <p className="text-[#8FA0B8] text-sm mt-1">
-              What delegating and staking with FlareForward earns — and where
-              you stand.
+              Rewards, staking, and bond holdings for your connected wallet.
             </p>
           </div>
-          {rewards?.eligible_for_reward != null && (
-            <div className="flex items-center gap-2.5 glass-panel px-3.5 py-2 self-start sm:self-auto">
-              <ShieldCheck
-                size={16}
-                className={rewards.eligible_for_reward ? "text-emerald-400" : "text-amber-400"}
-              />
-              <span className="text-xs font-semibold text-[#FAFAFA]">
-                {rewards.eligible_for_reward
-                  ? "Reward-eligible this epoch"
-                  : "Eligibility pending"}
-              </span>
+          {isConnected && delegation.address && (
+            <div className="glass-panel px-3.5 py-2 text-xs font-mono text-[#8FA0B8]">
+              {delegation.address}
             </div>
           )}
         </div>
@@ -73,140 +128,129 @@ export default function Rewards() {
 
         {rewards && (
           <>
-            {/* Headline rates — the pitch */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <HeroStat
-                label="Delegation APY"
-                value={fmtPct(rewards.rates.delegation_annual_pct)}
-                sub="WFLR delegators, current rate"
-                emphasize
-              />
-              <HeroStat
-                label="Staking APY"
-                value={fmtPct(rewards.rates.staking_annual_pct)}
-                sub="P-chain stakers, current rate"
-                emphasize
-              />
-              <HeroStat
-                label="Availability"
-                value={fmtPct(rewards.uptime_availability_pct, 2)}
-                sub="FTSO submission uptime"
-              />
-              <HeroStat
-                label="Fee"
-                value={fmtPct(rewards.fee_pct, 2)}
-                sub="Flat provider fee"
-              />
-            </div>
+            {!isConnected ? (
+              <DisconnectedRewards rates={rewards.rates} />
+            ) : (
+              <>
+                <ClaimPanel
+                  totalClaimable={totalClaimable}
+                  delegationClaimable={delegation.claimableReward}
+                  stakingClaimable={staking.claimableReward}
+                  delegationState={
+                    delegation.busy === "claim" ? "claiming" : claimState.delegation
+                  }
+                  stakingState={staking.busy === "claim" ? "claiming" : claimState.staking}
+                  busy={claimBusy}
+                  onClaimDelegation={() => claimSource("delegation")}
+                  onClaimStaking={() => claimSource("staking")}
+                  onClaimBoth={claimBoth}
+                />
 
-            {/* Vote power + capacity strip */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <HeroStat
-                label="Delegated vote power"
-                value={`${fmtFlrCompact(rewards.vote_power.delegation_flr)} FLR`}
-                sub="WFLR delegated to us"
-              />
-              <HeroStat
-                label="Staked with validator"
-                value={`${fmtFlrCompact(rewards.staking.total_stake_flr)} FLR`}
-                sub={`incl. our ${fmtFlrCompact(rewards.staking.self_bond_flr)} FLR self-bond`}
-              />
-              <HeroStat
-                label="Validator space left"
-                value={`${fmtFlrCompact(rewards.staking.space_left_flr)} FLR`}
-                sub="Room for new stake"
-              />
-              <HeroStat
-                label="Latest reward epoch"
-                value={
-                  rewards.latest_reward_epoch != null
-                    ? `#${rewards.latest_reward_epoch}`
-                    : "—"
-                }
-                sub="Explorer-graded"
-              />
-            </div>
-
-            {/* Your Position — the reason to come back */}
-            <YourPosition rewards={rewards} />
-
-            {/* Bond NFTs held by this wallet, read from the lot contracts. */}
-            <MyBonds compact />
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <RewardsBreakdown rewards={rewards} />
-
-              {/* Why FlareForward */}
-              <Card>
-                <CardContent className="space-y-4">
-                  <div>
-                    <h3 className="text-[1.25rem] font-semibold tracking-tight">
-                      Why delegate to FlareForward?
-                    </h3>
-                    <p className="text-sm text-[#8FA0B8] mt-1.5">
-                      Every protocol the network grades us on, we pass — checked
-                      live from the Flare Systems Explorer.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    {allConditions.map((c) => (
-                      <div
-                        key={c.label}
-                        className="glass-panel px-3 py-2.5 flex items-center gap-2"
-                      >
-                        {c.ok ? (
-                          <CheckCircle2 size={15} className="text-emerald-400 shrink-0" />
-                        ) : c.ok === false ? (
-                          <XCircle size={15} className="text-red-400 shrink-0" />
-                        ) : (
-                          <Loader2 size={15} className="text-[#8FA0B8] shrink-0" />
-                        )}
-                        <span className="text-xs font-medium text-[#FAFAFA]">
-                          {c.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  <ul className="space-y-2 text-sm text-[#8FA0B8]">
-                    <li>
-                      • <span className="text-[#FAFAFA] font-medium">Skin in the game:</span>{" "}
-                      {fmtFlrCompact(rewards.staking.self_bond_flr)} FLR of our
-                      own capital self-bonded on the validator.
-                    </li>
-                    <li>
-                      • <span className="text-[#FAFAFA] font-medium">Non-custodial:</span>{" "}
-                      delegation and staking never move your funds — your keys
-                      stay in your wallet.
-                    </li>
-                    <li>
-                      • <span className="text-[#FAFAFA] font-medium">Everything on one page:</span>{" "}
-                      check your standing above any time — no third-party
-                      dashboard needed.
-                    </li>
-                  </ul>
-
-                  <div className="flex flex-wrap gap-2 pt-1">
+                <RewardSection
+                  title="Delegation"
+                  description="Your WFLR delegated to FlareForward and delegation rewards claimable now."
+                  action={
                     <Link to="/delegation">
-                      <Button variant="primary" size="sm" className="gap-2">
-                        <Wallet size={15} /> Delegate WFLR <ArrowRight size={14} />
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Wallet size={15} /> Manage delegation <ArrowRight size={14} />
                       </Button>
                     </Link>
+                  }
+                >
+                  <EarningsStrip
+                    rateLabel="Delegation APY"
+                    ratePct={rewards.rates.delegation_annual_pct}
+                    positionLabel="Delegated to FlareForward"
+                    positionAmount={delegatedWflr}
+                    positionUnit="WFLR"
+                    claimableReward={delegation.claimableReward}
+                    basis={rewards.rates.basis}
+                    emptyMessage="No WFLR from this wallet is delegated to FlareForward."
+                  />
+                </RewardSection>
+
+                <RewardSection
+                  title="Staking"
+                  description="Your FLR staked with FlareForward, staking rewards claimable now, and soonest unlock."
+                  action={
                     <Link to="/staking">
                       <Button variant="outline" size="sm" className="gap-2">
-                        <Landmark size={15} /> Stake on P-chain
+                        <Landmark size={15} /> Manage staking <ArrowRight size={14} />
                       </Button>
                     </Link>
+                  }
+                >
+                  {staking.pEnabled ? (
+                    <div className="space-y-3">
+                      <EarningsStrip
+                        rateLabel="Staking APY"
+                        ratePct={rewards.rates.staking_annual_pct}
+                        positionLabel="Staked with FlareForward"
+                        positionAmount={stakedWithUs}
+                        positionUnit="FLR"
+                        claimableReward={staking.claimableReward}
+                        basis={rewards.rates.basis}
+                        emptyMessage="No active P-chain stake from this wallet is delegated to FlareForward."
+                      />
+                      <SoonestUnlock stake={soonestUnlock} />
+                    </div>
+                  ) : (
+                    <Card>
+                      <CardContent className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <RateTile
+                              label="Staking APY"
+                              value={fmtPct(rewards.rates.staking_annual_pct)}
+                              accent={rewards.rates.staking_annual_pct != null}
+                            />
+                            <RateTile
+                              label="Claimable now"
+                              value={`${formatAmount(staking.claimableReward)} FLR`}
+                              accent={staking.claimableReward > 0n}
+                            />
+                          </div>
+                          <p className="text-sm text-[#8FA0B8]">
+                            Enable P-chain staking to read your FlareForward stake and soonest unlock.
+                          </p>
+                        </div>
+                        <Button
+                          variant="primary"
+                          className="gap-2 md:w-auto w-full"
+                          disabled={staking.busy !== null}
+                          onClick={() => staking.enableP().catch(() => {})}
+                        >
+                          {staking.busy === "enableP" ? (
+                            <Loader2 size={16} className="animate-spin" />
+                          ) : (
+                            <>
+                              <Landmark size={16} /> Enable P-chain
+                            </>
+                          )}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </RewardSection>
+
+                <RewardSection
+                  title="Bonds"
+                  description="Your FlareForward Bond NFTs, read directly from the lot contracts."
+                >
+                  <div className="glass-panel p-4 text-sm text-[#8FA0B8]">
+                    Bond distributions are not open yet. They open once the lot closes and its
+                    distribution contract is deployed.
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+                  <MyBonds compact />
+                </RewardSection>
+
+                <YourPosition rewards={rewards} compact />
+              </>
+            )}
 
             <p className="text-[11px] text-[#8FA0B8]">
-              All figures sourced live from the Flare Systems Explorer indexer
-              and Flare RPC. Rate basis: {rewards.rates.basis}. Rates vary epoch
-              to epoch and are not a guarantee of future rewards.
+              Figures come from the existing FlareForward rewards hooks, Flare RPC,
+              and lot contracts. Rate basis: {rewards.rates.basis}
             </p>
           </>
         )}
@@ -215,30 +259,287 @@ export default function Rewards() {
   );
 }
 
-function HeroStat({
-  label,
-  value,
-  sub,
-  emphasize,
+function DisconnectedRewards({
+  rates,
 }: {
-  label: string;
-  value: string;
-  sub?: string;
-  emphasize?: boolean;
+  rates: {
+    delegation_annual_pct: number | null;
+    staking_annual_pct: number | null;
+    basis: string | null;
+  };
 }) {
   return (
     <Card>
-      <CardContent className="p-5">
-        <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">{label}</div>
-        <div
-          className={`mt-1 font-bold tabular-nums ${
-            emphasize ? "text-3xl text-emerald-400" : "text-2xl text-[#FAFAFA]"
-          }`}
-        >
-          {value}
+      <CardContent className="p-6">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-xl font-semibold tracking-tight text-[#FAFAFA]">
+                Connect your wallet to see your rewards.
+              </h2>
+              <p className="mt-1.5 text-sm text-[#8FA0B8]">
+                This page shows your delegation rewards, staking rewards, and bond holdings.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <RateTile
+                label="Delegation APY"
+                value={fmtPct(rates.delegation_annual_pct)}
+                accent={rates.delegation_annual_pct != null}
+              />
+              <RateTile
+                label="Staking APY"
+                value={fmtPct(rates.staking_annual_pct)}
+                accent={rates.staking_annual_pct != null}
+              />
+            </div>
+            {rates.basis && (
+              <p className="text-[11px] leading-relaxed text-[#8FA0B8]">
+                Rate basis: {rates.basis}
+              </p>
+            )}
+          </div>
+          <ConnectWallet size="md" />
         </div>
-        {sub && <div className="text-xs text-[#8FA0B8] mt-1">{sub}</div>}
       </CardContent>
     </Card>
   );
+}
+
+function ClaimPanel({
+  totalClaimable,
+  delegationClaimable,
+  stakingClaimable,
+  delegationState,
+  stakingState,
+  busy,
+  onClaimDelegation,
+  onClaimStaking,
+  onClaimBoth,
+}: {
+  totalClaimable: bigint;
+  delegationClaimable: bigint;
+  stakingClaimable: bigint;
+  delegationState: ClaimState;
+  stakingState: ClaimState;
+  busy: boolean;
+  onClaimDelegation: () => void;
+  onClaimStaking: () => void;
+  onClaimBoth: () => void;
+}) {
+  const hasDelegationClaim = delegationClaimable > 0n;
+  const hasStakingClaim = stakingClaimable > 0n;
+  const canClaimBoth = hasDelegationClaim && hasStakingClaim && !busy;
+
+  return (
+    <Card>
+      <CardHeader className="border-b border-white/8 pb-4">
+        <div className="flex items-center gap-2">
+          <Gift size={18} className="text-[#EE1A58]" />
+          <CardTitle className="text-[#FAFAFA]">Claimable now</CardTitle>
+        </div>
+        <CardDescription className="text-[#8FA0B8]">
+          Delegation and staking rewards are claimed from separate contracts.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-5 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-[#8FA0B8]">Total claimable</div>
+            <div className="mt-1 text-3xl font-bold tabular-nums text-emerald-400">
+              {formatAmount(totalClaimable)} <span className="text-base text-[#8FA0B8]">FLR</span>
+            </div>
+            {totalClaimable === 0n && (
+              <p className="mt-2 text-sm text-[#8FA0B8]">
+                Nothing is claimable right now.
+              </p>
+            )}
+          </div>
+          {hasDelegationClaim && hasStakingClaim ? (
+            <Button
+              variant="primary"
+              className="gap-2 lg:w-auto w-full"
+              disabled={!canClaimBoth}
+              onClick={onClaimBoth}
+            >
+              {busy && hasDelegationClaim && hasStakingClaim ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <Gift size={16} />
+              )}
+              Claim both
+            </Button>
+          ) : totalClaimable > 0n ? (
+            <p className="text-sm text-[#8FA0B8]">
+              Only one source has rewards right now; use its claim button below.
+            </p>
+          ) : null}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          <ClaimItem
+            title="Delegation rewards"
+            amount={delegationClaimable}
+            state={delegationState}
+            disabled={busy && delegationState !== "claiming"}
+            onClaim={onClaimDelegation}
+          />
+          <ClaimItem
+            title="Staking rewards"
+            amount={stakingClaimable}
+            state={stakingState}
+            disabled={busy && stakingState !== "claiming"}
+            onClaim={onClaimStaking}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ClaimItem({
+  title,
+  amount,
+  state,
+  disabled,
+  onClaim,
+}: {
+  title: string;
+  amount: bigint;
+  state: ClaimState;
+  disabled: boolean;
+  onClaim: () => void;
+}) {
+  const canClaim = amount > 0n && state !== "claiming";
+  const status = state === "failed" ? "Claim failed. You can retry this source." : null;
+
+  return (
+    <div className="glass-panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <div className="text-sm font-semibold text-[#FAFAFA]">{title}</div>
+        <div className="mt-1 text-xl font-bold tabular-nums text-[#FAFAFA]">
+          {formatAmount(amount)} <span className="text-sm text-[#8FA0B8]">FLR</span>
+        </div>
+        {amount === 0n ? (
+          <p className="mt-1 text-xs text-[#8FA0B8]">Nothing claimable from this source.</p>
+        ) : status ? (
+          <p className="mt-1 text-xs text-red-400">{status}</p>
+        ) : state === "claimed" ? (
+          <p className="mt-1 text-xs text-emerald-400">Claim submitted.</p>
+        ) : null}
+      </div>
+      {amount > 0n && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="gap-2 sm:w-auto w-full"
+          disabled={disabled || !canClaim}
+          onClick={onClaim}
+        >
+          {state === "claiming" ? (
+            <Loader2 size={15} className="animate-spin" />
+          ) : state === "claimed" ? (
+            <CheckCircle2 size={15} />
+          ) : state === "failed" ? (
+            <XCircle size={15} />
+          ) : (
+            <Gift size={15} />
+          )}
+          {state === "failed" ? "Retry claim" : "Claim"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function RewardSection({
+  title,
+  description,
+  action,
+  children,
+}: {
+  title: string;
+  description: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight text-[#FAFAFA]">{title}</h2>
+          <p className="mt-1 text-sm text-[#8FA0B8]">{description}</p>
+        </div>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function RateTile({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="glass-panel px-4 py-3">
+      <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">{label}</div>
+      <div
+        className={`mt-1 text-xl font-bold tabular-nums ${
+          accent ? "text-emerald-400" : "text-[#FAFAFA]"
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function SoonestUnlock({ stake }: { stake: DisplayStake | null }) {
+  return (
+    <Card>
+      <CardContent className="p-5">
+        <div className="glass-panel px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+            <Clock size={16} className="text-[#EE1A58]" />
+            Soonest unlock
+          </div>
+          <div className="text-sm text-[#8FA0B8]">
+            {stake
+              ? `${formatFlr(stake.amount)} FLR unlocks ${fmtDate(Number(stake.endTime))}`
+              : "No active FlareForward stake has a future unlock."}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function totalStakedWithNode(stakes: DisplayStake[], nodeId: string | null): bigint {
+  if (!nodeId) return 0n;
+  return stakes
+    .filter((stake) => stake.nodeId === nodeId)
+    .reduce((sum, stake) => sum + stake.amount, 0n);
+}
+
+function soonestFutureStake(stakes: DisplayStake[], nodeId: string | null): DisplayStake | null {
+  if (!nodeId) return null;
+  const nowSecs = BigInt(Math.floor(Date.now() / 1000));
+  return stakes
+    .filter((stake) => stake.nodeId === nodeId && stake.endTime > nowSecs)
+    .reduce<DisplayStake | null>(
+      (soonest, stake) => (!soonest || stake.endTime < soonest.endTime ? stake : soonest),
+      null
+    );
+}
+
+function formatAmount(wei: bigint, digits = 4): string {
+  return Number(formatUnits(wei, 18)).toLocaleString(undefined, {
+    maximumFractionDigits: digits,
+  });
 }
