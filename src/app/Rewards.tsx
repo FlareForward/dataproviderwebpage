@@ -150,7 +150,8 @@ export default function Rewards() {
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">My Rewards</h1>
             <p className="text-[#8FA0B8] text-sm mt-1">
-              Rewards, staking, and bond holdings for your connected wallet.
+              Thank you for backing FlareForward. Here's what your wallet has earned, and
+              what's ready to claim.
             </p>
           </div>
           {isConnected && delegation.address && (
@@ -284,9 +285,15 @@ export default function Rewards() {
                   description="Your FlareForward Bond NFTs, read directly from the lot contracts."
                 >
                   <MeasuredBondRate />
-                  <div className="glass-panel p-4 text-sm text-[#8FA0B8]">
-                    Bond distributions are not open yet. They open once the lot closes and its
-                    distribution contract is deployed.
+                  <div className="glass-panel p-4">
+                    <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                      Coming soon
+                    </span>
+                    <p className="mt-2 text-sm text-[#8FA0B8]">
+                      Bond distributions haven't started yet — they open once the lot closes and
+                      its distribution contract is deployed. Your delegation and staking rewards
+                      above are accruing now, and are unaffected.
+                    </p>
                   </div>
                   <MyBonds compact />
                 </RewardSection>
@@ -386,7 +393,8 @@ function ClaimPanel({
           <CardTitle className="text-[#FAFAFA]">Claimable now</CardTitle>
         </div>
         <CardDescription className="text-[#8FA0B8]">
-          Delegation and staking rewards are claimed from separate contracts.
+          What you've earned and can take right now. Delegation and staking pay from separate
+          contracts, so claiming both is two confirmations rather than one.
         </CardDescription>
       </CardHeader>
       <CardContent className="p-5 space-y-4">
@@ -398,7 +406,8 @@ function ClaimPanel({
             </div>
             {totalClaimable === 0n && (
               <p className="mt-2 text-sm text-[#8FA0B8]">
-                Nothing is claimable right now.
+                Nothing to claim at this moment. Delegation rewards accrue every reward epoch
+                and land here when the epoch closes — nothing is lost in the meantime.
               </p>
             )}
           </div>

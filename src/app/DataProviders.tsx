@@ -27,7 +27,8 @@ export function DataProviders() {
           </h1>
           <p className="text-[#8FA0B8] text-sm mt-1">
             Put your FLR to work with the builders — non-custodial, reversible,
-            and done in about a minute.
+            and done in about a minute. Already with us? Your position and what
+            it's earning are right below.
           </p>
         </div>
 
