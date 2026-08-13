@@ -97,6 +97,11 @@ export const IPFS_GATEWAY = "https://gateway.pinata.cloud/ipfs";
 export interface BondLotConfig {
   /** e.g. "Lot 1" */
   label: string;
+  /**
+   * Optional off-chain, operator-maintained estimate for when the lot may
+   * close. The contract has no deadline; mintOpen is the source of truth.
+   */
+  expectedClose?: string;
   tiers: BondTier[];
 }
 
@@ -113,16 +118,16 @@ export const CURRENT_LOT: BondLotConfig = {
   tiers: [
     {
       key: "tier-a",
-      name: "10,000 FLR",
+      name: "Larger position",
       address: "0x697e2ece036253afb08ee35cb1bcb83fec361736",
-      blurb: "The larger position — 250 available.",
+      blurb: "Built for buyers taking the larger position in the current lot.",
       imageCid: "bafkreigm7v2lvlfy7dt44sfgt6b4lygrm3dqo4oc2varpb6uadnjvi6vfm",
     },
     {
       key: "tier-b",
-      name: "2,500 FLR",
+      name: "Accessible entry",
       address: "0xbfa14e5949eae2180af20bb30511d9023c67daf9",
-      blurb: "The accessible entry — 1,000 available.",
+      blurb: "Built for buyers who want the smaller entry in the current lot.",
       imageCid: "bafkreidvawf44wunnoabyz3kr2q4llv34ayekmz4vj3o3ygjihlstni37a",
     },
   ],
