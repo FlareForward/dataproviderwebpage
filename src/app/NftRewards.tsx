@@ -457,13 +457,6 @@ function TierOffer({
           <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${tone}`}>
             {state}
           </span>
-          <span className="text-xs font-medium text-[#8FA0B8]">
-            {status.mintOpen === true
-              ? "mintOpen true"
-              : status.mintOpen === false
-                ? "mintOpen false"
-                : "mintOpen reading"}
-          </span>
         </div>
         <p className="mt-2 text-sm font-medium text-[#FAFAFA]">
           {fmtCount(status.sold)} / {fmtCount(status.maxSupply)} minted ·{" "}
