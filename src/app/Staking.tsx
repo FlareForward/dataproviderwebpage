@@ -27,6 +27,7 @@ import {
   formatFlrPlain,
   shortNodeId,
   validateStakeAmount,
+  validateTransferAmount,
   type DisplayStake,
   type DurationOption,
   type ValidatorRow,
@@ -126,9 +127,29 @@ export function Staking() {
       return 0n;
     }
   })();
+  const moveAmountWei = (() => {
+    try {
+      return moveAmount ? parseUnits(moveAmount, 18) : 0n;
+    } catch {
+      return 0n;
+    }
+  })();
+  const withdrawAmountWei = (() => {
+    try {
+      return withdrawAmount ? parseUnits(withdrawAmount, 18) : 0n;
+    } catch {
+      return 0n;
+    }
+  })();
 
   const amountError =
     limits && stakeAmount ? validateStakeAmount(amountWei, limits, balance.availableOnP) : null;
+  const moveError = moveAmount
+    ? validateTransferAmount(moveAmountWei, balance.availableOnC, "C-chain")
+    : null;
+  const withdrawError = withdrawAmount
+    ? validateTransferAmount(withdrawAmountWei, balance.availableOnP, "P-chain")
+    : null;
   const capacityError =
     effectiveCapacity !== null && amountWei > effectiveCapacity
       ? `Exceeds validator's remaining capacity of ${formatFlr(effectiveCapacity, 0)} FLR.`
@@ -374,10 +395,15 @@ export function Staking() {
                         FLR
                       </span>
                     </div>
+                    {moveError && moveAmount && (
+                      <div className="text-xs text-red-400">{moveError}</div>
+                    )}
                     <Button
                       variant="secondary"
                       className="w-full"
-                      disabled={busy !== null || !moveAmount || Number(moveAmount) <= 0}
+                      disabled={
+                        busy !== null || !moveAmount || Number(moveAmount) <= 0 || !!moveError
+                      }
                       onClick={handleMove}
                     >
                       {busy === "moveToP" ? (
@@ -437,25 +463,33 @@ export function Staking() {
                           {withdrawUnavailableMessage}
                         </p>
                       ) : (
-                        <div className="relative">
-                          <input
-                            type="number"
-                            value={withdrawAmount}
-                            onChange={(e) => setWithdrawAmount(e.target.value)}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            placeholder="0.00"
-                            className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">
-                            FLR
-                          </span>
-                        </div>
+                        <>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              value={withdrawAmount}
+                              onChange={(e) => setWithdrawAmount(e.target.value)}
+                              onWheel={(e) => e.currentTarget.blur()}
+                              placeholder="0.00"
+                              className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">
+                              FLR
+                            </span>
+                          </div>
+                          {withdrawError && withdrawAmount && (
+                            <div className="text-xs text-red-400">{withdrawError}</div>
+                          )}
+                        </>
                       )}
                       <Button
                         variant="secondary"
                         className="w-full"
                         disabled={
-                          busy !== null || !withdrawAmount || Number(withdrawAmount) <= 0
+                          busy !== null ||
+                          !withdrawAmount ||
+                          Number(withdrawAmount) <= 0 ||
+                          !!withdrawError
                         }
                         onClick={handleWithdraw}
                       >

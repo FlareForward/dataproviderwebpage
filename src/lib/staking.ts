@@ -435,3 +435,20 @@ export function validateStakeAmount(
   }
   return null;
 }
+
+/**
+ * Validate a requested cross-chain transfer against the balance available on
+ * the source chain. Returns a human-readable reason when invalid, or `null`
+ * when the amount is acceptable.
+ */
+export function validateTransferAmount(
+  amountWei: bigint,
+  available: bigint,
+  sourceLabel: string
+): string | null {
+  if (amountWei <= 0n) return "Enter an amount to move.";
+  if (amountWei > available) {
+    return `Only ${formatFlr(available)} FLR available on the ${sourceLabel}.`;
+  }
+  return null;
+}
