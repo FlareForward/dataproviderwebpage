@@ -215,7 +215,7 @@ function MeasuredPerformance() {
     <section className="mt-10">
       <div className="flex items-center gap-3">
         <Activity size={20} className="text-[#E85A95]" />
-        <h2 className="text-xl font-semibold">What the bond actually earns</h2>
+        <h2 className="text-xl font-semibold">What our validator bond has earned</h2>
       </div>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
         Post-FIP.16 the validator bond is where provider economics live — and nobody has been
@@ -236,7 +236,7 @@ function MeasuredPerformance() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="glass-panel border border-[#E85A95]/30 p-5">
               <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                Bond APY — what the bond earns
+                Bond APY — what our validator bond earns
               </p>
               <p className="mt-1 text-3xl font-semibold text-[#FAFAFA]">
                 {pct(cur.bond_rate_annualized_pct)}
@@ -567,12 +567,6 @@ export default function NftRewards() {
         <LeadStatus statuses={statuses} statusLoading={statusLoading} />
       </div>
 
-      <CurrentLot
-        tiers={tiers}
-        statuses={statuses}
-        statusLoading={statusLoading}
-        preview={preview}
-      />
 
       <MeasuredPerformance />
 
@@ -604,27 +598,27 @@ export default function NftRewards() {
         />
       </div>
 
-      <h2 className="mt-10 text-xl font-semibold">The series lives in three places</h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-3">
-        <SurfaceCard
-          icon={<Coins size={18} />}
-          title="Mint"
-          body="The storefront for the current lot: live sold count, remaining supply, price, open/closed state, and the mint itself."
-          status="Opens with Lot 1"
-        />
-        <SurfaceCard
-          icon={<Wallet size={18} />}
-          title="Track & claim"
-          body="Connect your wallet under My Rewards to see your tokens across every lot, what each has earned, and claim."
-          status="Lands with Lot 1 · in My Rewards"
-        />
-        <SurfaceCard
-          icon={<Store size={18} />}
-          title="Marketplace"
-          body="Buy and sell series NFTs. Every listing shows the token's unclaimed reward balance, so both sides see its real value."
-          status="Opens when Lot 1 closes"
-        />
-      </div>
+      <CurrentLot
+        tiers={tiers}
+        statuses={statuses}
+        statusLoading={statusLoading}
+        preview={preview}
+      />
+
+      <section className="mt-10 max-w-3xl">
+        <div className="glass-panel p-5">
+          <div className="flex items-center gap-3">
+            <Store size={18} className="text-[#E85A95]" />
+            <h3 className="font-semibold">Buying from another holder</h3>
+          </div>
+          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
+            A marketplace for these bonds is being built, so holders can sell and buyers can pick
+            up a bond that already carries unclaimed rewards instead of minting a new one. It
+            isn&apos;t open yet, and we&apos;d rather not put a date on it than give you one we
+            might miss.
+          </p>
+        </div>
+      </section>
 
       <MyBonds compact />
 
