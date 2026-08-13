@@ -1,5 +1,5 @@
 import * as Tabs from "@radix-ui/react-tabs";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { Delegation } from "./Delegation";
 import { Staking } from "./Staking";
 
@@ -10,7 +10,13 @@ import { Staking } from "./Staking";
  */
 export function DataProviders() {
   const location = useLocation();
-  const defaultTab = location.pathname.includes("staking") ? "staking" : "delegation";
+  const navigate = useNavigate();
+  // The route is the single source of truth for which tab is showing. An
+  // uncontrolled `defaultValue` only applied on mount, and because /delegation
+  // and /staking render this same component the router never remounts it — so
+  // switching tabs left the URL (and the sidebar's active item) behind on the
+  // other page, and navigating never moved the tab.
+  const tab = location.pathname.includes("staking") ? "staking" : "delegation";
 
   return (
     <div className="p-4 lg:p-8 flex-1 flex flex-col h-full overflow-hidden">
@@ -25,7 +31,13 @@ export function DataProviders() {
           </p>
         </div>
 
-        <Tabs.Root defaultValue={defaultTab} className="flex-1 flex flex-col">
+        <Tabs.Root
+          value={tab}
+          onValueChange={(v) =>
+            navigate(v === "staking" ? "/staking" : "/delegation")
+          }
+          className="flex-1 flex flex-col"
+        >
           <Tabs.List className="flex border-b border-white/8 mb-6">
             <Tabs.Trigger
               value="delegation"
