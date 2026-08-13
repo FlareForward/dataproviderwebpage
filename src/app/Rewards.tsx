@@ -1,4 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import {
   ArrowRight,
@@ -22,6 +23,51 @@ import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
 import { fmtDate, fmtPct } from "../lib/rewards";
 import { formatFlr, type DisplayStake } from "../lib/staking";
+
+const BOND_YIELD_URL = import.meta.env.VITE_BOND_YIELD_URL ?? "/api/bond-yield";
+
+/**
+ * What the bond has been measured earning — always shown with the number of
+ * closed epochs behind it. The record currently runs to a single epoch, and a
+ * lone observation presented as a bare percentage reads like an established
+ * rate. The sample size is not a footnote here; it is part of the number.
+ *
+ * This is the rate the bond earns as a class. It is NOT per-token earnings —
+ * those do not exist until a lot closes and its distribution contract ships.
+ */
+function MeasuredBondRate() {
+  const { data } = useQuery<{
+    logged_epochs?: number;
+    current?: { bond_rate_annualized_pct: number | null } | null;
+  }>({
+    queryKey: ["bond-yield"],
+    queryFn: async () => {
+      const res = await fetch(BOND_YIELD_URL, { headers: { Accept: "application/json" } });
+      if (!res.ok) throw new Error(`bond-yield ${res.status}`);
+      return res.json();
+    },
+    staleTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const rate = data?.current?.bond_rate_annualized_pct ?? null;
+  const epochs = data?.logged_epochs ?? 0;
+  if (rate == null) return null;
+
+  return (
+    <div className="glass-panel p-4">
+      <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+        Measured bond rate
+      </div>
+      <div className="mt-1 text-xl font-bold tabular-nums text-[#FAFAFA]">{fmtPct(rate)}</div>
+      <p className="mt-1 text-xs text-[#8FA0B8]">
+        Annualized from {epochs} closed {epochs === 1 ? "epoch" : "epochs"} of measured provider
+        earnings — what the bond earns as a whole, not what a single token has been paid.
+        {epochs <= 1 && " One epoch is a starting point, not a track record."}
+      </p>
+    </div>
+  );
+}
 
 type ClaimSource = "delegation" | "staking";
 type ClaimState = "idle" | "claiming" | "claimed" | "failed";
@@ -237,6 +283,7 @@ export default function Rewards() {
                   title="Bonds"
                   description="Your FlareForward Bond NFTs, read directly from the lot contracts."
                 >
+                  <MeasuredBondRate />
                   <div className="glass-panel p-4 text-sm text-[#8FA0B8]">
                     Bond distributions are not open yet. They open once the lot closes and its
                     distribution contract is deployed.
