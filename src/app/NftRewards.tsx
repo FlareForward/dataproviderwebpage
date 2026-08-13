@@ -578,13 +578,13 @@ export default function NftRewards() {
           n={1}
           icon={<Coins size={18} />}
           title="Mint"
-          body="Buy while the tier contract reports mintOpen true. Price, minted count, and remaining supply are read from that contract."
+          body="Buy while the lot is open. Price, minted count, and remaining supply all come straight from the tier contract, so what you see is what the chain says."
         />
         <Step
           n={2}
           icon={<Landmark size={18} />}
           title="Bond"
-          body="When the P-chain staking window opens, minting closes and the raised FLR moves into FlareForward's validator self-bond."
+          body="As the current bond period ends, minting closes and the raised FLR moves into FlareForward's validator self-bond. That is also when the next lot opens."
         />
         <Step
           n={3}
