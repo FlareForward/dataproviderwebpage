@@ -82,10 +82,10 @@ export default function Bonds() {
             </div>
             <div className="sm:text-right">
               <Button variant="secondary" className="gap-2 w-full sm:w-auto" disabled>
-                <Gift size={16} /> Claim
+                <Gift size={16} /> Claim all
               </Button>
               <p className="mt-2 text-xs text-[#8FA0B8]">
-                Opens when the lot closes
+                Opens when the lot closes · claim single bonds from a stack
               </p>
             </div>
           </div>

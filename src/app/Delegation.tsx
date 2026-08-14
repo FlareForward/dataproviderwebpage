@@ -179,91 +179,10 @@ export function Delegation() {
       )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* FlareForward — the one and only delegation target on this site. */}
-        <Card className="col-span-1 lg:col-span-2">
-          <CardHeader className="border-b border-white/8 pb-4">
-            <CardTitle className="text-[#FAFAFA]">Your provider</CardTitle>
-            <CardDescription className="text-[#8FA0B8]">
-              Builders and educators on the Flare network.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-5 space-y-5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
-                  <ImageWithFallback
-                    src={logoImage}
-                    alt="FlareForward"
-                    className="w-8 h-8 object-contain"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-lg text-[#FAFAFA]">FlareForward</div>
-                </div>
-              </div>
-              <Badge variant={flareForward?.status === "Active" || !flareForward ? "success" : "outline"}>
-                {flareForward?.status ?? "Active"}
-              </Badge>
-            </div>
-
-            <ul className="space-y-3 text-sm text-[#8FA0B8]">
-              <li className="flex gap-3">
-                <GraduationCap size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                <span>
-                  <span className="text-[#FAFAFA] font-medium">Backs education.</span>{" "}
-                  Your delegation funds DeFi University and free plain-English
-                  Flare education.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <Hammer size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                <span>
-                  <span className="text-[#FAFAFA] font-medium">Backs builders.</span>{" "}
-                  The same team signing your feeds ships tools on Flare every
-                  day.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <Flame size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                <span>
-                  <span className="text-[#FAFAFA] font-medium">Gives back.</span>{" "}
-                  Burn protocols around our systems return value to the network
-                  you're betting on.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <Shield size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                <span>
-                  <span className="text-[#FAFAFA] font-medium">Non-custodial.</span>{" "}
-                  Delegation assigns vote power only — your WFLR never leaves
-                  your wallet, and you can undelegate any time.
-                </span>
-              </li>
-            </ul>
-
-            <div className="flex flex-wrap items-center gap-4 pt-1">
-              <a
-                href={`${EXPLORER_URL}/address/${flareForward?.identityAddress ?? FLAREFORWARD_ADDRESS}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-[#8FA0B8] hover:text-[#FAFAFA] flex items-center gap-1"
-              >
-                <ExternalLink size={12} /> View on explorer
-              </a>
-              <Link
-                to="/rewards"
-                className="text-xs text-[#EE1A58] hover:underline flex items-center gap-1"
-              >
-                <Gift size={12} /> See current reward rates
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="max-w-2xl">
         {/* Delegation Action Panel */}
-        <div className="col-span-1">
-          <Card className="sticky top-24">
+        <div>
+          <Card>
             <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Delegate Vote Power</CardTitle>
               <CardDescription className="text-[#8FA0B8]">
