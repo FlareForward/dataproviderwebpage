@@ -25,7 +25,18 @@ const LIVE_TIERS = CURRENT_LOT.tiers.filter(
 /** Contract-side cap on how many tokens we enumerate per tier. */
 const MAX_ENUMERATE = 50;
 
-export function MyBonds({ compact = false }: { compact?: boolean }) {
+/**
+ * `bare` drops the heading, the explainer and the address lookup, leaving just
+ * the tokens. The member page already knows whose wallet it is and supplies its
+ * own heading — asking someone to paste their own address there is noise.
+ */
+export function MyBonds({
+  compact = false,
+  bare = false,
+}: {
+  compact?: boolean;
+  bare?: boolean;
+}) {
   const { address: connectedAddress } = useAccount();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -106,6 +117,8 @@ export function MyBonds({ compact = false }: { compact?: boolean }) {
 
   return (
     <section id="your-bonds" className={compact ? "mt-8 scroll-mt-20" : "p-4 lg:p-8 scroll-mt-20"}>
+      {!bare && (
+        <>
       <div className="flex items-center gap-3">
         <Gem size={compact ? 20 : 24} className="text-[#E85A95]" />
         <h2 className={compact ? "text-xl font-semibold" : "text-2xl font-bold tracking-tight"}>
@@ -137,7 +150,9 @@ export function MyBonds({ compact = false }: { compact?: boolean }) {
           Look up
         </Button>
       </div>
-      {valid && (
+        </>
+      )}
+      {valid && !bare && (
         <p className="mt-2 font-mono text-xs text-[#8FA0B8]">
           Showing {address}
           {connectedAddress?.toLowerCase() === address?.toLowerCase() ? " (connected wallet)" : ""}

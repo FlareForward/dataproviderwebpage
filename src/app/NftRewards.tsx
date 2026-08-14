@@ -219,13 +219,11 @@ function MeasuredPerformance() {
     <section className="mt-10">
       <div className="flex items-center gap-3">
         <Activity size={20} className="text-[#E85A95]" />
-        <h2 className="text-xl font-semibold">What our validator bond has earned</h2>
+        <h2 className="text-xl font-semibold">The current bond APY</h2>
       </div>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        Post-FIP.16 the validator bond is where provider economics live — and nobody has been
-        keeping the receipts, because Flare&apos;s explorer only retains the most recent reward
-        epoch. So we started the record ourselves. These are measured rates from closed epochs, not
-        forecasts. We publish them whether they look good or not.
+        This is what our validator bond earns right now. We are not guaranteeing it will be the
+        rate when you bond with us — it moves epoch to epoch. We publish what we measure.
       </p>
 
       {isLoading && (

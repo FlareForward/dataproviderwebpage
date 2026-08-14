@@ -25,7 +25,7 @@ import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useProviders, type ProviderRow } from "../hooks/useProviders";
 import { useDelegation } from "../hooks/useDelegation";
 import { useRewards } from "../hooks/useRewards";
-import { shortAddress, EXPLORER_URL } from "../lib/flare";
+import { EXPLORER_URL } from "../lib/flare";
 import logoImage from "../imports/flareforward_logo.png";
 
 interface CurrentDelegation {
@@ -183,10 +183,9 @@ export function Delegation() {
         {/* FlareForward — the one and only delegation target on this site. */}
         <Card className="col-span-1 lg:col-span-2">
           <CardHeader className="border-b border-white/8 pb-4">
-            <CardTitle className="text-[#FAFAFA]">Your provider: FlareForward</CardTitle>
+            <CardTitle className="text-[#FAFAFA]">Your provider</CardTitle>
             <CardDescription className="text-[#8FA0B8]">
-              This page delegates your vote power to the FlareForward data
-              provider — builders and educators on the Flare network.
+              Builders and educators on the Flare network.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-5 space-y-5">
@@ -201,11 +200,6 @@ export function Delegation() {
                 </div>
                 <div className="min-w-0">
                   <div className="font-semibold text-lg text-[#FAFAFA]">FlareForward</div>
-                  <div className="text-xs text-[#8FA0B8] font-mono">
-                    {flareForward
-                      ? shortAddress(flareForward.address)
-                      : shortAddress(FLAREFORWARD_ADDRESS as `0x${string}`)}
-                  </div>
                 </div>
               </div>
               <Badge variant={flareForward?.status === "Active" || !flareForward ? "success" : "outline"}>
@@ -461,9 +455,6 @@ function YourDelegations({
                 <div className="min-w-0">
                   <div className="font-medium text-[#FAFAFA] truncate">
                     {isUs ? "FlareForward" : "Another provider"}
-                  </div>
-                  <div className="text-xs text-[#8FA0B8] font-mono mt-0.5">
-                    {shortAddress(d.address)}
                   </div>
                 </div>
               </div>

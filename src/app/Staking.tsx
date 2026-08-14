@@ -36,6 +36,16 @@ import {
   type ValidatorRow,
 } from "../lib/staking";
 
+/** How long until a stake unlocks, in the units someone actually thinks in. */
+function countdownTo(endTime: bigint): string {
+  const secs = Number(endTime) - Math.floor(Date.now() / 1000);
+  if (secs <= 0) return "0 days";
+  const days = Math.floor(secs / 86_400);
+  if (days >= 1) return `${days} day${days === 1 ? "" : "s"}`;
+  const hours = Math.max(1, Math.floor(secs / 3_600));
+  return `${hours} hour${hours === 1 ? "" : "s"}`;
+}
+
 export function Staking() {
   const { data: rewards } = useRewards();
   const {
@@ -674,37 +684,29 @@ function YourStakes({
                   <ValidatorAvatar />
                 )}
                 <div className="min-w-0">
+                  {/* The node id and our fee used to repeat on every row. A
+                      staker knows who they staked with; what they want is when
+                      it unlocks. Non-FlareForward nodes still show an id,
+                      because there the id IS the identity. */}
                   {isUs ? (
-                    <>
-                      <div className="text-sm text-[#FAFAFA] font-medium truncate">
-                        FlareForward
-                      </div>
-                      <div
-                        className="font-mono text-xs text-[#8FA0B8] truncate"
-                        title={s.nodeId}
-                      >
-                        {shortNodeId(s.nodeId, 10)}
-                      </div>
-                    </>
+                    <div className="text-sm text-[#FAFAFA] font-medium truncate">FlareForward</div>
                   ) : (
                     <div className="font-mono text-sm text-[#FAFAFA] truncate" title={s.nodeId}>
                       {shortNodeId(s.nodeId, 10)}
                     </div>
                   )}
-                  <div className="text-xs text-[#8FA0B8] flex items-center gap-3 mt-1 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} />
-                      {unlocked ? "Unlocked" : "Unlocks"}{" "}
-                      {new Date(Number(s.endTime) * 1000).toLocaleDateString()}
-                    </span>
-                    {fee !== undefined && (
-                      <>
-                          <span className="w-1 h-1 rounded-full bg-white/20" />
-                        <span>Fee {fee.toFixed(2)}%</span>
-                      </>
+                  <div className="text-xs text-[#8FA0B8] flex items-center gap-1.5 mt-1">
+                    <Clock size={12} />
+                    {unlocked ? (
+                      <span className="text-emerald-400">Unlocked — ready to withdraw</span>
+                    ) : (
+                      <span>
+                        <span className="text-[#FAFAFA] font-medium">
+                          {countdownTo(s.endTime)}
+                        </span>{" "}
+                        left · unlocks {new Date(Number(s.endTime) * 1000).toLocaleDateString()}
+                      </span>
                     )}
-                          <span className="w-1 h-1 rounded-full bg-white/20" />
-                    <span>Since {new Date(Number(s.startTime) * 1000).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
