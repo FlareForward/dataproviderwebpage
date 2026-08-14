@@ -260,20 +260,21 @@ export function Staking() {
           ourNodeId={ourNodeId}
           ourFeePct={selectedValidator?.delegationFeePct ?? null}
           totalStaked={balance.stakedOnP}
+          claimable={claimableReward}
           fetching={stakesFetching}
           onchainFailed={stakesOnchainFailed}
           onRefresh={refetchStakes}
         />
       )}
 
-      <div className="max-w-2xl">
+      <div className="max-w-5xl">
         {/* Staking action panel */}
         <div>
           <Card>
             <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Stake on the P-chain</CardTitle>
             </CardHeader>
-            <CardContent className="p-5 space-y-6">
+            <CardContent className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
                   {/* Rewards */}
                   <div className="pt-4 border-t border-white/8 space-y-3">
                     <div className="flex items-center justify-between text-sm">
@@ -610,6 +611,7 @@ function YourStakes({
   ourNodeId,
   ourFeePct,
   totalStaked,
+  claimable,
   fetching,
   onchainFailed,
   onRefresh,
@@ -618,6 +620,7 @@ function YourStakes({
   ourNodeId: string | null;
   ourFeePct: number | null;
   totalStaked: bigint;
+  claimable: bigint;
   fetching: boolean;
   onchainFailed: boolean;
   onRefresh: () => void;
@@ -637,6 +640,15 @@ function YourStakes({
               <div className="text-xs text-[#8FA0B8]">Total staked</div>
               <div className="text-sm font-semibold text-[#FAFAFA]">
                 {formatFlr(totalStaked, 0)} FLR
+              </div>
+            </div>
+            {/* Staking rewards are paid to the address, not attributed to a
+                particular stake — so the figure sits with the group, not on a
+                row where it would imply an attribution the chain never makes. */}
+            <div className="text-right">
+              <div className="text-xs text-[#8FA0B8]">Earned, unclaimed</div>
+              <div className="text-sm font-semibold text-emerald-400">
+                {formatFlr(claimable)} FLR
               </div>
             </div>
             <button
