@@ -34,6 +34,13 @@ interface BondYield {
     pure_component_pct: number | null;
     provider_income_flr: number | null;
   } | null;
+  last_measured?: {
+    reward_epoch: number;
+    bond_rate_annualized_pct: number | null;
+    staking_component_pct: number | null;
+    pure_component_pct: number | null;
+    provider_income_flr: number | null;
+  } | null;
   weeks?: Bucket[];
   overall?: Bucket | null;
 }
@@ -212,7 +219,16 @@ function MeasuredPerformance() {
     refetchOnWindowFocus: false,
   });
 
-  const cur = data?.current;
+  // The live epoch reads zero until it settles — 3.5 days of showing nothing on
+  // the page that sells the bond. Use it once it is real, else the last epoch
+  // that actually paid out, and let the epoch label say which one is on screen.
+  const live = data?.current;
+  const cur =
+    live && typeof live.bond_rate_annualized_pct === "number" && live.bond_rate_annualized_pct > 0
+      ? live
+      : data?.last_measured
+        ? { ...data.last_measured, delegator_staking_pct: null, delegation_fee_pct: null }
+        : live;
   const weeks = data?.weeks ?? [];
 
   return (

@@ -22,6 +22,7 @@ const BOND_YIELD_URL = import.meta.env.VITE_BOND_YIELD_URL ?? "/api/bond-yield";
 export default function Bonds() {
   const { data } = useQuery<{
     current?: { bond_rate_annualized_pct: number | null } | null;
+    last_measured?: { bond_rate_annualized_pct: number | null } | null;
   }>({
     queryKey: ["bond-yield"],
     queryFn: async () => {
@@ -33,7 +34,11 @@ export default function Bonds() {
     refetchOnWindowFocus: false,
   });
 
-  const rate = settledRate(data?.current?.bond_rate_annualized_pct);
+  // `current` is zero for the whole of an in-flight epoch, so fall back to the
+  // last epoch that actually paid out rather than showing nothing for days.
+  const rate =
+    settledRate(data?.current?.bond_rate_annualized_pct) ??
+    settledRate(data?.last_measured?.bond_rate_annualized_pct);
 
   return (
     <div className="p-4 lg:p-8">

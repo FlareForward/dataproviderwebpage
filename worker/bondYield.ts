@@ -249,6 +249,29 @@ export async function handleBondYield(): Promise<Response> {
           delegation_fee_pct: current.delegation_fee_pct ?? null,
         }
       : null,
+    /**
+     * The most recent epoch that actually paid out. `current` reports zeros for
+     * the whole of an in-flight epoch, so a page asking "what does the bond earn
+     * now" must read this instead — otherwise it shows nothing for most of every
+     * 3.5-day cycle.
+     */
+    last_measured: (() => {
+      const measured = rows.filter(isMeasured);
+      if (!measured.length) return null;
+      const r = measured[measured.length - 1];
+      return {
+        reward_epoch: r.reward_epoch,
+        bond_rate_annualized_pct:
+          typeof r.bond_rate_epoch === "number" ? r.bond_rate_epoch * EPOCHS_PER_YEAR * 100 : null,
+        staking_component_pct:
+          typeof r.staking_rate_epoch === "number"
+            ? r.staking_rate_epoch * EPOCHS_PER_YEAR * 100
+            : null,
+        pure_component_pct:
+          typeof r.pure_rate_epoch === "number" ? r.pure_rate_epoch * EPOCHS_PER_YEAR * 100 : null,
+        provider_income_flr: r.provider_income_flr ?? null,
+      };
+    })(),
     weeks,
     overall,
   };
