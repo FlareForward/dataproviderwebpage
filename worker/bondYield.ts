@@ -48,6 +48,7 @@ interface EpochRow {
   provider_income_flr?: number | null;
   delegation_fee_pct?: number | null;
   bond_rate_epoch?: number | null;
+  delegation_rate_epoch?: number | null;
   staking_rate_epoch?: number | null;
   pure_rate_epoch?: number | null;
 }
@@ -260,4 +261,24 @@ export async function handleBondYield(): Promise<Response> {
       "cache-control": `public, max-age=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS}`,
     },
   });
+}
+
+/**
+ * The most recent epoch that actually paid something out.
+ *
+ * `/api/rewards` derives its headline rates from the Explorer's "latest" record,
+ * which reports zeros for the whole of an in-flight epoch — so for most of every
+ * 3.5-day cycle the site had no rate to show. This log is the fallback: the last
+ * epoch we genuinely measured, so the page shows a real number and says which
+ * epoch it came from rather than a zero or a blank.
+ */
+export async function loadLastMeasuredEpoch(): Promise<EpochRow | null> {
+  try {
+    const history = await loadHistory();
+    const measured = history.filter(isMeasured);
+    if (!measured.length) return null;
+    return measured.reduce((a, b) => (b.reward_epoch > a.reward_epoch ? b : a));
+  } catch {
+    return null;
+  }
 }
