@@ -46,8 +46,13 @@ interface TierStatus {
   mintOpen?: boolean;
 }
 
+/**
+ * The live epoch reports 0 until it settles, and 0 is a number — so an
+ * unmeasured epoch used to render as "0.00%" on a page selling the bond.
+ * Nothing measured means nothing to show.
+ */
 function pct(v: number | null | undefined): string {
-  return typeof v === "number" ? `${v.toFixed(2)}%` : "—";
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}%` : "—";
 }
 
 function fmtCount(v: bigint | null | undefined): string {

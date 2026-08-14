@@ -133,7 +133,24 @@ interface Bucket {
   provider_income_flr: number | null;
 }
 
-function bucketOf(label: string, rows: EpochRow[]): Bucket {
+/**
+ * An epoch counts as measured once it has actually paid something out.
+ *
+ * The live epoch reports a rate and income of exactly 0 until it settles, and
+ * `typeof 0 === "number"`, so it used to pass straight into the averages as a
+ * genuine observation of zero — halving the published rate. A zero on both
+ * measures is indistinguishable from "no data yet", so it is excluded rather
+ * than averaged in. This only ever drops epochs that paid nothing at all; a
+ * bad-but-real epoch still lands in the record, good or not.
+ */
+function isMeasured(r: EpochRow): boolean {
+  const rate = r.bond_rate_epoch;
+  const income = r.provider_income_flr;
+  return (typeof rate === "number" && rate > 0) || (typeof income === "number" && income > 0);
+}
+
+function bucketOf(label: string, allRows: EpochRow[]): Bucket {
+  const rows = allRows.filter(isMeasured);
   const rates = rows
     .map((r) => r.bond_rate_epoch)
     .filter((v): v is number => typeof v === "number");

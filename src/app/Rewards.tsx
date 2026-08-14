@@ -19,7 +19,7 @@ import { YourPosition } from "./components/YourPosition";
 import { useDelegation } from "../hooks/useDelegation";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
-import { fmtDate, fmtPct } from "../lib/rewards";
+import { settledRate, fmtDate, fmtPct } from "../lib/rewards";
 import { formatFlr, type DisplayStake } from "../lib/staking";
 
 
@@ -160,7 +160,7 @@ export default function Rewards() {
                 >
                   <EarningsStrip
                     rateLabel="Delegation APY"
-                    ratePct={rewards.rates.delegation_annual_pct}
+                    ratePct={settledRate(rewards.rates.delegation_annual_pct)}
                     positionLabel="Delegated to FlareForward"
                     positionAmount={delegatedWflr}
                     positionUnit="WFLR"
@@ -185,7 +185,7 @@ export default function Rewards() {
                     <div className="space-y-3">
                       <EarningsStrip
                         rateLabel="Staking APY"
-                        ratePct={rewards.rates.staking_annual_pct}
+                        ratePct={settledRate(rewards.rates.staking_annual_pct)}
                         positionLabel="Staked with FlareForward"
                         positionAmount={stakedWithUs}
                         positionUnit="FLR"
@@ -202,8 +202,8 @@ export default function Rewards() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <RateTile
                               label="Staking APY"
-                              value={fmtPct(rewards.rates.staking_annual_pct)}
-                              accent={rewards.rates.staking_annual_pct != null}
+                              value={fmtPct(settledRate(rewards.rates.staking_annual_pct))}
+                              accent={settledRate(rewards.rates.staking_annual_pct) != null}
                             />
                             <RateTile
                               label="Claimable now"
@@ -274,13 +274,13 @@ function DisconnectedRewards({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <RateTile
                 label="Delegation APY"
-                value={fmtPct(rates.delegation_annual_pct)}
-                accent={rates.delegation_annual_pct != null}
+                value={fmtPct(settledRate(rates.delegation_annual_pct))}
+                accent={settledRate(rates.delegation_annual_pct) != null}
               />
               <RateTile
                 label="Staking APY"
-                value={fmtPct(rates.staking_annual_pct)}
-                accent={rates.staking_annual_pct != null}
+                value={fmtPct(settledRate(rates.staking_annual_pct))}
+                accent={settledRate(rates.staking_annual_pct) != null}
               />
             </div>
             {rates.basis && (

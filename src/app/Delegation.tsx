@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { settledRate } from "../lib/rewards";
 import { formatUnits } from "viem";
 import {
   Shield,
@@ -119,7 +120,7 @@ export function Delegation() {
       {isConnected && (
         <EarningsStrip
           rateLabel="Delegation APY"
-          ratePct={rewards?.rates.delegation_annual_pct}
+          ratePct={settledRate(rewards?.rates.delegation_annual_pct)}
           positionLabel="Delegated to FlareForward"
           positionAmount={delegatedWflr}
           positionUnit="WFLR"

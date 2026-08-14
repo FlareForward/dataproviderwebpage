@@ -17,7 +17,7 @@ import { Card, CardContent } from "./components/Card";
 import { Button } from "./components/Button";
 import { useRewards } from "../hooks/useRewards";
 import { useYouTubeFeed } from "../hooks/useYouTubeFeed";
-import { fmtFlrCompact, fmtPct } from "../lib/rewards";
+import { settledRate, fmtFlrCompact, fmtPct } from "../lib/rewards";
 import { LINKS } from "../lib/links";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 
@@ -86,13 +86,13 @@ export default function Home() {
               <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                 <ProofStat
                   label="Delegation APY"
-                  value={fmtPct(rewards.rates.delegation_annual_pct)}
+                  value={fmtPct(settledRate(rewards.rates.delegation_annual_pct))}
                   sub="Current rate, WFLR delegators"
                   emphasize
                 />
                 <ProofStat
                   label="Staking APY"
-                  value={fmtPct(rewards.rates.staking_annual_pct)}
+                  value={fmtPct(settledRate(rewards.rates.staking_annual_pct))}
                   sub="Current rate, P-chain stakers"
                   emphasize
                 />
@@ -101,7 +101,7 @@ export default function Home() {
                     series sells. */}
                 <ProofStat
                   label="Bond APY"
-                  value={fmtPct(rewards.rates.bond_annual_pct)}
+                  value={fmtPct(settledRate(rewards.rates.bond_annual_pct))}
                   sub="What the validator bond earns"
                   emphasize
                 />

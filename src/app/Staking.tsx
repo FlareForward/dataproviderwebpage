@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { settledRate } from "../lib/rewards";
 import { parseUnits } from "viem";
 import {
   Server,
@@ -231,7 +232,7 @@ export function Staking() {
       {isConnected && (
         <EarningsStrip
           rateLabel="Staking APY"
-          ratePct={rewards?.rates.staking_annual_pct}
+          ratePct={settledRate(rewards?.rates.staking_annual_pct)}
           positionLabel="Staked with FlareForward"
           positionAmount={stakedWithUs}
           positionUnit="FLR"

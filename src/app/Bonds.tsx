@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { ArrowRight, Gem, Store, Activity } from "lucide-react";
 import { Button } from "./components/Button";
 import { MyBonds } from "./components/MyBonds";
-import { fmtPct } from "../lib/rewards";
+import { settledRate, fmtPct } from "../lib/rewards";
 
 const BOND_YIELD_URL = import.meta.env.VITE_BOND_YIELD_URL ?? "/api/bond-yield";
 
@@ -31,7 +31,7 @@ export default function Bonds() {
     refetchOnWindowFocus: false,
   });
 
-  const rate = data?.current?.bond_rate_annualized_pct ?? null;
+  const rate = settledRate(data?.current?.bond_rate_annualized_pct);
   const epochs = data?.logged_epochs ?? 0;
 
   return (
