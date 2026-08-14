@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./Car
 import { Button } from "./Button";
 import { usePosition } from "../../hooks/usePosition";
 import { RewardEpochChart } from "./RewardEpochChart";
-import {
+import { settledRate,
   daysLeft,
   fmtDate,
   fmtFlr,
@@ -44,8 +44,10 @@ export function YourPosition({
 
   const { kind, position, isLoading, error } = usePosition(submitted, rewards);
 
-  const delegationApy = rewards?.rates.delegation_annual_pct ?? null;
-  const stakingApy = rewards?.rates.staking_annual_pct ?? null;
+  // Guarded even though the worker now falls back: a zero rate means "not
+  // measured", and it must never render as an APY of nothing.
+  const delegationApy = settledRate(rewards?.rates.delegation_annual_pct);
+  const stakingApy = settledRate(rewards?.rates.staking_annual_pct);
 
   function check() {
     setSubmitted(input);

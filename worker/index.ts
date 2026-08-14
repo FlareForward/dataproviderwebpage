@@ -307,10 +307,25 @@ async function handleValidator(): Promise<Response> {
       typeof row.fee_percentage === "number"
         ? row.fee_percentage / FEE_DIVISOR
         : null;
-    const rateEpochPct =
+    /**
+     * Third endpoint carrying an epoch-scoped rate, same trap as the other two:
+     * the live epoch reads exactly 0 for its whole 3.5-day run. Fall back to the
+     * last epoch that actually paid out, and report which epoch is being shown.
+     */
+    const rateEpochPctLive =
       typeof rewards?.reward_rate_total_mirror === "number"
         ? rewards.reward_rate_total_mirror * 100
         : null;
+    const rateSettled = (rateEpochPctLive ?? 0) > 0;
+    const rateFallback = rateSettled ? null : await loadLastMeasuredEpoch();
+    const rateEpochPct = rateSettled
+      ? rateEpochPctLive
+      : typeof rateFallback?.bond_rate_epoch === "number"
+        ? rateFallback.bond_rate_epoch * 100
+        : null;
+    const rateRewardEpoch = rateSettled
+      ? (rewards?.reward_epoch ?? null)
+      : (rateFallback?.reward_epoch ?? null);
 
     return jsonResponse({
       generated_at_unix,
@@ -329,7 +344,7 @@ async function handleValidator(): Promise<Response> {
       active_end_unix:
         typeof row.end_time === "number" ? Math.floor(row.end_time) : null,
       rewards: {
-        reward_epoch: rewards?.reward_epoch ?? null,
+        reward_epoch: rateRewardEpoch,
         self_bond_earnings_flr: flr(rewards?.self_bond_earnings, REWARD_DECIMALS),
         total_flr: flr(rewards?.total_mirror, REWARD_DECIMALS),
         reward_rate_epoch_pct: rateEpochPct,

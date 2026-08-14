@@ -138,11 +138,13 @@ export function ValidatorStaking() {
               : undefined
           }
         />
+        {/* A zero rate means the epoch has not settled, not that the validator
+            earned nothing — never render it as a real rate. */}
         <Tile
           title="Reward Rate"
-          value={pct(r.reward_rate_annual_pct)}
+          value={r.reward_rate_annual_pct ? pct(r.reward_rate_annual_pct) : "—"}
           sub={
-            r.reward_rate_epoch_pct != null
+            r.reward_rate_epoch_pct
               ? `${pct(r.reward_rate_epoch_pct, 3)} per epoch · annualized`
               : undefined
           }
