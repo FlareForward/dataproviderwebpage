@@ -215,7 +215,7 @@ const BIPS_DENOMINATOR = 10000;
  */
 export const STAKE_LATENCY_BUFFER = 3600n;
 
-export function formatFlr(wei: bigint, maxFractionDigits = 4): string {
+export function formatFlr(wei: bigint, maxFractionDigits = 2): string {
   return Number(formatUnits(wei, 18)).toLocaleString(undefined, {
     maximumFractionDigits: maxFractionDigits,
   });
@@ -432,6 +432,25 @@ export function validateStakeAmount(
   }
   if (amountWei > availableOnP) {
     return `Only ${formatFlr(availableOnP)} FLR available on the P-chain. Move more FLR to the P-chain first.`;
+  }
+  return null;
+}
+
+/**
+ * Validate a requested cross-chain transfer against the balance available on
+ * the source chain. Returns a human-readable reason when invalid, or `null`
+ * when the amount is acceptable.
+ */
+export function validateTransferAmount(
+  amountWei: bigint,
+  available: bigint,
+  sourceLabel: string
+): string | null {
+  if (amountWei <= 0n) return "Enter an amount to move.";
+  if (amountWei > available) {
+    // `sourceLabel` is a full phrase ("in your wallet", "on the P-chain") so
+    // each side reads naturally — users don't need to know what the C-chain is.
+    return `Only ${formatFlr(available)} FLR available ${sourceLabel}.`;
   }
   return null;
 }

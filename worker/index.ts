@@ -15,7 +15,7 @@
  */
 
 import { handleNftRewards } from "./nftRewards";
-import { handleBondYield } from "./bondYield";
+import { handleBondYield, loadLastMeasuredEpoch } from "./bondYield";
 
 /** Flare Forward identity (pinned) — mirrors PINNED_PROVIDER_ADDRESS in the app. */
 const IDENTITY_ADDRESS = "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
@@ -307,10 +307,25 @@ async function handleValidator(): Promise<Response> {
       typeof row.fee_percentage === "number"
         ? row.fee_percentage / FEE_DIVISOR
         : null;
-    const rateEpochPct =
+    /**
+     * Third endpoint carrying an epoch-scoped rate, same trap as the other two:
+     * the live epoch reads exactly 0 for its whole 3.5-day run. Fall back to the
+     * last epoch that actually paid out, and report which epoch is being shown.
+     */
+    const rateEpochPctLive =
       typeof rewards?.reward_rate_total_mirror === "number"
         ? rewards.reward_rate_total_mirror * 100
         : null;
+    const rateSettled = (rateEpochPctLive ?? 0) > 0;
+    const rateFallback = rateSettled ? null : await loadLastMeasuredEpoch();
+    const rateEpochPct = rateSettled
+      ? rateEpochPctLive
+      : typeof rateFallback?.bond_rate_epoch === "number"
+        ? rateFallback.bond_rate_epoch * 100
+        : null;
+    const rateRewardEpoch = rateSettled
+      ? (rewards?.reward_epoch ?? null)
+      : (rateFallback?.reward_epoch ?? null);
 
     return jsonResponse({
       generated_at_unix,
@@ -329,7 +344,7 @@ async function handleValidator(): Promise<Response> {
       active_end_unix:
         typeof row.end_time === "number" ? Math.floor(row.end_time) : null,
       rewards: {
-        reward_epoch: rewards?.reward_epoch ?? null,
+        reward_epoch: rateRewardEpoch,
         self_bond_earnings_flr: flr(rewards?.self_bond_earnings, REWARD_DECIMALS),
         total_flr: flr(rewards?.total_mirror, REWARD_DECIMALS),
         reward_rate_epoch_pct: rateEpochPct,
@@ -411,21 +426,40 @@ async function handleRewards(): Promise<Response> {
     const conditions = e.entityminimalconditionslatest ?? null;
 
     // Official Explorer per-epoch reward rates (fractions), annualized simply.
-    const delegationEpoch =
+    const delegationEpochLive =
       typeof rewards?.reward_rate_wnat === "number"
         ? rewards.reward_rate_wnat * 100
         : null;
-    const stakingEpoch =
+    const stakingEpochLive =
       typeof rewards?.reward_rate_mirror === "number"
         ? rewards.reward_rate_mirror * 100
         : null;
     // What the self-bond earns: reward_rate_total_mirror = mirror + pure.
     // Higher than the staking rate above, which is a DELEGATOR's rate net of
     // our delegation fee. See worker/bondYield.ts for the verified identities.
-    const bondEpoch =
+    const bondEpochLive =
       typeof rewards?.reward_rate_total_mirror === "number"
         ? rewards.reward_rate_total_mirror * 100
         : null;
+
+    /**
+     * The Explorer's "latest" record reports zeros for the whole of an in-flight
+     * epoch, and epochs run 3.5 days — so for most of every cycle these rates
+     * were 0, which the site rendered as "0% APY" on pages whose job is to say
+     * what this earns. When the live epoch has not settled, fall back to the
+     * last epoch we actually measured and say which epoch that was.
+     */
+    const liveSettled =
+      (delegationEpochLive ?? 0) > 0 ||
+      (stakingEpochLive ?? 0) > 0 ||
+      (bondEpochLive ?? 0) > 0;
+    const fallback = liveSettled ? null : await loadLastMeasuredEpoch();
+    const rateEpoch = liveSettled ? (rewards?.reward_epoch ?? null) : (fallback?.reward_epoch ?? null);
+    const asPct = (v: number | null | undefined) => (typeof v === "number" ? v * 100 : null);
+
+    const delegationEpoch = liveSettled ? delegationEpochLive : asPct(fallback?.delegation_rate_epoch);
+    const stakingEpoch = liveSettled ? stakingEpochLive : asPct(fallback?.staking_rate_epoch);
+    const bondEpoch = liveSettled ? bondEpochLive : asPct(fallback?.bond_rate_epoch);
 
     const selfBond = flr(row?.self_bond, STAKE_DECIMALS);
     const delegated = flr(row?.delegated, STAKE_DECIMALS);
@@ -469,7 +503,10 @@ async function handleRewards(): Promise<Response> {
         staking_flr: flr(policy?.staking_weight, REWARD_DECIMALS),
       },
       rates: {
-        basis: "latest reward epoch, annualized (365 / 3.5-day epochs)",
+        basis:
+          rateEpoch != null
+            ? `reward epoch ${rateEpoch}${liveSettled ? "" : " (most recent settled epoch)"}, annualized (365 / 3.5-day epochs)`
+            : "latest reward epoch, annualized (365 / 3.5-day epochs)",
         delegation_epoch_pct: delegationEpoch,
         delegation_annual_pct:
           delegationEpoch != null ? delegationEpoch * EPOCHS_PER_YEAR : null,

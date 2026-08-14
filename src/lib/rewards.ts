@@ -82,6 +82,18 @@ export function fmtFlr(value: number | null | undefined, digits = 0): string {
   });
 }
 
+/**
+ * A rate we can honestly show, or null.
+ *
+ * The live reward epoch reports 0 until it settles — a real number, so it slips
+ * past a null check and renders as "0% APY" on pages whose whole job is to say
+ * what this earns. Nothing has been measured at that point, so treat it as
+ * absent and let the existing not-yet-known handling take over.
+ */
+export function settledRate(value: number | null | undefined): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
 export function fmtPct(value: number | null | undefined, digits = 2): string {
   if (value == null || !Number.isFinite(value)) return "—";
   return `${value.toLocaleString(undefined, {

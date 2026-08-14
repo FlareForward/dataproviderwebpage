@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { settledRate } from "../lib/rewards";
 import { parseUnits } from "viem";
 import {
   Server,
@@ -17,9 +18,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./com
 import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
 import { ConnectWallet } from "./components/ConnectWallet";
+import { EarningsStrip } from "./components/EarningsStrip";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useStaking } from "../hooks/useStaking";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
+import { useRewards } from "../hooks/useRewards";
 import logoImage from "../imports/flareforward_logo.png";
 import {
   buildDurationOptions,
@@ -27,12 +30,24 @@ import {
   formatFlrPlain,
   shortNodeId,
   validateStakeAmount,
+  validateTransferAmount,
   type DisplayStake,
   type DurationOption,
   type ValidatorRow,
 } from "../lib/staking";
 
+/** How long until a stake unlocks, in the units someone actually thinks in. */
+function countdownTo(endTime: bigint): string {
+  const secs = Number(endTime) - Math.floor(Date.now() / 1000);
+  if (secs <= 0) return "0 days";
+  const days = Math.floor(secs / 86_400);
+  if (days >= 1) return `${days} day${days === 1 ? "" : "s"}`;
+  const hours = Math.max(1, Math.floor(secs / 3_600));
+  return `${hours} hour${hours === 1 ? "" : "s"}`;
+}
+
 export function Staking() {
+  const { data: rewards } = useRewards();
   const {
     isConnected,
     pEnabled,
@@ -60,8 +75,11 @@ export function Staking() {
   const { data: ffValidator } = useValidatorStaking();
   const ourNodeId = ffValidator?.node_id ?? null;
 
-  const [moveAmount, setMoveAmount] = useState("");
-  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [amount, setAmount] = useState("");
+  // Which way the user last signalled they want to move FLR. One input feeds
+  // two buttons, so MAX has to carry intent — otherwise filling from the wallet
+  // balance leaves both directions looking equally plausible.
+  const [intent, setIntent] = useState<"toP" | "toC" | null>(null);
   const [stakeAmount, setStakeAmount] = useState("");
   const [durationSecs, setDurationSecs] = useState<bigint | null>(null);
   const [capacity, setCapacity] = useState<bigint | null>(null);
@@ -85,12 +103,6 @@ export function Staking() {
   useEffect(() => {
     setDurationSecs(durationOptions[0]?.seconds ?? null);
   }, [durationOptions]);
-
-  useEffect(() => {
-    if (balance.availableOnP === 0n && withdrawAmount) {
-      setWithdrawAmount("");
-    }
-  }, [balance.availableOnP, withdrawAmount]);
 
   // Lazily fetch the remaining delegation capacity for the selected validator.
   useEffect(() => {
@@ -119,24 +131,39 @@ export function Staking() {
     return capacity < nodeSpaceLeft ? capacity : nodeSpaceLeft;
   }, [capacity, ffValidator]);
 
-  const amountWei = (() => {
+  const stakeAmountWei = (() => {
     try {
       return stakeAmount ? parseUnits(stakeAmount, 18) : 0n;
     } catch {
       return 0n;
     }
   })();
+  const amountWei = (() => {
+    try {
+      return amount ? parseUnits(amount, 18) : 0n;
+    } catch {
+      return 0n;
+    }
+  })();
 
   const amountError =
-    limits && stakeAmount ? validateStakeAmount(amountWei, limits, balance.availableOnP) : null;
+    limits && stakeAmount
+      ? validateStakeAmount(stakeAmountWei, limits, balance.availableOnP)
+      : null;
+  const toPError = amount
+    ? validateTransferAmount(amountWei, balance.availableOnC, "in your wallet")
+    : null;
+  const toCError = amount
+    ? validateTransferAmount(amountWei, balance.availableOnP, "on the P-chain")
+    : null;
   const capacityError =
-    effectiveCapacity !== null && amountWei > effectiveCapacity
+    effectiveCapacity !== null && stakeAmountWei > effectiveCapacity
       ? `Exceeds validator's remaining capacity of ${formatFlr(effectiveCapacity, 0)} FLR.`
       : null;
   const canStake =
     !!selectedValidator &&
     !!durationSecs &&
-    amountWei > 0n &&
+    stakeAmountWei > 0n &&
     !amountError &&
     !capacityError &&
     busy === null;
@@ -147,6 +174,18 @@ export function Staking() {
       return !soonest || stake.endTime < soonest.endTime ? stake : soonest;
     }, null);
   }, [stakes]);
+  // Only stake held with OUR validator, because the rate shown beside it is
+  // ours. Summing every stake would apply FlareForward's rate to capital
+  // staked with someone else and overstate what the user actually earns here.
+  const stakedWithUs = useMemo(
+    () =>
+      ourNodeId
+        ? stakes
+            .filter((stake) => stake.nodeId === ourNodeId)
+            .reduce((sum, stake) => sum + stake.amount, 0n)
+        : 0n,
+    [stakes, ourNodeId]
+  );
   const withdrawUnavailableMessage =
     balance.availableOnP === 0n
       ? nextUnlockingStake
@@ -166,8 +205,8 @@ export function Staking() {
 
   async function handleMove() {
     try {
-      await moveToP(moveAmount);
-      setMoveAmount("");
+      await moveToP(amount);
+      setAmount("");
     } catch {
       /* toast already shown */
     }
@@ -175,8 +214,8 @@ export function Staking() {
 
   async function handleWithdraw() {
     try {
-      await withdrawToC(withdrawAmount);
-      setWithdrawAmount("");
+      await withdrawToC(amount);
+      setAmount("");
     } catch {
       /* toast already shown */
     }
@@ -200,6 +239,19 @@ export function Staking() {
 
   return (
     <div className="space-y-6">
+      {isConnected && (
+        <EarningsStrip
+          rateLabel="Staking APY"
+          ratePct={settledRate(rewards?.rates.staking_annual_pct)}
+          positionLabel="Staked with FlareForward"
+          positionAmount={stakedWithUs}
+          positionUnit="FLR"
+          claimableReward={claimableReward}
+          basis={rewards?.rates.basis}
+          emptyMessage="Stake FLR with FlareForward when you're ready."
+        />
+      )}
+
       {/* Your stakes — always visible once enabled, so users can see who they
           are staked to without searching the validator list again. */}
       {isConnected && pEnabled && (
@@ -208,109 +260,46 @@ export function Staking() {
           ourNodeId={ourNodeId}
           ourFeePct={selectedValidator?.delegationFeePct ?? null}
           totalStaked={balance.stakedOnP}
+          claimable={claimableReward}
           fetching={stakesFetching}
           onchainFailed={stakesOnchainFailed}
           onRefresh={refetchStakes}
         />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* FlareForward validator — the one and only staking target on this site. */}
-        <Card className="col-span-1 lg:col-span-2">
-          <CardHeader className="border-b border-white/8 pb-4">
-            <CardTitle className="text-[#FAFAFA]">Your validator: FlareForward</CardTitle>
-            <CardDescription className="text-[#8FA0B8]">
-              Stake FLR on the P-chain with the FlareForward validator — run by
-              the same team signing your price feeds.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-5 space-y-5">
-            {!selectedValidator && (validatorsLoading || !ourNodeId) ? (
-              <div className="p-8 text-center text-[#8FA0B8] text-sm flex items-center justify-center gap-2">
-                <Loader2 size={16} className="animate-spin" /> Loading the FlareForward validator…
-              </div>
-            ) : !selectedValidator ? (
-              <div className="p-8 text-center text-[#8FA0B8] text-sm">
-                The FlareForward validator isn't accepting new stakes right now —
-                check back soon.
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4 min-w-0">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
-                      <ImageWithFallback
-                        src={logoImage}
-                        alt="FlareForward"
-                        className="w-8 h-8 object-contain"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-lg text-[#FAFAFA]">FlareForward</div>
-                      <div
-                        className="text-xs text-[#8FA0B8] font-mono truncate"
-                        title={selectedValidator.nodeId}
-                      >
-                        {shortNodeId(selectedValidator.nodeId, 12)}
-                      </div>
-                    </div>
-                  </div>
-                  <Badge variant={selectedValidator.acceptsDelegations ? "success" : "dark"}>
-                    {selectedValidator.acceptsDelegations ? "Accepting stakes" : "Ending soon"}
-                  </Badge>
-                </div>
-
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                  <div className="glass-panel p-3">
-                    <div className="text-xs text-[#8FA0B8] mb-1">Our self-bond</div>
-                    <div className="font-medium text-[#FAFAFA] text-sm">
-                      {selectedValidator.selfBondLabel} FLR
-                    </div>
-                  </div>
-                  <div className="glass-panel p-3">
-                    <div className="text-xs text-[#8FA0B8] mb-1">Fee</div>
-                    <div className="font-medium text-[#FAFAFA] text-sm">
-                      {selectedValidator.delegationFeePct.toFixed(2)}%
-                    </div>
-                  </div>
-                  <div className="glass-panel p-3">
-                    <div className="text-xs text-[#8FA0B8] mb-1">Stakers</div>
-                    <div className="font-medium text-[#FAFAFA] text-sm">
-                      {ffValidator?.delegators_count ?? "—"}
-                    </div>
-                  </div>
-                  <div className="glass-panel p-3">
-                    <div className="text-xs text-[#8FA0B8] mb-1">Active until</div>
-                    <div className="font-medium text-[#FAFAFA] text-sm">
-                      {selectedValidator.endDate.toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
-                  <Landmark size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                  <div className="text-[#FAFAFA]">
-                    Our own capital is self-bonded on this node — we stake
-                    alongside you. Staked FLR is locked for the duration you
-                    choose, then returns to your P-chain balance. Rewards accrue
-                    every reward epoch.
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
+      <div className="max-w-5xl">
         {/* Staking action panel */}
-        <div className="col-span-1">
-          <Card className="sticky top-24">
+        <div>
+          <Card>
             <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Stake on the P-chain</CardTitle>
-              <CardDescription className="text-[#8FA0B8]">
-                Delegate FLR to a validator to earn staking rewards
-              </CardDescription>
             </CardHeader>
-            <CardContent className="p-5 space-y-6">
+            <CardContent className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
+                  {/* Rewards */}
+                  <div className="pt-4 border-t border-white/8 space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#8FA0B8] flex items-center gap-2">
+                        <Gift size={14} /> Claimable rewards
+                      </span>
+                      <span className="text-[#FAFAFA] font-medium">
+                        {formatFlr(claimableReward)} FLR
+                      </span>
+                    </div>
+                    <Button
+                      variant="secondary"
+                      className="w-full gap-2"
+                      disabled={busy !== null || claimableReward <= 0n}
+                      onClick={() => claimRewards()}
+                    >
+                      {busy === "claim" ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : (
+                        <>
+                          <Gift size={16} /> Claim staking rewards
+                        </>
+                      )}
+                    </Button>
+                  </div>
               {!isConnected ? (
                 <div className="text-center py-8 text-[#8FA0B8] flex flex-col items-center gap-4">
                   <Wallet size={32} className="opacity-20" />
@@ -341,31 +330,52 @@ export function Staking() {
                 </div>
               ) : (
                 <>
-                  {/* C-chain: the spendable balance and the move-to-P control,
-                      grouped so everything C-chain lives in one section. */}
+                  {/* Transfers share one amount so either direction is always available. */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8]">C-chain balance</span>
-                      <span className="text-[#FAFAFA] font-medium">
-                        {formatFlr(balance.availableOnC)} FLR
-                      </span>
+                    <div className="flex items-center gap-2 text-sm font-medium text-[#FAFAFA]">
+                      <ArrowRightLeft size={14} className="text-[#8FA0B8]" />
+                      <span>Move FLR</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8] flex items-center gap-2">
-                        <ArrowRightLeft size={14} /> Move FLR to P-chain
-                      </span>
-                      <button
-                        onClick={() => setMoveAmount(formatFlrPlain(balance.availableOnC))}
-                        className="text-xs text-[#EE1A58] hover:underline"
-                      >
-                        MAX
-                      </button>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[#8FA0B8] shrink-0">Wallet</span>
+                        <span className="text-[#FAFAFA] font-medium tabular-nums truncate">
+                          {formatFlr(balance.availableOnC)}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setAmount(formatFlrPlain(balance.availableOnC));
+                            setIntent("toP");
+                          }}
+                          className="text-[#EE1A58] hover:underline shrink-0"
+                        >
+                          MAX
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[#8FA0B8] shrink-0">P-chain</span>
+                        <span className="text-[#FAFAFA] font-medium tabular-nums truncate">
+                          {formatFlr(balance.availableOnP)}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setAmount(formatFlrPlain(balance.availableOnP));
+                            setIntent("toC");
+                          }}
+                          className="text-[#EE1A58] hover:underline shrink-0"
+                        >
+                          MAX
+                        </button>
+                      </div>
                     </div>
                     <div className="relative">
                       <input
                         type="number"
-                        value={moveAmount}
-                        onChange={(e) => setMoveAmount(e.target.value)}
+                        value={amount}
+                        onChange={(e) => {
+                          setAmount(e.target.value);
+                          setIntent(null);
+                        }}
                         onWheel={(e) => e.currentTarget.blur()}
                         placeholder="0.00"
                         className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
@@ -374,112 +384,82 @@ export function Staking() {
                         FLR
                       </span>
                     </div>
-                    <Button
-                      variant="secondary"
-                      className="w-full"
-                      disabled={busy !== null || !moveAmount || Number(moveAmount) <= 0}
-                      onClick={handleMove}
-                    >
-                      {busy === "moveToP" ? (
-                        <Loader2 className="animate-spin" size={16} />
-                      ) : (
-                        "Move to P-chain"
-                      )}
-                    </Button>
+                    {amount && toPError && (
+                      <div className="text-xs text-red-400">To P-chain: {toPError}</div>
+                    )}
+                    {amount && toCError && (
+                      <div className="text-xs text-red-400">To wallet: {toCError}</div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant={intent === "toP" ? "primary" : "secondary"}
+                        className="w-full"
+                        disabled={busy !== null || !amount || Number(amount) <= 0 || !!toPError}
+                        onClick={handleMove}
+                      >
+                        {busy === "moveToP" ? (
+                          <Loader2 className="animate-spin" size={16} />
+                        ) : (
+                          "To P-chain"
+                        )}
+                      </Button>
+                      <Button
+                        variant={intent === "toC" ? "primary" : "secondary"}
+                        className="w-full"
+                        disabled={busy !== null || !amount || Number(amount) <= 0 || !!toCError}
+                        onClick={handleWithdraw}
+                      >
+                        {busy === "withdraw" ? (
+                          <Loader2 className="animate-spin" size={16} />
+                        ) : (
+                          "To wallet"
+                        )}
+                      </Button>
+                    </div>
+                    {balance.availableOnP === 0n && withdrawUnavailableMessage && (
+                      <p className="text-xs text-[#8FA0B8]">
+                        {withdrawUnavailableMessage}
+                      </p>
+                    )}
                     {busy === "moveToP" && (
                       <p className="text-xs text-[#8FA0B8]">
-                        This takes two wallet confirmations — export from the C-chain, then import
+                        This takes two wallet confirmations — export from your wallet, then import
                         to the P-chain. Approve both and keep this tab open until they complete.
                       </p>
                     )}
                     {balance.notImportedToP > 0n && (
                       <PendingImportNotice
                         amount={balance.notImportedToP}
-                        target="P-chain"
+                        target="the P-chain"
                         finishing={busy === "importToP"}
                         disabled={busy !== null}
                         onFinish={() => importToP().catch(() => {})}
                       />
                     )}
+                    {busy === "withdraw" && (
+                      <p className="text-xs text-[#8FA0B8]">
+                        This takes two wallet confirmations — export from the P-chain, then import
+                        to your wallet. Approve both and keep this tab open until they complete.
+                      </p>
+                    )}
+                    {balance.notImportedToC > 0n && (
+                      <PendingImportNotice
+                        amount={balance.notImportedToC}
+                        target="your wallet"
+                        finishing={busy === "importToC"}
+                        disabled={busy !== null}
+                        onFinish={() => importToC().catch(() => {})}
+                      />
+                    )}
                   </div>
 
-                  {/* P-chain: what has arrived and what's staked, directly above
-                      the stake form that spends it. */}
+                  {/* P-chain: what is staked, directly above the stake form. */}
                   <div className="pt-4 border-t border-white/8 space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8]">P-chain balance</span>
-                      <span className="text-[#FAFAFA] font-medium">
-                        {formatFlr(balance.availableOnP)} FLR
-                      </span>
-                    </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[#8FA0B8]">Currently staked</span>
                       <span className="text-[#FAFAFA] font-medium">
                         {formatFlr(balance.stakedOnP)} FLR
                       </span>
-                    </div>
-                    <div className="pt-4 border-t border-white/8 space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-[#8FA0B8] flex items-center gap-2">
-                          <ArrowRightLeft size={14} /> Move FLR back to your wallet
-                        </span>
-                        {!withdrawUnavailableMessage && (
-                          <button
-                            onClick={() => setWithdrawAmount(formatFlrPlain(balance.availableOnP))}
-                            className="text-xs text-[#EE1A58] hover:underline"
-                          >
-                            MAX
-                          </button>
-                        )}
-                      </div>
-                      {withdrawUnavailableMessage ? (
-                        <p className="text-xs text-[#8FA0B8]">
-                          {withdrawUnavailableMessage}
-                        </p>
-                      ) : (
-                        <div className="relative">
-                          <input
-                            type="number"
-                            value={withdrawAmount}
-                            onChange={(e) => setWithdrawAmount(e.target.value)}
-                            onWheel={(e) => e.currentTarget.blur()}
-                            placeholder="0.00"
-                            className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
-                          />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">
-                            FLR
-                          </span>
-                        </div>
-                      )}
-                      <Button
-                        variant="secondary"
-                        className="w-full"
-                        disabled={
-                          busy !== null || !withdrawAmount || Number(withdrawAmount) <= 0
-                        }
-                        onClick={handleWithdraw}
-                      >
-                        {busy === "withdraw" ? (
-                          <Loader2 className="animate-spin" size={16} />
-                        ) : (
-                          "Move to wallet (C-chain)"
-                        )}
-                      </Button>
-                      {busy === "withdraw" && (
-                        <p className="text-xs text-[#8FA0B8]">
-                          This takes two wallet confirmations — export from the P-chain, then import
-                          to the C-chain. Approve both and keep this tab open until they complete.
-                        </p>
-                      )}
-                      {balance.notImportedToC > 0n && (
-                        <PendingImportNotice
-                          amount={balance.notImportedToC}
-                          target="C-chain"
-                          finishing={busy === "importToC"}
-                          disabled={busy !== null}
-                          onFinish={() => importToC().catch(() => {})}
-                        />
-                      )}
                     </div>
                     {!selectedValidator ? (
                       <div className="text-center py-4 text-[#8FA0B8] flex flex-col items-center">
@@ -564,8 +544,7 @@ export function Staking() {
                           <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
                           <div className="text-[#FAFAFA]">
                             Staked FLR is locked for the chosen duration. When the stake ends the
-                            FLR returns to your P-chain balance, ready to withdraw back to the
-                            C-chain.
+                            FLR returns to your P-chain balance, ready to move back to your wallet.
                           </div>
                         </div>
 
@@ -612,31 +591,6 @@ export function Staking() {
                     )}
                   </div>
 
-                  {/* Rewards */}
-                  <div className="pt-4 border-t border-white/8 space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8] flex items-center gap-2">
-                        <Gift size={14} /> Claimable rewards
-                      </span>
-                      <span className="text-[#FAFAFA] font-medium">
-                        {formatFlr(claimableReward)} FLR
-                      </span>
-                    </div>
-                    <Button
-                      variant="secondary"
-                      className="w-full gap-2"
-                      disabled={busy !== null || claimableReward <= 0n}
-                      onClick={() => claimRewards()}
-                    >
-                      {busy === "claim" ? (
-                        <Loader2 className="animate-spin" size={16} />
-                      ) : (
-                        <>
-                          <Gift size={16} /> Claim staking rewards
-                        </>
-                      )}
-                    </Button>
-                  </div>
                 </>
               )}
             </CardContent>
@@ -657,6 +611,7 @@ function YourStakes({
   ourNodeId,
   ourFeePct,
   totalStaked,
+  claimable,
   fetching,
   onchainFailed,
   onRefresh,
@@ -665,6 +620,7 @@ function YourStakes({
   ourNodeId: string | null;
   ourFeePct: number | null;
   totalStaked: bigint;
+  claimable: bigint;
   fetching: boolean;
   onchainFailed: boolean;
   onRefresh: () => void;
@@ -684,6 +640,15 @@ function YourStakes({
               <div className="text-xs text-[#8FA0B8]">Total staked</div>
               <div className="text-sm font-semibold text-[#FAFAFA]">
                 {formatFlr(totalStaked, 0)} FLR
+              </div>
+            </div>
+            {/* Staking rewards are paid to the address, not attributed to a
+                particular stake — so the figure sits with the group, not on a
+                row where it would imply an attribution the chain never makes. */}
+            <div className="text-right">
+              <div className="text-xs text-[#8FA0B8]">Earned, unclaimed</div>
+              <div className="text-sm font-semibold text-emerald-400">
+                {formatFlr(claimable)} FLR
               </div>
             </div>
             <button
@@ -731,37 +696,29 @@ function YourStakes({
                   <ValidatorAvatar />
                 )}
                 <div className="min-w-0">
+                  {/* The node id and our fee used to repeat on every row. A
+                      staker knows who they staked with; what they want is when
+                      it unlocks. Non-FlareForward nodes still show an id,
+                      because there the id IS the identity. */}
                   {isUs ? (
-                    <>
-                      <div className="text-sm text-[#FAFAFA] font-medium truncate">
-                        FlareForward
-                      </div>
-                      <div
-                        className="font-mono text-xs text-[#8FA0B8] truncate"
-                        title={s.nodeId}
-                      >
-                        {shortNodeId(s.nodeId, 10)}
-                      </div>
-                    </>
+                    <div className="text-sm text-[#FAFAFA] font-medium truncate">FlareForward</div>
                   ) : (
                     <div className="font-mono text-sm text-[#FAFAFA] truncate" title={s.nodeId}>
                       {shortNodeId(s.nodeId, 10)}
                     </div>
                   )}
-                  <div className="text-xs text-[#8FA0B8] flex items-center gap-3 mt-1 flex-wrap">
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} />
-                      {unlocked ? "Unlocked" : "Unlocks"}{" "}
-                      {new Date(Number(s.endTime) * 1000).toLocaleDateString()}
-                    </span>
-                    {fee !== undefined && (
-                      <>
-                          <span className="w-1 h-1 rounded-full bg-white/20" />
-                        <span>Fee {fee.toFixed(2)}%</span>
-                      </>
+                  <div className="text-xs text-[#8FA0B8] flex items-center gap-1.5 mt-1">
+                    <Clock size={12} />
+                    {unlocked ? (
+                      <span className="text-emerald-400">Unlocked — ready to withdraw</span>
+                    ) : (
+                      <span>
+                        <span className="text-[#FAFAFA] font-medium">
+                          {countdownTo(s.endTime)}
+                        </span>{" "}
+                        left · unlocks {new Date(Number(s.endTime) * 1000).toLocaleDateString()}
+                      </span>
                     )}
-                          <span className="w-1 h-1 rounded-full bg-white/20" />
-                    <span>Since {new Date(Number(s.startTime) * 1000).toLocaleDateString()}</span>
                   </div>
                 </div>
               </div>
@@ -844,7 +801,7 @@ function PendingImportNotice({
   onFinish,
 }: {
   amount: bigint;
-  target: "P-chain" | "C-chain";
+  target: "the P-chain" | "your wallet";
   finishing: boolean;
   disabled: boolean;
   onFinish: () => void;
@@ -854,9 +811,9 @@ function PendingImportNotice({
       <div className="flex gap-3">
         <Clock size={16} className="text-yellow-500 shrink-0 mt-0.5" />
         <div className="text-[#FAFAFA]">
-          <span className="font-semibold">{formatFlr(amount)} FLR</span> is part-way to the{" "}
-          {target}. The export step confirmed, but the import step hasn't. Your FLR is safe — it
-          just needs one more confirmation to land in your {target} balance.
+          <span className="font-semibold">{formatFlr(amount)} FLR</span> is part-way to {target}. The
+          export step confirmed, but the import step hasn't. Your FLR is safe — it just needs one
+          more confirmation to land.
         </div>
       </div>
       <Button variant="secondary" className="w-full" disabled={disabled} onClick={onFinish}>

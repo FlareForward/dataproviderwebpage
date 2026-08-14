@@ -48,6 +48,7 @@ interface EpochRow {
   provider_income_flr?: number | null;
   delegation_fee_pct?: number | null;
   bond_rate_epoch?: number | null;
+  delegation_rate_epoch?: number | null;
   staking_rate_epoch?: number | null;
   pure_rate_epoch?: number | null;
 }
@@ -133,7 +134,24 @@ interface Bucket {
   provider_income_flr: number | null;
 }
 
-function bucketOf(label: string, rows: EpochRow[]): Bucket {
+/**
+ * An epoch counts as measured once it has actually paid something out.
+ *
+ * The live epoch reports a rate and income of exactly 0 until it settles, and
+ * `typeof 0 === "number"`, so it used to pass straight into the averages as a
+ * genuine observation of zero — halving the published rate. A zero on both
+ * measures is indistinguishable from "no data yet", so it is excluded rather
+ * than averaged in. This only ever drops epochs that paid nothing at all; a
+ * bad-but-real epoch still lands in the record, good or not.
+ */
+function isMeasured(r: EpochRow): boolean {
+  const rate = r.bond_rate_epoch;
+  const income = r.provider_income_flr;
+  return (typeof rate === "number" && rate > 0) || (typeof income === "number" && income > 0);
+}
+
+function bucketOf(label: string, allRows: EpochRow[]): Bucket {
+  const rows = allRows.filter(isMeasured);
   const rates = rows
     .map((r) => r.bond_rate_epoch)
     .filter((v): v is number => typeof v === "number");
@@ -231,6 +249,29 @@ export async function handleBondYield(): Promise<Response> {
           delegation_fee_pct: current.delegation_fee_pct ?? null,
         }
       : null,
+    /**
+     * The most recent epoch that actually paid out. `current` reports zeros for
+     * the whole of an in-flight epoch, so a page asking "what does the bond earn
+     * now" must read this instead — otherwise it shows nothing for most of every
+     * 3.5-day cycle.
+     */
+    last_measured: (() => {
+      const measured = rows.filter(isMeasured);
+      if (!measured.length) return null;
+      const r = measured[measured.length - 1];
+      return {
+        reward_epoch: r.reward_epoch,
+        bond_rate_annualized_pct:
+          typeof r.bond_rate_epoch === "number" ? r.bond_rate_epoch * EPOCHS_PER_YEAR * 100 : null,
+        staking_component_pct:
+          typeof r.staking_rate_epoch === "number"
+            ? r.staking_rate_epoch * EPOCHS_PER_YEAR * 100
+            : null,
+        pure_component_pct:
+          typeof r.pure_rate_epoch === "number" ? r.pure_rate_epoch * EPOCHS_PER_YEAR * 100 : null,
+        provider_income_flr: r.provider_income_flr ?? null,
+      };
+    })(),
     weeks,
     overall,
   };
@@ -243,4 +284,24 @@ export async function handleBondYield(): Promise<Response> {
       "cache-control": `public, max-age=${CACHE_SECONDS}, stale-while-revalidate=${CACHE_SECONDS}`,
     },
   });
+}
+
+/**
+ * The most recent epoch that actually paid something out.
+ *
+ * `/api/rewards` derives its headline rates from the Explorer's "latest" record,
+ * which reports zeros for the whole of an in-flight epoch — so for most of every
+ * 3.5-day cycle the site had no rate to show. This log is the fallback: the last
+ * epoch we genuinely measured, so the page shows a real number and says which
+ * epoch it came from rather than a zero or a blank.
+ */
+export async function loadLastMeasuredEpoch(): Promise<EpochRow | null> {
+  try {
+    const history = await loadHistory();
+    const measured = history.filter(isMeasured);
+    if (!measured.length) return null;
+    return measured.reduce((a, b) => (b.reward_epoch > a.reward_epoch ? b : a));
+  } catch {
+    return null;
+  }
 }

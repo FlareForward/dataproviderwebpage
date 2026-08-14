@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { settledRate } from "../lib/rewards";
 import { formatUnits } from "viem";
 import {
   Shield,
@@ -19,10 +20,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./com
 import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
 import { ConnectWallet } from "./components/ConnectWallet";
+import { EarningsStrip } from "./components/EarningsStrip";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useProviders, type ProviderRow } from "../hooks/useProviders";
 import { useDelegation } from "../hooks/useDelegation";
-import { shortAddress, EXPLORER_URL } from "../lib/flare";
+import { useRewards } from "../hooks/useRewards";
+import { EXPLORER_URL } from "../lib/flare";
 import logoImage from "../imports/flareforward_logo.png";
 
 interface CurrentDelegation {
@@ -47,6 +50,7 @@ function isFlareForward(p: ProviderRow): boolean {
 
 export function Delegation() {
   const { providers } = useProviders();
+  const { data: rewards } = useRewards();
   const {
     isConnected,
     flrBalance,
@@ -67,6 +71,16 @@ export function Delegation() {
   const [confirming, setConfirming] = useState(false);
 
   const flareForward = providers.find(isFlareForward) ?? null;
+  const flareForwardDelegationAddress =
+    flareForward?.address.toLowerCase() ?? rewards?.delegation_address?.toLowerCase() ?? null;
+  const delegatedWflr = useMemo(() => {
+    if (!flareForwardDelegationAddress) return 0n;
+    const delegatedBips =
+      currentDelegations.find(
+        (d) => d.address.toLowerCase() === flareForwardDelegationAddress
+      )?.bips ?? 0;
+    return (wflrBalance * BigInt(delegatedBips)) / 10_000n;
+  }, [currentDelegations, flareForwardDelegationAddress, wflrBalance]);
   const hasVotePower = wflrBalance > 0n;
   const alreadyDelegated =
     flareForward != null &&
@@ -103,6 +117,20 @@ export function Delegation() {
 
   return (
     <div className="space-y-6">
+      {isConnected && (
+        <EarningsStrip
+          rateLabel="Delegation APY"
+          ratePct={settledRate(rewards?.rates.delegation_annual_pct)}
+          positionLabel="Delegated to FlareForward"
+          positionAmount={delegatedWflr}
+          positionUnit="WFLR"
+          claimableReward={claimableReward}
+          basis={rewards?.rates.basis}
+          emptyMessage="Delegate WFLR to FlareForward when you're ready."
+        />
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
       {/* Your delegations — the user's own current position. */}
       {isConnected && currentDelegations.length > 0 && (
         <YourDelegations
@@ -149,115 +177,12 @@ export function Delegation() {
           </CardContent>
         </Card>
       )}
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* FlareForward — the one and only delegation target on this site. */}
-        <Card className="col-span-1 lg:col-span-2">
-          <CardHeader className="border-b border-white/8 pb-4">
-            <CardTitle className="text-[#FAFAFA]">Your provider: FlareForward</CardTitle>
-            <CardDescription className="text-[#8FA0B8]">
-              This page delegates your vote power to the FlareForward data
-              provider — builders and educators on the Flare network.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-5 space-y-5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
-                  <ImageWithFallback
-                    src={logoImage}
-                    alt="FlareForward"
-                    className="w-8 h-8 object-contain"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <div className="font-semibold text-lg text-[#FAFAFA]">FlareForward</div>
-                  <div className="text-xs text-[#8FA0B8] font-mono">
-                    {flareForward
-                      ? shortAddress(flareForward.address)
-                      : shortAddress(FLAREFORWARD_ADDRESS as `0x${string}`)}
-                  </div>
-                </div>
-              </div>
-              <Badge variant={flareForward?.status === "Active" || !flareForward ? "success" : "outline"}>
-                {flareForward?.status ?? "Active"}
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="glass-panel p-3">
-                <div className="text-xs text-[#8FA0B8] mb-1">Vote power delegated to us</div>
-                <div className="font-medium text-[#FAFAFA]">
-                  {flareForward?.votePowerLabel ?? "—"}
-                </div>
-              </div>
-              <div className="glass-panel p-3">
-                <div className="text-xs text-[#8FA0B8] mb-1">Network delegation share</div>
-                <div className="font-medium text-[#FAFAFA]">
-                  {flareForward?.delegationPct != null
-                    ? `${flareForward.delegationPct.toFixed(2)}%`
-                    : "—"}
-                </div>
-              </div>
-            </div>
-
-            <ul className="space-y-3 text-sm text-[#8FA0B8]">
-              <li className="flex gap-3">
-                <GraduationCap size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                <span>
-                  <span className="text-[#FAFAFA] font-medium">Backs education.</span>{" "}
-                  Your delegation funds DeFi University and free plain-English
-                  Flare education.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <Hammer size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                <span>
-                  <span className="text-[#FAFAFA] font-medium">Backs builders.</span>{" "}
-                  The same team signing your feeds ships tools on Flare every
-                  day.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <Flame size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                <span>
-                  <span className="text-[#FAFAFA] font-medium">Gives back.</span>{" "}
-                  Burn protocols around our systems return value to the network
-                  you're betting on.
-                </span>
-              </li>
-              <li className="flex gap-3">
-                <Shield size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                <span>
-                  <span className="text-[#FAFAFA] font-medium">Non-custodial.</span>{" "}
-                  Delegation assigns vote power only — your WFLR never leaves
-                  your wallet, and you can undelegate any time.
-                </span>
-              </li>
-            </ul>
-
-            <div className="flex flex-wrap items-center gap-4 pt-1">
-              <a
-                href={`${EXPLORER_URL}/address/${flareForward?.identityAddress ?? FLAREFORWARD_ADDRESS}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-[#8FA0B8] hover:text-[#FAFAFA] flex items-center gap-1"
-              >
-                <ExternalLink size={12} /> View on explorer
-              </a>
-              <Link
-                to="/rewards"
-                className="text-xs text-[#EE1A58] hover:underline flex items-center gap-1"
-              >
-                <Gift size={12} /> See current reward rates
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="max-w-2xl">
         {/* Delegation Action Panel */}
-        <div className="col-span-1">
-          <Card className="sticky top-24">
+        <div>
+          <Card>
             <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Delegate Vote Power</CardTitle>
               <CardDescription className="text-[#8FA0B8]">
@@ -449,9 +374,6 @@ function YourDelegations({
                 <div className="min-w-0">
                   <div className="font-medium text-[#FAFAFA] truncate">
                     {isUs ? "FlareForward" : "Another provider"}
-                  </div>
-                  <div className="text-xs text-[#8FA0B8] font-mono mt-0.5">
-                    {shortAddress(d.address)}
                   </div>
                 </div>
               </div>

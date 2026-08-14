@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import {
   useAccount,
   useReadContracts,
@@ -29,7 +30,10 @@ function fmtFlr(wei: bigint): string {
  */
 export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }) {
   const { isConnected, chainId: walletChainId } = useAccount();
-  const [qty, setQty] = useState(1);
+  // Raw input text, not a number: coercing on every keystroke snaps a cleared
+  // field straight back to "1" and makes the quantity impossible to edit. The
+  // clamped numeric `qty` is derived below, once `maxQty` is known.
+  const [qtyText, setQtyText] = useState("1");
   const address = tier.address;
 
   /**
@@ -108,6 +112,9 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
     [maxSupply, sold],
   );
   const maxQty = Math.max(1, Math.min(MAX_BATCH_MINT, remaining ?? MAX_BATCH_MINT));
+  // Always a valid quantity, even while the field is mid-edit or empty, so the
+  // total and the mint call can never be driven from a blank input.
+  const qty = Math.max(1, Math.min(maxQty, Number(qtyText) || 1));
   const total = price != null ? price * BigInt(qty) : undefined;
 
   async function onSwitch() {
@@ -263,12 +270,12 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
               </ol>
 
               <div className="mt-4 flex flex-wrap items-center gap-4">
-                <a
-                  href="#your-bonds"
+                <Link
+                  to="/bonds"
                   className="inline-flex items-center gap-1 text-sm font-medium text-[#E85A95] underline"
                 >
                   See your bonds
-                </a>
+                </Link>
                 <a
                   href={`https://flarescan.com/tx/${minted.hash}`}
                   target="_blank"
@@ -281,7 +288,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                   type="button"
                   onClick={() => {
                     setMinted(null);
-                    setQty(1);
+                    setQtyText("1");
                   }}
                   className="text-sm text-[#8FA0B8] underline transition hover:text-[#FAFAFA]"
                 >
@@ -334,10 +341,14 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                   type="number"
                   min={1}
                   max={maxQty}
-                  value={qty}
-                  onChange={(e) =>
-                    setQty(Math.max(1, Math.min(maxQty, Number(e.target.value) || 1)))
-                  }
+                  value={qtyText}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    // Accept an empty field (so it can be cleared) and digits;
+                    // ignore anything else. Clamping happens on blur.
+                    if (next === "" || /^\d+$/.test(next)) setQtyText(next);
+                  }}
+                  onBlur={() => setQtyText(String(qty))}
                   className="w-20 rounded-lg border border-white/12 bg-white/[0.04] px-2 py-1 text-sm"
                 />
                 <span className="text-xs text-[#8FA0B8]">max {maxQty} per transaction</span>
