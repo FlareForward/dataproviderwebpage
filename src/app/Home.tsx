@@ -83,7 +83,7 @@ export default function Home() {
             </div>
           ) : rewards ? (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <ProofStat
                   label="Delegation APY"
                   value={fmtPct(settledRate(rewards.rates.delegation_annual_pct))}
@@ -104,16 +104,6 @@ export default function Home() {
                   value={fmtPct(settledRate(rewards.rates.bond_annual_pct))}
                   sub="What the validator bond earns"
                   emphasize
-                />
-                <ProofStat
-                  label="Uptime"
-                  value={fmtPct(rewards.uptime_availability_pct, 2)}
-                  sub="FTSO submission availability"
-                />
-                <ProofStat
-                  label="Delegated to us"
-                  value={`${fmtFlrCompact(rewards.vote_power.delegation_flr)} FLR`}
-                  sub={`+ ${fmtFlrCompact(rewards.vote_power.staking_flr)} FLR staked · current epoch snapshot`}
                 />
               </div>
               {rewards.staking.has_validator &&
