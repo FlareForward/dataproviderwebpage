@@ -9,7 +9,6 @@ import {
   Loader2,
   XCircle,
   Users,
-  Gift,
   CheckCircle2,
   ExternalLink,
   GraduationCap,
@@ -60,7 +59,6 @@ export function Delegation() {
     wflrLabel,
     currentDelegations,
     claimableReward,
-    claimableRewardLabel,
     busy,
     wrap,
     delegate,
@@ -127,6 +125,9 @@ export function Delegation() {
           positionUnit="WFLR"
           claimableReward={claimableReward}
           emptyMessage="Delegate WFLR to FlareForward when you're ready."
+          onClaim={handleClaim}
+          claimBusy={busy === "claim"}
+          claimLabel="Claim rewards"
         />
       )}
 
@@ -167,34 +168,8 @@ export function Delegation() {
                       the right. */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                   <div className="space-y-6">
-                  {/* Claim sits in the panel, boxed, exactly where the staking
-                      page puts it — and only once, since the tile at the top of
-                      the page already carries the figure. */}
-                  <div className="glass-panel p-4 space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8] flex items-center gap-2">
-                        <Gift size={14} /> Claimable rewards
-                      </span>
-                      <span className="text-[#FAFAFA] font-medium">
-                        {claimableRewardLabel} FLR
-                      </span>
-                    </div>
-                    <Button
-                      variant="action"
-                      className="w-full gap-2"
-                      disabled={busy !== null || claimableReward <= 0n}
-                      onClick={handleClaim}
-                    >
-                      {busy === "claim" ? (
-                        <Loader2 className="animate-spin" size={16} />
-                      ) : (
-                        <>
-                          <Gift size={16} /> Claim rewards
-                        </>
-                      )}
-                    </Button>
-                  </div>
-
+                  {/* Claim lives in the hero at the top of the page, same as
+                      staking. It is not repeated here. */}
                   {/* Balances */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="glass-panel p-3">

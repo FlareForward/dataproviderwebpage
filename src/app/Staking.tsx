@@ -7,7 +7,6 @@ import {
   Info,
   Loader2,
   ArrowRightLeft,
-  Gift,
   ShieldCheck,
   Layers,
   Clock,
@@ -248,6 +247,9 @@ export function Staking() {
           positionUnit="FLR"
           claimableReward={claimableReward}
           emptyMessage="Stake FLR with FlareForward when you're ready."
+          onClaim={() => claimRewards()}
+          claimBusy={busy === "claim"}
+          claimLabel="Claim staking rewards"
         />
       )}
 
@@ -274,44 +276,27 @@ export function Staking() {
           <Card>
             <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Stake on the P-chain</CardTitle>
+              {/* Terms belong with the title, in fine print. They are context
+                  for the whole panel, not a step in the stake form -- sitting
+                  in the column they read like something to act on. */}
+              {selectedValidator && (
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-[#8FA0B8]">
+                  <span>Fee {selectedValidator.delegationFeePct.toFixed(2)}%</span>
+                  {effectiveCapacity !== null && (
+                    <span>Open capacity {formatFlr(effectiveCapacity, 0)} FLR</span>
+                  )}
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
-                  {/* Rewards.
+                  {/* Claim has moved up to the hero at the top of the page --
+                      money already earned is the one number here worth making
+                      large, and it only belongs in one place.
 
-                      The three blocks below are laid out by explicit grid
-                      placement, not document order. The connected branch below
-                      is a fragment, so its children land as grid items in their
-                      own right — left to flow, that put Rewards and Move FLR
-                      side by side and stranded the stake form alone on a second
-                      row, leaving a hole under Claim and an empty right half.
-                      Stack the two short money-movement blocks down the left,
-                      and give the tall stake form the right column outright. */}
-                  {/* Boxed, so it sits level with the fee/capacity box opposite
-                      it instead of floating on a bare rule. */}
-                  <div className="glass-panel p-4 space-y-3 lg:col-start-1 lg:row-start-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8] flex items-center gap-2">
-                        <Gift size={14} /> Claimable rewards
-                      </span>
-                      <span className="text-[#FAFAFA] font-medium">
-                        {formatFlr(claimableReward)} FLR
-                      </span>
-                    </div>
-                    <Button
-                      variant="action"
-                      className="w-full gap-2"
-                      disabled={busy !== null || claimableReward <= 0n}
-                      onClick={() => claimRewards()}
-                    >
-                      {busy === "claim" ? (
-                        <Loader2 className="animate-spin" size={16} />
-                      ) : (
-                        <>
-                          <Gift size={16} /> Claim staking rewards
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                      The blocks below are placed explicitly rather than by
+                      document order: the connected branch is a fragment, so its
+                      children land as grid items in their own right, which
+                      otherwise strands the stake form alone on a second row. */}
               {!isConnected ? (
                 <div className="text-center py-8 text-[#8FA0B8] flex flex-col items-center gap-4">
                   <Wallet size={32} className="opacity-20" />
@@ -343,7 +328,7 @@ export function Staking() {
               ) : (
                 <>
                   {/* Transfers share one amount so either direction is always available. */}
-                  <div className="space-y-3 lg:col-start-1 lg:row-start-2">
+                  <div className="space-y-3 lg:col-start-1 lg:row-start-1">
                     <div className="flex items-center gap-2 text-sm font-medium text-[#FAFAFA]">
                       <ArrowRightLeft size={14} className="text-[#8FA0B8]" />
                       <span>Move FLR</span>
@@ -474,7 +459,7 @@ export function Staking() {
                   {/* "Currently staked" was the third copy of the same figure --
                       it is the tile at the top of the page and the amount on the
                       stake row. It belongs at the top, once. */}
-                  <div className="space-y-3 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+                  <div className="space-y-3 lg:col-start-2 lg:row-start-1">
                     {!selectedValidator ? (
                       <div className="text-center py-4 text-[#8FA0B8] flex flex-col items-center">
                         <Server size={28} className="mb-2 opacity-20" />
@@ -482,15 +467,7 @@ export function Staking() {
                       </div>
                     ) : (
                       <>
-                        {/* The FlareForward card next to this panel already
-                            carries the branding — keep only the numbers here. */}
-                        <div className="glass-panel p-3 flex items-center justify-between text-xs text-[#8FA0B8]">
-                          <span>Fee {selectedValidator.delegationFeePct.toFixed(2)}%</span>
-                          {effectiveCapacity !== null && (
-                            <span>Open capacity {formatFlr(effectiveCapacity, 0)} FLR</span>
-                          )}
-                        </div>
-
+                        {/* Fee and capacity moved to the card header. */}
                         {/* Amount */}
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
