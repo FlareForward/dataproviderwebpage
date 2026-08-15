@@ -7,7 +7,6 @@ import {
   Info,
   Loader2,
   ArrowRightLeft,
-  Gift,
   ShieldCheck,
   Layers,
   Clock,
@@ -27,7 +26,7 @@ import logoImage from "../imports/flareforward_logo.png";
 import {
   buildDurationOptions,
   formatFlr,
-  formatFlrPlain,
+  formatFlrInput,
   shortNodeId,
   validateStakeAmount,
   validateTransferAmount,
@@ -247,8 +246,10 @@ export function Staking() {
           positionAmount={stakedWithUs}
           positionUnit="FLR"
           claimableReward={claimableReward}
-          basis={rewards?.rates.basis}
           emptyMessage="Stake FLR with FlareForward when you're ready."
+          onClaim={() => claimRewards()}
+          claimBusy={busy === "claim"}
+          claimLabel="Claim staking rewards"
         />
       )}
 
@@ -267,48 +268,35 @@ export function Staking() {
         />
       )}
 
-      <div className="max-w-5xl">
+      {/* Full width. A max-w here made this card narrower than Your Stakes and
+          the tiles above it, which is what read as cockeyed. */}
+      <div>
         {/* Staking action panel */}
         <div>
           <Card>
             <CardHeader className="border-b border-white/8 pb-4">
               <CardTitle className="text-[#FAFAFA]">Stake on the P-chain</CardTitle>
+              {/* Terms belong with the title, in fine print. They are context
+                  for the whole panel, not a step in the stake form -- sitting
+                  in the column they read like something to act on. */}
+              {selectedValidator && (
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-[#8FA0B8]">
+                  <span>Fee {selectedValidator.delegationFeePct.toFixed(2)}%</span>
+                  {effectiveCapacity !== null && (
+                    <span>Open capacity {formatFlr(effectiveCapacity, 0)} FLR</span>
+                  )}
+                </div>
+              )}
             </CardHeader>
             <CardContent className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
-                  {/* Rewards.
+                  {/* Claim has moved up to the hero at the top of the page --
+                      money already earned is the one number here worth making
+                      large, and it only belongs in one place.
 
-                      The three blocks below are laid out by explicit grid
-                      placement, not document order. The connected branch below
-                      is a fragment, so its children land as grid items in their
-                      own right — left to flow, that put Rewards and Move FLR
-                      side by side and stranded the stake form alone on a second
-                      row, leaving a hole under Claim and an empty right half.
-                      Stack the two short money-movement blocks down the left,
-                      and give the tall stake form the right column outright. */}
-                  <div className="pt-4 border-t border-white/8 space-y-3 lg:col-start-1 lg:row-start-1">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8] flex items-center gap-2">
-                        <Gift size={14} /> Claimable rewards
-                      </span>
-                      <span className="text-[#FAFAFA] font-medium">
-                        {formatFlr(claimableReward)} FLR
-                      </span>
-                    </div>
-                    <Button
-                      variant="secondary"
-                      className="w-full gap-2"
-                      disabled={busy !== null || claimableReward <= 0n}
-                      onClick={() => claimRewards()}
-                    >
-                      {busy === "claim" ? (
-                        <Loader2 className="animate-spin" size={16} />
-                      ) : (
-                        <>
-                          <Gift size={16} /> Claim staking rewards
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                      The blocks below are placed explicitly rather than by
+                      document order: the connected branch is a fragment, so its
+                      children land as grid items in their own right, which
+                      otherwise strands the stake form alone on a second row. */}
               {!isConnected ? (
                 <div className="text-center py-8 text-[#8FA0B8] flex flex-col items-center gap-4">
                   <Wallet size={32} className="opacity-20" />
@@ -325,8 +313,8 @@ export function Staking() {
                     without any prompt.
                   </p>
                   <Button
-                    variant="primary"
-                    className="w-full py-6 text-base font-semibold"
+                    variant="action"
+                    className="w-full"
                     disabled={busy !== null}
                     onClick={handleEnable}
                   >
@@ -340,20 +328,23 @@ export function Staking() {
               ) : (
                 <>
                   {/* Transfers share one amount so either direction is always available. */}
-                  <div className="space-y-3 lg:col-start-1 lg:row-start-2">
+                  <div className="space-y-3 lg:col-start-1 lg:row-start-1">
                     <div className="flex items-center gap-2 text-sm font-medium text-[#FAFAFA]">
                       <ArrowRightLeft size={14} className="text-[#8FA0B8]" />
                       <span>Move FLR</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
+                      {/* "Wallet" and "P-chain" alone read as places, not
+                          balances. Name the token: someone new here does not
+                          have to infer what the number is. */}
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[#8FA0B8] shrink-0">Wallet</span>
+                        <span className="text-[#8FA0B8] shrink-0">FLR in wallet</span>
                         <span className="text-[#FAFAFA] font-medium tabular-nums truncate">
                           {formatFlr(balance.availableOnC)}
                         </span>
                         <button
                           onClick={() => {
-                            setAmount(formatFlrPlain(balance.availableOnC));
+                            setAmount(formatFlrInput(balance.availableOnC));
                             setIntent("toP");
                           }}
                           className="text-[#EE1A58] hover:underline shrink-0"
@@ -362,13 +353,13 @@ export function Staking() {
                         </button>
                       </div>
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[#8FA0B8] shrink-0">P-chain</span>
+                        <span className="text-[#8FA0B8] shrink-0">FLR on P-chain</span>
                         <span className="text-[#FAFAFA] font-medium tabular-nums truncate">
                           {formatFlr(balance.availableOnP)}
                         </span>
                         <button
                           onClick={() => {
-                            setAmount(formatFlrPlain(balance.availableOnP));
+                            setAmount(formatFlrInput(balance.availableOnP));
                             setIntent("toC");
                           }}
                           className="text-[#EE1A58] hover:underline shrink-0"
@@ -400,9 +391,12 @@ export function Staking() {
                       <div className="text-xs text-red-400">To wallet: {toCError}</div>
                     )}
                     <div className="grid grid-cols-2 gap-2">
+                      {/* Both directions are always available, so neither gets a
+                          loud fill. The direction the typed amount implies keeps
+                          a faint pink edge as a hint, nothing more. */}
                       <Button
-                        variant={intent === "toP" ? "primary" : "secondary"}
-                        className="w-full"
+                        variant="action"
+                        className={`w-full${intent === "toP" ? " border-[#EE1A58]/45" : ""}`}
                         disabled={busy !== null || !amount || Number(amount) <= 0 || !!toPError}
                         onClick={handleMove}
                       >
@@ -413,8 +407,8 @@ export function Staking() {
                         )}
                       </Button>
                       <Button
-                        variant={intent === "toC" ? "primary" : "secondary"}
-                        className="w-full"
+                        variant="action"
+                        className={`w-full${intent === "toC" ? " border-[#EE1A58]/45" : ""}`}
                         disabled={busy !== null || !amount || Number(amount) <= 0 || !!toCError}
                         onClick={handleWithdraw}
                       >
@@ -460,16 +454,26 @@ export function Staking() {
                         onFinish={() => importToC().catch(() => {})}
                       />
                     )}
+
+                    {/* The lock notice sits here, not in the stake column. It
+                        ends on "ready to move back to your wallet" -- which is
+                        this block -- and the stake column ran far longer than
+                        this one, leaving the left half stopping dead at the
+                        move buttons. It explains the round trip and it evens
+                        the two columns out. */}
+                    <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
+                      <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                      <div className="text-[#FAFAFA]">
+                        Staked FLR is locked for the chosen duration. When the stake ends the FLR
+                        returns to your P-chain balance, ready to move back to your wallet.
+                      </div>
+                    </div>
                   </div>
 
-                  {/* P-chain: what is staked, directly above the stake form. */}
-                  <div className="pt-4 border-t border-white/8 space-y-3 lg:col-start-2 lg:row-start-1 lg:row-span-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8]">Currently staked</span>
-                      <span className="text-[#FAFAFA] font-medium">
-                        {formatFlr(balance.stakedOnP)} FLR
-                      </span>
-                    </div>
+                  {/* "Currently staked" was the third copy of the same figure --
+                      it is the tile at the top of the page and the amount on the
+                      stake row. It belongs at the top, once. */}
+                  <div className="space-y-3 lg:col-start-2 lg:row-start-1">
                     {!selectedValidator ? (
                       <div className="text-center py-4 text-[#8FA0B8] flex flex-col items-center">
                         <Server size={28} className="mb-2 opacity-20" />
@@ -477,21 +481,13 @@ export function Staking() {
                       </div>
                     ) : (
                       <>
-                        {/* The FlareForward card next to this panel already
-                            carries the branding — keep only the numbers here. */}
-                        <div className="glass-panel p-3 flex items-center justify-between text-xs text-[#8FA0B8]">
-                          <span>Fee {selectedValidator.delegationFeePct.toFixed(2)}%</span>
-                          {effectiveCapacity !== null && (
-                            <span>Open capacity {formatFlr(effectiveCapacity, 0)} FLR</span>
-                          )}
-                        </div>
-
+                        {/* Fee and capacity moved to the card header. */}
                         {/* Amount */}
                         <div className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-[#8FA0B8]">Amount to stake</span>
                             <button
-                              onClick={() => setStakeAmount(formatFlrPlain(balance.availableOnP))}
+                              onClick={() => setStakeAmount(formatFlrInput(balance.availableOnP))}
                               className="text-xs text-[#EE1A58] hover:underline"
                             >
                               MAX
@@ -549,18 +545,10 @@ export function Staking() {
                           </div>
                         )}
 
-                        <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
-                          <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                          <div className="text-[#FAFAFA]">
-                            Staked FLR is locked for the chosen duration. When the stake ends the
-                            FLR returns to your P-chain balance, ready to move back to your wallet.
-                          </div>
-                        </div>
-
                         {!confirming ? (
                           <Button
-                            variant="primary"
-                            className="w-full py-6 text-base font-semibold"
+                            variant="action"
+                            className="w-full"
                             disabled={!canStake}
                             onClick={() => setConfirming(true)}
                           >
@@ -582,7 +570,7 @@ export function Staking() {
                                 Cancel
                               </Button>
                               <Button
-                                variant="primary"
+                                variant="action"
                                 className="flex-1"
                                 disabled={busy !== null}
                                 onClick={handleConfirmStake}
@@ -644,22 +632,10 @@ function YourStakes({
             <Layers size={18} className="text-[#EE1A58]" />
             <CardTitle className="text-[#FAFAFA]">Your Stakes</CardTitle>
           </div>
+          {/* The totals that used to live here -- staked and earned-unclaimed --
+              are already the tiles at the top of the page and the claim box
+              below. Three copies of the same number is not emphasis. */}
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-xs text-[#8FA0B8]">Total staked</div>
-              <div className="text-sm font-semibold text-[#FAFAFA]">
-                {formatFlr(totalStaked, 0)} FLR
-              </div>
-            </div>
-            {/* Staking rewards are paid to the address, not attributed to a
-                particular stake — so the figure sits with the group, not on a
-                row where it would imply an attribution the chain never makes. */}
-            <div className="text-right">
-              <div className="text-xs text-[#8FA0B8]">Earned, unclaimed</div>
-              <div className="text-sm font-semibold text-emerald-400">
-                {formatFlr(claimable)} FLR
-              </div>
-            </div>
             <button
               onClick={onRefresh}
               disabled={fetching}
@@ -671,9 +647,6 @@ function YourStakes({
             </button>
           </div>
         </div>
-        <CardDescription className="text-[#8FA0B8]">
-          Validators you are currently staked to
-        </CardDescription>
       </CardHeader>
       <div className="divide-y divide-white/8">
         {stakes.length === 0 && (
@@ -709,9 +682,11 @@ function YourStakes({
                       staker knows who they staked with; what they want is when
                       it unlocks. Non-FlareForward nodes still show an id,
                       because there the id IS the identity. */}
-                  {isUs ? (
-                    <div className="text-sm text-[#FAFAFA] font-medium truncate">FlareForward</div>
-                  ) : (
+                  {/* Our own name is not information: the logo is right there,
+                      and ours is the only validator this page offers. A
+                      third-party node still shows its id, because there the id
+                      IS the identity. */}
+                  {!isUs && (
                     <div className="font-mono text-sm text-[#FAFAFA] truncate" title={s.nodeId}>
                       {shortNodeId(s.nodeId, 10)}
                     </div>
@@ -736,7 +711,6 @@ function YourStakes({
                   <div className="text-sm font-semibold text-[#FAFAFA]">
                     {formatFlr(s.amount, 0)} FLR
                   </div>
-                  <div className="text-xs text-[#8FA0B8] capitalize">{s.type}</div>
                 </div>
                 <Badge variant={s.pending ? "outline" : unlocked ? "dark" : "success"}>
                   {s.pending ? "Pending" : unlocked ? "Unlocked" : "Active"}
@@ -825,7 +799,7 @@ function PendingImportNotice({
           more confirmation to land.
         </div>
       </div>
-      <Button variant="secondary" className="w-full" disabled={disabled} onClick={onFinish}>
+      <Button variant="action" className="w-full" disabled={disabled} onClick={onFinish}>
         {finishing ? (
           <Loader2 className="animate-spin" size={16} />
         ) : (

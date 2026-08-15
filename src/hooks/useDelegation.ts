@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Network, Amount } from "@flarenetwork/flare-tx-sdk";
 import { EIP1193WalletController } from "@flarenetwork/flare-tx-sdk";
 import { wNatAbi, wrapWalletProvider } from "../lib/flare";
+import { formatFlr } from "../lib/staking";
 import { useWNatAddress } from "./useProviders";
 
 const network = Network.FLARE;
@@ -171,13 +172,13 @@ export function useDelegation() {
     address,
     flrBalance: flr,
     wflrBalance: wflr,
-    flrLabel: Number(formatUnits(flr, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 }),
-    wflrLabel: Number(formatUnits(wflr, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 }),
+    // Two places, truncated -- same as the staking page. Four decimals of FLR
+    // is noise nobody reads, and rounding up shows more than is held.
+    flrLabel: formatFlr(flr),
+    wflrLabel: formatFlr(wflr),
     currentDelegations: delegation.data ?? [],
     claimableReward: reward,
-    claimableRewardLabel: Number(formatUnits(reward, 18)).toLocaleString(undefined, {
-      maximumFractionDigits: 4,
-    }),
+    claimableRewardLabel: formatFlr(reward),
     busy,
     wrap,
     delegate,

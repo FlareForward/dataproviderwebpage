@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { settledRate } from "../lib/rewards";
+import { formatFlrInput } from "../lib/staking";
 import { formatUnits } from "viem";
 import {
   Shield,
@@ -8,7 +9,6 @@ import {
   Loader2,
   XCircle,
   Users,
-  Gift,
   CheckCircle2,
   ExternalLink,
   GraduationCap,
@@ -59,7 +59,6 @@ export function Delegation() {
     wflrLabel,
     currentDelegations,
     claimableReward,
-    claimableRewardLabel,
     busy,
     wrap,
     delegate,
@@ -125,13 +124,16 @@ export function Delegation() {
           positionAmount={delegatedWflr}
           positionUnit="WFLR"
           claimableReward={claimableReward}
-          basis={rewards?.rates.basis}
           emptyMessage="Delegate WFLR to FlareForward when you're ready."
+          onClaim={handleClaim}
+          claimBusy={busy === "claim"}
+          claimLabel="Claim rewards"
         />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-      {/* Your delegations — the user's own current position. */}
+      {/* Your delegations — the user's own current position. Full width, like
+          Your Stakes: the rewards card that used to sit beside it has moved
+          into the action panel, where staking already keeps its claim. */}
       {isConnected && currentDelegations.length > 0 && (
         <YourDelegations
           delegations={currentDelegations}
@@ -140,44 +142,6 @@ export function Delegation() {
           onUndelegate={undelegate}
         />
       )}
-
-      {/* Delegation rewards — claimable FTSO rewards accrued from delegation. */}
-      {isConnected && (
-        <Card>
-          <CardHeader className="border-b border-white/8 pb-4">
-            <div className="flex items-center gap-2">
-              <Gift size={18} className="text-[#EE1A58]" />
-              <CardTitle className="text-[#FAFAFA]">Delegation Rewards</CardTitle>
-            </div>
-            <CardDescription className="text-[#8FA0B8]">
-              FTSO rewards earned from delegating your WFLR vote power
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="text-xs text-[#8FA0B8] mb-1">Claimable rewards</div>
-              <div className="text-2xl font-semibold text-[#FAFAFA]">
-                {claimableRewardLabel} <span className="text-base text-[#8FA0B8]">FLR</span>
-              </div>
-            </div>
-            <Button
-              variant="primary"
-              className="gap-2 sm:w-auto w-full"
-              disabled={busy !== null || claimableReward <= 0n}
-              onClick={handleClaim}
-            >
-              {busy === "claim" ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <>
-                  <Gift size={16} /> Claim rewards
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-      </div>
 
       {/* Delegation Action Panel. Full width on purpose: a max-w card here sat
           in the left half of a full-width page and left the right half empty. */}
@@ -204,14 +168,16 @@ export function Delegation() {
                       the right. */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                   <div className="space-y-6">
+                  {/* Claim lives in the hero at the top of the page, same as
+                      staking. It is not repeated here. */}
                   {/* Balances */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="glass-panel p-3">
-                      <div className="text-xs text-[#8FA0B8] mb-1">FLR Balance</div>
+                      <div className="text-xs text-[#8FA0B8] mb-1">FLR in wallet</div>
                       <div className="font-medium text-[#FAFAFA] text-sm">{flrLabel}</div>
                     </div>
                     <div className="glass-panel p-3">
-                      <div className="text-xs text-[#8FA0B8] mb-1">WFLR (Vote Power)</div>
+                      <div className="text-xs text-[#8FA0B8] mb-1">WFLR vote power</div>
                       <div className="font-medium text-[#FAFAFA] text-sm">{wflrLabel}</div>
                     </div>
                   </div>
@@ -221,7 +187,7 @@ export function Delegation() {
                     <div className="flex justify-between text-sm">
                       <span className="text-[#8FA0B8]">Wrap FLR to WFLR (optional)</span>
                       <button
-                        onClick={() => setWrapAmount(formatUnits(flrBalance, 18))}
+                        onClick={() => setWrapAmount(formatFlrInput(flrBalance))}
                         className="text-xs text-[#EE1A58] hover:underline"
                       >
                         MAX
@@ -239,7 +205,7 @@ export function Delegation() {
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">FLR</span>
                     </div>
                     <Button
-                      variant="secondary"
+                      variant="action"
                       className="w-full"
                       disabled={busy !== null || !wrapAmount || Number(wrapAmount) <= 0}
                       onClick={handleWrap}
@@ -285,8 +251,8 @@ export function Delegation() {
                   {/* Confirm delegation (human-in-the-loop) */}
                   {!confirming ? (
                     <Button
-                      variant="primary"
-                      className="w-full py-6 text-base font-semibold"
+                      variant="action"
+                      className="w-full"
                       disabled={busy !== null || !hasVotePower || !flareForward}
                       onClick={() => setConfirming(true)}
                     >
@@ -306,7 +272,7 @@ export function Delegation() {
                         <Button variant="outline" className="flex-1" disabled={busy !== null} onClick={() => setConfirming(false)}>
                           Cancel
                         </Button>
-                        <Button variant="primary" className="flex-1" disabled={busy !== null} onClick={handleConfirmDelegate}>
+                        <Button variant="action" className="flex-1" disabled={busy !== null} onClick={handleConfirmDelegate}>
                           {busy === "delegate" ? <Loader2 className="animate-spin" size={16} /> : "Confirm"}
                         </Button>
                       </div>
@@ -352,11 +318,10 @@ function YourDelegations({
             <Users size={18} className="text-[#EE1A58]" />
             <CardTitle className="text-[#FAFAFA]">Your Delegations</CardTitle>
           </div>
+          {/* Same treatment as Your Stakes: the percentage is already on the
+              row below and in the tile at the top. Header carries the action
+              only. */}
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-xs text-[#8FA0B8]">Vote power delegated</div>
-              <div className="text-sm font-semibold text-[#FAFAFA]">{totalPct.toFixed(0)}%</div>
-            </div>
             <Button
               variant="ghost"
               className="text-red-400 hover:bg-red-500/10 gap-2"
@@ -373,9 +338,6 @@ function YourDelegations({
             </Button>
           </div>
         </div>
-        <CardDescription className="text-[#8FA0B8]">
-          Where your WFLR vote power is currently delegated
-        </CardDescription>
       </CardHeader>
       <div className="divide-y divide-white/8">
         {delegations.map((d) => {
@@ -399,11 +361,15 @@ function YourDelegations({
                     <Shield size={18} className="text-[#8FA0B8]" />
                   )}
                 </div>
-                <div className="min-w-0">
-                  <div className="font-medium text-[#FAFAFA] truncate">
-                    {isUs ? "FlareForward" : "Another provider"}
+                {/* Our own row said "FlareForward" twice, in text and again on
+                    the badge, beside our own logo. Same rule as the stake row:
+                    the logo is the identity. Another provider still gets named,
+                    because there the name is the whole point. */}
+                {!isUs && (
+                  <div className="min-w-0">
+                    <div className="font-medium text-[#FAFAFA] truncate">Another provider</div>
                   </div>
-                </div>
+                )}
               </div>
               <div className="flex items-center gap-3 sm:justify-end pl-14 sm:pl-0">
                 <div className="text-right">
@@ -411,9 +377,7 @@ function YourDelegations({
                     {(d.bips / 100).toFixed(0)}%
                   </div>
                 </div>
-                <Badge variant={isUs ? "success" : "dark"}>
-                  {isUs ? "FlareForward" : "Delegated"}
-                </Badge>
+                {!isUs && <Badge variant="dark">Delegated</Badge>}
               </div>
             </div>
           );

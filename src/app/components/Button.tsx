@@ -2,7 +2,7 @@ import { ButtonHTMLAttributes, forwardRef } from "react";
 import { cn } from "./ui/utils";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "primary" | "secondary" | "outline" | "ghost" | "dark" | "gradient";
+  variant?: "primary" | "secondary" | "outline" | "ghost" | "dark" | "gradient" | "action";
   size?: "sm" | "md" | "lg";
 }
 
@@ -18,6 +18,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       dark: "bg-gradient-to-br from-[#EE1A58] to-[#E85A95] text-white glass-glow hover:opacity-90",
       gradient:
         "bg-gradient-to-br from-[#EE1A58] via-[#E85A95] to-[#F0A8C8] text-white glass-glow hover:opacity-90",
+      /* Quiet until hovered, then shimmer + ripple. See .btn-action in
+         theme.css. For the things we want people to enjoy doing. */
+      action: "btn-action",
     };
 
     const sizes = {
