@@ -179,8 +179,9 @@ export function Delegation() {
       )}
       </div>
 
-      <div className="max-w-2xl">
-        {/* Delegation Action Panel */}
+      {/* Delegation Action Panel. Full width on purpose: a max-w card here sat
+          in the left half of a full-width page and left the right half empty. */}
+      <div>
         <div>
           <Card>
             <CardHeader className="border-b border-white/8 pb-4">
@@ -198,6 +199,11 @@ export function Delegation() {
                 </div>
               ) : (
                 <>
+                  {/* Two columns. What you hold and the one action still worth
+                      taking on the left; where your vote power already goes on
+                      the right. */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  <div className="space-y-6">
                   {/* Balances */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="glass-panel p-3">
@@ -209,13 +215,6 @@ export function Delegation() {
                       <div className="font-medium text-[#FAFAFA] text-sm">{wflrLabel}</div>
                     </div>
                   </div>
-
-                  {alreadyDelegated && (
-                    <div className="glass-panel p-3 flex items-center gap-2 text-sm text-emerald-400">
-                      <CheckCircle2 size={16} className="shrink-0" />
-                      You're already delegated to FlareForward. Thank you!
-                    </div>
-                  )}
 
                   {/* Wrap step */}
                   <div className="space-y-3">
@@ -248,7 +247,32 @@ export function Delegation() {
                       {busy === "wrap" ? <Loader2 className="animate-spin" size={16} /> : "Wrap FLR"}
                     </Button>
                   </div>
+                  </div>
 
+                  <div className="space-y-6">
+                  {alreadyDelegated ? (
+                    <>
+                      <div className="glass-panel p-3 flex items-center gap-2 text-sm text-emerald-400">
+                        <CheckCircle2 size={16} className="shrink-0" />
+                        You're already delegated to FlareForward. Thank you!
+                      </div>
+                      {/* Delegating again is not a thing to do. On Flare the
+                          instruction is a percentage, set once — anything wrapped
+                          later follows it on its own. Showing a "Delegate" CTA to
+                          someone already at 100% invents an action they do not
+                          have, so say what is actually true instead. */}
+                      <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
+                        <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                        <div className="text-[#FAFAFA]">
+                          Your delegation is a standing instruction, not a balance —
+                          100% of your vote power, set once. Any FLR you wrap from
+                          here follows it automatically, with nothing further to
+                          sign. Your tokens never leave your wallet.
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                  <>
                   <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
                     <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
                     <div className="text-[#FAFAFA]">
@@ -288,6 +312,10 @@ export function Delegation() {
                       </div>
                     </div>
                   )}
+                  </>
+                  )}
+                  </div>
+                  </div>
                 </>
               )}
             </CardContent>
