@@ -275,8 +275,17 @@ export function Staking() {
               <CardTitle className="text-[#FAFAFA]">Stake on the P-chain</CardTitle>
             </CardHeader>
             <CardContent className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
-                  {/* Rewards */}
-                  <div className="pt-4 border-t border-white/8 space-y-3">
+                  {/* Rewards.
+
+                      The three blocks below are laid out by explicit grid
+                      placement, not document order. The connected branch below
+                      is a fragment, so its children land as grid items in their
+                      own right — left to flow, that put Rewards and Move FLR
+                      side by side and stranded the stake form alone on a second
+                      row, leaving a hole under Claim and an empty right half.
+                      Stack the two short money-movement blocks down the left,
+                      and give the tall stake form the right column outright. */}
+                  <div className="pt-4 border-t border-white/8 space-y-3 lg:col-start-1 lg:row-start-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[#8FA0B8] flex items-center gap-2">
                         <Gift size={14} /> Claimable rewards
@@ -331,7 +340,7 @@ export function Staking() {
               ) : (
                 <>
                   {/* Transfers share one amount so either direction is always available. */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 lg:col-start-1 lg:row-start-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-[#FAFAFA]">
                       <ArrowRightLeft size={14} className="text-[#8FA0B8]" />
                       <span>Move FLR</span>
@@ -454,7 +463,7 @@ export function Staking() {
                   </div>
 
                   {/* P-chain: what is staked, directly above the stake form. */}
-                  <div className="pt-4 border-t border-white/8 space-y-3">
+                  <div className="pt-4 border-t border-white/8 space-y-3 lg:col-start-2 lg:row-start-1 lg:row-span-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[#8FA0B8]">Currently staked</span>
                       <span className="text-[#FAFAFA] font-medium">

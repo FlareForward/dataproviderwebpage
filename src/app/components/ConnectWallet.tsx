@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, type ComponentType } from "react";
+import { useState, useRef, useEffect, useCallback, type ComponentType } from "react";
+import { createPortal } from "react-dom";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import {
   Wallet,
@@ -79,10 +80,29 @@ export function ConnectWallet({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  /* The picker renders through a portal, so it is NOT inside `ref` and the
+     outside-click handler below has to be told about it explicitly — otherwise
+     mousedown on a wallet option closes the picker before the option's click
+     ever fires, and nothing connects. */
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const [pickerPos, setPickerPos] = useState<{ top: number; right: number } | null>(null);
+
+  /* Anchored to the trigger in viewport coordinates: the portal escapes every
+     ancestor, including the `overflow-hidden` card that used to clip this
+     panel out of existence. Right-aligned to match the old `right-0`. */
+  const placePicker = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setPickerPos({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) });
+  }, []);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const t = e.target as Node;
+      const insideAnchor = ref.current?.contains(t);
+      const insidePicker = pickerRef.current?.contains(t);
+      if (!insideAnchor && !insidePicker) {
         setMenuOpen(false);
         setPickerOpen(false);
       }
@@ -90,6 +110,18 @@ export function ConnectWallet({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
+
+  /* Keep the panel glued to the button while the page moves under it. */
+  useEffect(() => {
+    if (!pickerOpen) return;
+    placePicker();
+    window.addEventListener("scroll", placePicker, true);
+    window.addEventListener("resize", placePicker);
+    return () => {
+      window.removeEventListener("scroll", placePicker, true);
+      window.removeEventListener("resize", placePicker);
+    };
+  }, [pickerOpen, placePicker]);
 
   // Close the picker on Escape.
   useEffect(() => {
@@ -223,11 +255,13 @@ export function ConnectWallet({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
           Connect Wallet
         </Button>
 
-        {pickerOpen && (
+        {pickerOpen && pickerPos && createPortal(
           <div
+            ref={pickerRef}
             role="menu"
             aria-label="Connect a wallet"
-            className="absolute right-0 mt-2 w-72 max-w-[calc(100vw-2rem)] glass-surface border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
+            style={{ top: pickerPos.top, right: pickerPos.right }}
+            className="fixed w-72 max-w-[calc(100vw-2rem)] glass-surface border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
               <h3 className="text-sm font-semibold text-[#FAFAFA]">Connect a wallet</h3>
@@ -285,7 +319,8 @@ export function ConnectWallet({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
             <div className="px-4 py-2.5 border-t border-white/8 text-[11px] text-[#8FA0B8]">
               Your keys stay in your wallet. FlareForward never has custody of your funds.
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
       </div>
     );

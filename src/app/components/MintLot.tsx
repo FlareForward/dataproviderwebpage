@@ -155,13 +155,13 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
 
   if (!address) {
     return (
-      <div className="glass-panel overflow-hidden p-0">
+      <div className="glass-panel p-0">
         {tier.imageCid && (
           <img
             src={`${IPFS_GATEWAY}/${tier.imageCid}`}
             alt={`FlareForward Bonds ${tier.name} artwork`}
             loading="lazy"
-            className="aspect-square w-full object-cover"
+            className="aspect-square w-full rounded-t-xl object-cover"
           />
         )}
         <div className="p-5">
@@ -175,8 +175,12 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
     );
   }
 
+  // The card must NOT clip its own overflow: the wallet picker inside opens as
+  // an absolutely-positioned panel, and `overflow-hidden` here silently
+  // swallowed it — the button appeared dead. The artwork rounds itself instead;
+  // `rounded-t-xl` matches .glass-panel's 0.75rem radius.
   return (
-    <div className="glass-panel overflow-hidden p-0">
+    <div className="glass-panel p-0">
       {/* The artwork a buyer actually receives — same image the token metadata
           points at, so the card and the marketplace show the same thing. */}
       {tier.imageCid && (
@@ -184,7 +188,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
           src={`${IPFS_GATEWAY}/${tier.imageCid}`}
           alt={`FlareForward Bonds ${tier.name} artwork`}
           loading="lazy"
-          className="aspect-square w-full object-cover"
+          className="aspect-square w-full rounded-t-xl object-cover"
         />
       )}
       <div className="p-5">
