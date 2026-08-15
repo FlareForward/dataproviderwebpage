@@ -5,7 +5,7 @@ import { useReadContracts } from "wagmi";
 import { MintLot } from "./components/MintLot";
 import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
-import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity } from "lucide-react";
+import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, Undo2 } from "lucide-react";
 
 /**
  * Measured bond performance, served by /api/bond-yield (worker/bondYield.ts).
@@ -623,11 +623,21 @@ export default function NftRewards() {
         preview={preview}
       />
 
-      <section className="mt-10 max-w-3xl">
+      {/* Getting out, in one place. Two routes, at very different stages: the
+          marketplace is being built, redemption is not agreed and has no
+          published terms. They are labelled differently on purpose -- a matched
+          pair of "coming soon" badges would imply redemption is as settled as
+          the marketplace, and the terms directly below still say there is no
+          redeem-for-principal. Nothing here promises one. */}
+      <section className="mt-10 max-w-3xl space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
+          When you want out
+        </h3>
+
         <div className="glass-panel p-5">
           <div className="flex flex-wrap items-center gap-3">
             <Store size={18} className="text-[#E85A95]" />
-            <h3 className="font-semibold">Marketplace</h3>
+            <h3 className="font-semibold">Sell on the marketplace</h3>
             <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
               Coming soon
             </span>
@@ -636,6 +646,22 @@ export default function NftRewards() {
             Buy a bond from another holder instead of minting a new one. A listed bond can carry
             unclaimed rewards, so both sides can see what it&apos;s actually worth. Holders will be
             able to list at whatever price they choose. In build now.
+          </p>
+        </div>
+
+        <div className="glass-panel p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <Undo2 size={18} className="text-[#8FA0B8]" />
+            <h3 className="font-semibold">Redeem your bond</h3>
+            <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8FA0B8]">
+              Under review
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
+            We are looking at whether a bond can be handed back rather than sold. Nothing is agreed
+            and no terms are published, so the terms below still stand as written — today your exit
+            is selling the NFT. We will put the rules here in plain English before anything ships,
+            and we will not ask anyone to burn a token to get out.
           </p>
         </div>
       </section>
