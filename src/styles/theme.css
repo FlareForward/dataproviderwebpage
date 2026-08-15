@@ -233,6 +233,79 @@
     border-radius: 0.75rem;
   }
 
+  /* Action buttons -- claim, stake, move, delegate.
+
+     These sit quiet by default so nothing on a member page shouts at someone
+     who is only reading. On hover a pink shimmer sweeps across the glass and a
+     soft ripple pushes outward from the bar: the reward for reaching toward the
+     thing you actually came to do. The pink is a hue over the glass, not a
+     fill -- a bright button pretends the page wants the click more than the
+     person does. */
+  .btn-action {
+    position: relative;
+    color: #fafafa;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .btn-action:hover:not(:disabled) {
+    background: rgba(238, 26, 88, 0.12);
+    border-color: rgba(238, 26, 88, 0.55);
+    animation: btn-action-ripple 900ms ease-out;
+  }
+
+  /* The shimmer rides above the face, including the label -- that is what makes
+     it read as light moving over glass rather than a background swap. */
+  .btn-action::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 34%,
+      rgba(255, 255, 255, 0.3) 47%,
+      rgba(238, 26, 88, 0.42) 54%,
+      transparent 67%
+    );
+    background-size: 250% 100%;
+    background-position: 160% 0;
+  }
+
+  .btn-action:hover:not(:disabled)::after {
+    opacity: 1;
+    animation: btn-action-shimmer 850ms ease-out;
+  }
+
+  @keyframes btn-action-shimmer {
+    from {
+      background-position: 160% 0;
+    }
+    to {
+      background-position: -60% 0;
+    }
+  }
+
+  @keyframes btn-action-ripple {
+    0% {
+      box-shadow: 0 0 0 0 rgba(238, 26, 88, 0.45);
+    }
+    100% {
+      box-shadow: 0 0 0 14px rgba(238, 26, 88, 0);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .btn-action:hover:not(:disabled),
+    .btn-action:hover:not(:disabled)::after {
+      animation: none;
+    }
+  }
+
   /* Chrome surfaces: sticky header and sidebar. */
   .glass-surface {
     background: rgba(28, 45, 71, 0.6);

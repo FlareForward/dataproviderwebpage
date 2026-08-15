@@ -247,7 +247,6 @@ export function Staking() {
           positionAmount={stakedWithUs}
           positionUnit="FLR"
           claimableReward={claimableReward}
-          basis={rewards?.rates.basis}
           emptyMessage="Stake FLR with FlareForward when you're ready."
         />
       )}
@@ -267,7 +266,9 @@ export function Staking() {
         />
       )}
 
-      <div className="max-w-5xl">
+      {/* Full width. A max-w here made this card narrower than Your Stakes and
+          the tiles above it, which is what read as cockeyed. */}
+      <div>
         {/* Staking action panel */}
         <div>
           <Card>
@@ -285,7 +286,9 @@ export function Staking() {
                       row, leaving a hole under Claim and an empty right half.
                       Stack the two short money-movement blocks down the left,
                       and give the tall stake form the right column outright. */}
-                  <div className="pt-4 border-t border-white/8 space-y-3 lg:col-start-1 lg:row-start-1">
+                  {/* Boxed, so it sits level with the fee/capacity box opposite
+                      it instead of floating on a bare rule. */}
+                  <div className="glass-panel p-4 space-y-3 lg:col-start-1 lg:row-start-1">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-[#8FA0B8] flex items-center gap-2">
                         <Gift size={14} /> Claimable rewards
@@ -295,7 +298,7 @@ export function Staking() {
                       </span>
                     </div>
                     <Button
-                      variant="secondary"
+                      variant="action"
                       className="w-full gap-2"
                       disabled={busy !== null || claimableReward <= 0n}
                       onClick={() => claimRewards()}
@@ -400,9 +403,12 @@ export function Staking() {
                       <div className="text-xs text-red-400">To wallet: {toCError}</div>
                     )}
                     <div className="grid grid-cols-2 gap-2">
+                      {/* Both directions are always available, so neither gets a
+                          loud fill. The direction the typed amount implies keeps
+                          a faint pink edge as a hint, nothing more. */}
                       <Button
-                        variant={intent === "toP" ? "primary" : "secondary"}
-                        className="w-full"
+                        variant="action"
+                        className={`w-full${intent === "toP" ? " border-[#EE1A58]/45" : ""}`}
                         disabled={busy !== null || !amount || Number(amount) <= 0 || !!toPError}
                         onClick={handleMove}
                       >
@@ -413,8 +419,8 @@ export function Staking() {
                         )}
                       </Button>
                       <Button
-                        variant={intent === "toC" ? "primary" : "secondary"}
-                        className="w-full"
+                        variant="action"
+                        className={`w-full${intent === "toC" ? " border-[#EE1A58]/45" : ""}`}
                         disabled={busy !== null || !amount || Number(amount) <= 0 || !!toCError}
                         onClick={handleWithdraw}
                       >
@@ -462,14 +468,10 @@ export function Staking() {
                     )}
                   </div>
 
-                  {/* P-chain: what is staked, directly above the stake form. */}
-                  <div className="pt-4 border-t border-white/8 space-y-3 lg:col-start-2 lg:row-start-1 lg:row-span-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-[#8FA0B8]">Currently staked</span>
-                      <span className="text-[#FAFAFA] font-medium">
-                        {formatFlr(balance.stakedOnP)} FLR
-                      </span>
-                    </div>
+                  {/* "Currently staked" was the third copy of the same figure --
+                      it is the tile at the top of the page and the amount on the
+                      stake row. It belongs at the top, once. */}
+                  <div className="space-y-3 lg:col-start-2 lg:row-start-1 lg:row-span-2">
                     {!selectedValidator ? (
                       <div className="text-center py-4 text-[#8FA0B8] flex flex-col items-center">
                         <Server size={28} className="mb-2 opacity-20" />
@@ -559,7 +561,7 @@ export function Staking() {
 
                         {!confirming ? (
                           <Button
-                            variant="primary"
+                            variant="action"
                             className="w-full py-6 text-base font-semibold"
                             disabled={!canStake}
                             onClick={() => setConfirming(true)}
@@ -644,22 +646,10 @@ function YourStakes({
             <Layers size={18} className="text-[#EE1A58]" />
             <CardTitle className="text-[#FAFAFA]">Your Stakes</CardTitle>
           </div>
+          {/* The totals that used to live here -- staked and earned-unclaimed --
+              are already the tiles at the top of the page and the claim box
+              below. Three copies of the same number is not emphasis. */}
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-xs text-[#8FA0B8]">Total staked</div>
-              <div className="text-sm font-semibold text-[#FAFAFA]">
-                {formatFlr(totalStaked, 0)} FLR
-              </div>
-            </div>
-            {/* Staking rewards are paid to the address, not attributed to a
-                particular stake — so the figure sits with the group, not on a
-                row where it would imply an attribution the chain never makes. */}
-            <div className="text-right">
-              <div className="text-xs text-[#8FA0B8]">Earned, unclaimed</div>
-              <div className="text-sm font-semibold text-emerald-400">
-                {formatFlr(claimable)} FLR
-              </div>
-            </div>
             <button
               onClick={onRefresh}
               disabled={fetching}
@@ -671,9 +661,6 @@ function YourStakes({
             </button>
           </div>
         </div>
-        <CardDescription className="text-[#8FA0B8]">
-          Validators you are currently staked to
-        </CardDescription>
       </CardHeader>
       <div className="divide-y divide-white/8">
         {stakes.length === 0 && (
@@ -709,9 +696,11 @@ function YourStakes({
                       staker knows who they staked with; what they want is when
                       it unlocks. Non-FlareForward nodes still show an id,
                       because there the id IS the identity. */}
-                  {isUs ? (
-                    <div className="text-sm text-[#FAFAFA] font-medium truncate">FlareForward</div>
-                  ) : (
+                  {/* Our own name is not information: the logo is right there,
+                      and ours is the only validator this page offers. A
+                      third-party node still shows its id, because there the id
+                      IS the identity. */}
+                  {!isUs && (
                     <div className="font-mono text-sm text-[#FAFAFA] truncate" title={s.nodeId}>
                       {shortNodeId(s.nodeId, 10)}
                     </div>
@@ -736,7 +725,6 @@ function YourStakes({
                   <div className="text-sm font-semibold text-[#FAFAFA]">
                     {formatFlr(s.amount, 0)} FLR
                   </div>
-                  <div className="text-xs text-[#8FA0B8] capitalize">{s.type}</div>
                 </div>
                 <Badge variant={s.pending ? "outline" : unlocked ? "dark" : "success"}>
                   {s.pending ? "Pending" : unlocked ? "Unlocked" : "Active"}

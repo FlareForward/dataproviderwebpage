@@ -11,7 +11,10 @@ interface EarningsStripProps {
   positionAmount: bigint;
   positionUnit: "WFLR" | "FLR";
   claimableReward: bigint;
-  basis: string | null | undefined;
+  /* Optional: the member pages omit it deliberately. Which reward epoch a rate
+     came from is our bookkeeping, not something someone needs on the page where
+     they act -- that detail belongs on analytics. */
+  basis?: string | null;
   emptyMessage: string;
 }
 

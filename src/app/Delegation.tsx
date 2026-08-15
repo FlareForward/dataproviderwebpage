@@ -125,7 +125,6 @@ export function Delegation() {
           positionAmount={delegatedWflr}
           positionUnit="WFLR"
           claimableReward={claimableReward}
-          basis={rewards?.rates.basis}
           emptyMessage="Delegate WFLR to FlareForward when you're ready."
         />
       )}
