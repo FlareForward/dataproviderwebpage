@@ -27,7 +27,7 @@ import logoImage from "../imports/flareforward_logo.png";
 import {
   buildDurationOptions,
   formatFlr,
-  formatFlrPlain,
+  formatFlrInput,
   shortNodeId,
   validateStakeAmount,
   validateTransferAmount,
@@ -349,14 +349,17 @@ export function Staking() {
                       <span>Move FLR</span>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
+                      {/* "Wallet" and "P-chain" alone read as places, not
+                          balances. Name the token: someone new here does not
+                          have to infer what the number is. */}
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[#8FA0B8] shrink-0">Wallet</span>
+                        <span className="text-[#8FA0B8] shrink-0">FLR in wallet</span>
                         <span className="text-[#FAFAFA] font-medium tabular-nums truncate">
                           {formatFlr(balance.availableOnC)}
                         </span>
                         <button
                           onClick={() => {
-                            setAmount(formatFlrPlain(balance.availableOnC));
+                            setAmount(formatFlrInput(balance.availableOnC));
                             setIntent("toP");
                           }}
                           className="text-[#EE1A58] hover:underline shrink-0"
@@ -365,13 +368,13 @@ export function Staking() {
                         </button>
                       </div>
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[#8FA0B8] shrink-0">P-chain</span>
+                        <span className="text-[#8FA0B8] shrink-0">FLR on P-chain</span>
                         <span className="text-[#FAFAFA] font-medium tabular-nums truncate">
                           {formatFlr(balance.availableOnP)}
                         </span>
                         <button
                           onClick={() => {
-                            setAmount(formatFlrPlain(balance.availableOnP));
+                            setAmount(formatFlrInput(balance.availableOnP));
                             setIntent("toC");
                           }}
                           className="text-[#EE1A58] hover:underline shrink-0"
@@ -493,7 +496,7 @@ export function Staking() {
                           <div className="flex items-center justify-between text-sm">
                             <span className="text-[#8FA0B8]">Amount to stake</span>
                             <button
-                              onClick={() => setStakeAmount(formatFlrPlain(balance.availableOnP))}
+                              onClick={() => setStakeAmount(formatFlrInput(balance.availableOnP))}
                               className="text-xs text-[#EE1A58] hover:underline"
                             >
                               MAX

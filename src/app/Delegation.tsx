@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { settledRate } from "../lib/rewards";
+import { formatFlrInput } from "../lib/staking";
 import { formatUnits } from "viem";
 import {
   Shield,
@@ -160,7 +161,7 @@ export function Delegation() {
               </div>
             </div>
             <Button
-              variant="primary"
+              variant="action"
               className="gap-2 sm:w-auto w-full"
               disabled={busy !== null || claimableReward <= 0n}
               onClick={handleClaim}
@@ -206,11 +207,11 @@ export function Delegation() {
                   {/* Balances */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="glass-panel p-3">
-                      <div className="text-xs text-[#8FA0B8] mb-1">FLR Balance</div>
+                      <div className="text-xs text-[#8FA0B8] mb-1">FLR in wallet</div>
                       <div className="font-medium text-[#FAFAFA] text-sm">{flrLabel}</div>
                     </div>
                     <div className="glass-panel p-3">
-                      <div className="text-xs text-[#8FA0B8] mb-1">WFLR (Vote Power)</div>
+                      <div className="text-xs text-[#8FA0B8] mb-1">WFLR vote power</div>
                       <div className="font-medium text-[#FAFAFA] text-sm">{wflrLabel}</div>
                     </div>
                   </div>
@@ -220,7 +221,7 @@ export function Delegation() {
                     <div className="flex justify-between text-sm">
                       <span className="text-[#8FA0B8]">Wrap FLR to WFLR (optional)</span>
                       <button
-                        onClick={() => setWrapAmount(formatUnits(flrBalance, 18))}
+                        onClick={() => setWrapAmount(formatFlrInput(flrBalance))}
                         className="text-xs text-[#EE1A58] hover:underline"
                       >
                         MAX
@@ -238,7 +239,7 @@ export function Delegation() {
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">FLR</span>
                     </div>
                     <Button
-                      variant="secondary"
+                      variant="action"
                       className="w-full"
                       disabled={busy !== null || !wrapAmount || Number(wrapAmount) <= 0}
                       onClick={handleWrap}
@@ -284,7 +285,7 @@ export function Delegation() {
                   {/* Confirm delegation (human-in-the-loop) */}
                   {!confirming ? (
                     <Button
-                      variant="primary"
+                      variant="action"
                       className="w-full py-6 text-base font-semibold"
                       disabled={busy !== null || !hasVotePower || !flareForward}
                       onClick={() => setConfirming(true)}
@@ -351,11 +352,10 @@ function YourDelegations({
             <Users size={18} className="text-[#EE1A58]" />
             <CardTitle className="text-[#FAFAFA]">Your Delegations</CardTitle>
           </div>
+          {/* Same treatment as Your Stakes: the percentage is already on the
+              row below and in the tile at the top. Header carries the action
+              only. */}
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <div className="text-xs text-[#8FA0B8]">Vote power delegated</div>
-              <div className="text-sm font-semibold text-[#FAFAFA]">{totalPct.toFixed(0)}%</div>
-            </div>
             <Button
               variant="ghost"
               className="text-red-400 hover:bg-red-500/10 gap-2"
@@ -372,9 +372,6 @@ function YourDelegations({
             </Button>
           </div>
         </div>
-        <CardDescription className="text-[#8FA0B8]">
-          Where your WFLR vote power is currently delegated
-        </CardDescription>
       </CardHeader>
       <div className="divide-y divide-white/8">
         {delegations.map((d) => {

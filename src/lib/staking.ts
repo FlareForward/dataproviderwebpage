@@ -216,7 +216,12 @@ const BIPS_DENOMINATOR = 10000;
 export const STAKE_LATENCY_BUFFER = 3600n;
 
 export function formatFlr(wei: bigint, maxFractionDigits = 2): string {
-  return Number(formatUnits(wei, 18)).toLocaleString(undefined, {
+  // Truncate, never round. Rounding up shows a balance larger than the one
+  // actually held, which then disagrees with what MAX fills and invites a
+  // transfer that cannot settle. Erring downward is always safe.
+  const [int, frac = ""] = formatUnits(wei, 18).split(".");
+  const trimmed = frac.slice(0, maxFractionDigits).replace(/0+$/, "");
+  return Number(trimmed ? `${int}.${trimmed}` : int).toLocaleString(undefined, {
     maximumFractionDigits: maxFractionDigits,
   });
 }
@@ -230,6 +235,19 @@ export function formatFlrPlain(wei: bigint, maxFractionDigits = 6): string {
   const [int, frac = ""] = formatUnits(wei, 18).split(".");
   const trimmed = frac.slice(0, maxFractionDigits).replace(/0+$/, "");
   return trimmed ? `${int}.${trimmed}` : int;
+}
+
+/**
+ * What a MAX button should put in an amount field: two decimals, matching the
+ * balance shown beside it, because "905.116478" is noise nobody reads.
+ *
+ * The fallback matters. Truncating a dust balance to two places yields "0",
+ * which would disable the very button meant to sweep it — so anything that
+ * rounds away to nothing keeps full precision instead.
+ */
+export function formatFlrInput(wei: bigint): string {
+  const short = formatFlrPlain(wei, 2);
+  return Number(short) > 0 ? short : formatFlrPlain(wei, 18);
 }
 
 /** Compact form of a NodeID for tight UI spots (keeps the recognizable head/tail). */
