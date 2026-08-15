@@ -252,7 +252,7 @@ export function Delegation() {
                   {!confirming ? (
                     <Button
                       variant="action"
-                      className="w-full py-6 text-base font-semibold"
+                      className="w-full"
                       disabled={busy !== null || !hasVotePower || !flareForward}
                       onClick={() => setConfirming(true)}
                     >
@@ -272,7 +272,7 @@ export function Delegation() {
                         <Button variant="outline" className="flex-1" disabled={busy !== null} onClick={() => setConfirming(false)}>
                           Cancel
                         </Button>
-                        <Button variant="primary" className="flex-1" disabled={busy !== null} onClick={handleConfirmDelegate}>
+                        <Button variant="action" className="flex-1" disabled={busy !== null} onClick={handleConfirmDelegate}>
                           {busy === "delegate" ? <Loader2 className="animate-spin" size={16} /> : "Confirm"}
                         </Button>
                       </div>

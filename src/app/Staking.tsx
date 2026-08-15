@@ -313,8 +313,8 @@ export function Staking() {
                     without any prompt.
                   </p>
                   <Button
-                    variant="primary"
-                    className="w-full py-6 text-base font-semibold"
+                    variant="action"
+                    className="w-full"
                     disabled={busy !== null}
                     onClick={handleEnable}
                   >
@@ -454,6 +454,20 @@ export function Staking() {
                         onFinish={() => importToC().catch(() => {})}
                       />
                     )}
+
+                    {/* The lock notice sits here, not in the stake column. It
+                        ends on "ready to move back to your wallet" -- which is
+                        this block -- and the stake column ran far longer than
+                        this one, leaving the left half stopping dead at the
+                        move buttons. It explains the round trip and it evens
+                        the two columns out. */}
+                    <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
+                      <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                      <div className="text-[#FAFAFA]">
+                        Staked FLR is locked for the chosen duration. When the stake ends the FLR
+                        returns to your P-chain balance, ready to move back to your wallet.
+                      </div>
+                    </div>
                   </div>
 
                   {/* "Currently staked" was the third copy of the same figure --
@@ -531,18 +545,10 @@ export function Staking() {
                           </div>
                         )}
 
-                        <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
-                          <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                          <div className="text-[#FAFAFA]">
-                            Staked FLR is locked for the chosen duration. When the stake ends the
-                            FLR returns to your P-chain balance, ready to move back to your wallet.
-                          </div>
-                        </div>
-
                         {!confirming ? (
                           <Button
                             variant="action"
-                            className="w-full py-6 text-base font-semibold"
+                            className="w-full"
                             disabled={!canStake}
                             onClick={() => setConfirming(true)}
                           >
@@ -564,7 +570,7 @@ export function Staking() {
                                 Cancel
                               </Button>
                               <Button
-                                variant="primary"
+                                variant="action"
                                 className="flex-1"
                                 disabled={busy !== null}
                                 onClick={handleConfirmStake}
@@ -793,7 +799,7 @@ function PendingImportNotice({
           more confirmation to land.
         </div>
       </div>
-      <Button variant="secondary" className="w-full" disabled={disabled} onClick={onFinish}>
+      <Button variant="action" className="w-full" disabled={disabled} onClick={onFinish}>
         {finishing ? (
           <Loader2 className="animate-spin" size={16} />
         ) : (
