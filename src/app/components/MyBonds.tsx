@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { useAccount, useReadContracts } from "wagmi";
 import { Gem, ExternalLink, Search } from "lucide-react";
 import { useSearchParams } from "react-router";
-import { isAddress } from "viem";
+import { isAddress, formatUnits } from "viem";
 import { Button } from "./Button";
 import { bondLotAbi, CURRENT_LOT, IPFS_GATEWAY, type BondTier } from "../../lib/bondLot";
+import { useRewards } from "../../hooks/useRewards";
+import { settledRate } from "../../lib/rewards";
 
 /**
  * "Your bonds" — the holder's own tokens, read STRAIGHT FROM THE CONTRACT.
@@ -77,6 +79,47 @@ export function MyBonds({
     })),
     query: { enabled: valid && LIVE_TIERS.length > 0 },
   });
+
+  /**
+   * What each tier cost, straight from the contract. Needed because a staged
+   * bond's principal IS its mint price — that is the FLR now sitting in wrapped
+   * WFLR delegated to our provider, and it is what the "while staged" figure
+   * below is a rate applied to.
+   */
+  const { data: prices } = useReadContracts({
+    contracts: LIVE_TIERS.map((t) => ({
+      address: t.address,
+      abi: bondLotAbi,
+      functionName: "mintPrice" as const,
+    })),
+    query: { enabled: LIVE_TIERS.length > 0 },
+  });
+
+  const priceByTier = useMemo(() => {
+    const m = new Map<string, bigint>();
+    LIVE_TIERS.forEach((t, i) => {
+      const p = prices?.[i]?.result as bigint | undefined;
+      if (p != null) m.set(t.key, p);
+    });
+    return m;
+  }, [prices]);
+
+  /**
+   * The rate staged capital actually earns right now.
+   *
+   * NOT the bond rate. Until the lot closes the raised FLR is not in the
+   * validator self-bond at all — it is wrapped WFLR delegated to our own
+   * provider, so it earns the DELEGATION rate. Showing the bond rate here would
+   * tell a holder their staged money is earning roughly six times what it is.
+   */
+  const { data: rewards } = useRewards();
+  const stagedRatePct = settledRate(rewards?.rates.delegation_annual_pct);
+
+  /** Annualised restatement of the observed rate on a principal. Not a forecast. */
+  function stagedPerYear(principalWei: bigint): number | null {
+    if (stagedRatePct == null || !Number.isFinite(stagedRatePct)) return null;
+    return Number(formatUnits(principalWei, 18)) * (stagedRatePct / 100);
+  }
 
   // Pass 2: enumerate the actual token ids behind those balances.
   const indexCalls = useMemo(() => {
@@ -195,7 +238,11 @@ export function MyBonds({
               thing that distinguishes one from another is what it has earned.
               The stack opens into a compact grid for that. */}
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {groups.map((g) => (
+            {groups.map((g) => {
+              const unit = priceByTier.get(g.tier.key) ?? null;
+              const perYear =
+                unit != null ? stagedPerYear(unit * BigInt(g.tokenIds.length)) : null;
+              return (
               <button
                 key={g.tier.key}
                 type="button"
@@ -230,10 +277,19 @@ export function MyBonds({
                       {g.tokenIds.length} bond{g.tokenIds.length === 1 ? "" : "s"}
                     </span>
                   </p>
-                  <div className="mt-2 flex items-baseline justify-between">
-                    <span className="text-xs text-[#8FA0B8]">Earned</span>
-                    <span className="text-sm font-semibold tabular-nums text-[#FAFAFA]">
-                      0.00 FLR
+                  {/* This was a hardcoded "Earned 0.00 FLR", which read as a
+                      measurement of an idle asset. Nothing has been DISTRIBUTED
+                      yet -- true -- but the capital is not sitting still, so a
+                      flat zero told a holder their money is doing nothing.
+                      Show what it is doing, at the rate it is actually doing it. */}
+                  <div className="mt-2 flex items-baseline justify-between gap-3">
+                    <span className="text-xs text-[#8FA0B8]">Earning while staged</span>
+                    <span className="text-sm font-semibold tabular-nums text-emerald-400">
+                      {perYear != null
+                        ? `≈ ${perYear.toLocaleString(undefined, {
+                            maximumFractionDigits: 0,
+                          })} FLR / yr`
+                        : "—"}
                     </span>
                   </div>
                   <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[#E85A95] group-hover:underline">
@@ -241,7 +297,8 @@ export function MyBonds({
                   </span>
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
           <p className="mt-3 text-xs text-[#8FA0B8]/80">
             Holding {held.length} bond{held.length === 1 ? "" : "s"}. Distributions open once the
