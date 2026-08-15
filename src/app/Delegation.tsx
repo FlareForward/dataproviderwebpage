@@ -130,8 +130,9 @@ export function Delegation() {
         />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-      {/* Your delegations — the user's own current position. */}
+      {/* Your delegations — the user's own current position. Full width, like
+          Your Stakes: the rewards card that used to sit beside it has moved
+          into the action panel, where staking already keeps its claim. */}
       {isConnected && currentDelegations.length > 0 && (
         <YourDelegations
           delegations={currentDelegations}
@@ -140,44 +141,6 @@ export function Delegation() {
           onUndelegate={undelegate}
         />
       )}
-
-      {/* Delegation rewards — claimable FTSO rewards accrued from delegation. */}
-      {isConnected && (
-        <Card>
-          <CardHeader className="border-b border-white/8 pb-4">
-            <div className="flex items-center gap-2">
-              <Gift size={18} className="text-[#EE1A58]" />
-              <CardTitle className="text-[#FAFAFA]">Delegation Rewards</CardTitle>
-            </div>
-            <CardDescription className="text-[#8FA0B8]">
-              FTSO rewards earned from delegating your WFLR vote power
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="text-xs text-[#8FA0B8] mb-1">Claimable rewards</div>
-              <div className="text-2xl font-semibold text-[#FAFAFA]">
-                {claimableRewardLabel} <span className="text-base text-[#8FA0B8]">FLR</span>
-              </div>
-            </div>
-            <Button
-              variant="action"
-              className="gap-2 sm:w-auto w-full"
-              disabled={busy !== null || claimableReward <= 0n}
-              onClick={handleClaim}
-            >
-              {busy === "claim" ? (
-                <Loader2 className="animate-spin" size={16} />
-              ) : (
-                <>
-                  <Gift size={16} /> Claim rewards
-                </>
-              )}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-      </div>
 
       {/* Delegation Action Panel. Full width on purpose: a max-w card here sat
           in the left half of a full-width page and left the right half empty. */}
@@ -204,6 +167,34 @@ export function Delegation() {
                       the right. */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
                   <div className="space-y-6">
+                  {/* Claim sits in the panel, boxed, exactly where the staking
+                      page puts it — and only once, since the tile at the top of
+                      the page already carries the figure. */}
+                  <div className="glass-panel p-4 space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-[#8FA0B8] flex items-center gap-2">
+                        <Gift size={14} /> Claimable rewards
+                      </span>
+                      <span className="text-[#FAFAFA] font-medium">
+                        {claimableRewardLabel} FLR
+                      </span>
+                    </div>
+                    <Button
+                      variant="action"
+                      className="w-full gap-2"
+                      disabled={busy !== null || claimableReward <= 0n}
+                      onClick={handleClaim}
+                    >
+                      {busy === "claim" ? (
+                        <Loader2 className="animate-spin" size={16} />
+                      ) : (
+                        <>
+                          <Gift size={16} /> Claim rewards
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
                   {/* Balances */}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="glass-panel p-3">
@@ -395,11 +386,15 @@ function YourDelegations({
                     <Shield size={18} className="text-[#8FA0B8]" />
                   )}
                 </div>
-                <div className="min-w-0">
-                  <div className="font-medium text-[#FAFAFA] truncate">
-                    {isUs ? "FlareForward" : "Another provider"}
+                {/* Our own row said "FlareForward" twice, in text and again on
+                    the badge, beside our own logo. Same rule as the stake row:
+                    the logo is the identity. Another provider still gets named,
+                    because there the name is the whole point. */}
+                {!isUs && (
+                  <div className="min-w-0">
+                    <div className="font-medium text-[#FAFAFA] truncate">Another provider</div>
                   </div>
-                </div>
+                )}
               </div>
               <div className="flex items-center gap-3 sm:justify-end pl-14 sm:pl-0">
                 <div className="text-right">
@@ -407,9 +402,7 @@ function YourDelegations({
                     {(d.bips / 100).toFixed(0)}%
                   </div>
                 </div>
-                <Badge variant={isUs ? "success" : "dark"}>
-                  {isUs ? "FlareForward" : "Delegated"}
-                </Badge>
+                {!isUs && <Badge variant="dark">Delegated</Badge>}
               </div>
             </div>
           );

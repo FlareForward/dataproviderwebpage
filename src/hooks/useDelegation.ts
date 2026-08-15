@@ -178,9 +178,7 @@ export function useDelegation() {
     wflrLabel: formatFlr(wflr),
     currentDelegations: delegation.data ?? [],
     claimableReward: reward,
-    claimableRewardLabel: Number(formatUnits(reward, 18)).toLocaleString(undefined, {
-      maximumFractionDigits: 4,
-    }),
+    claimableRewardLabel: formatFlr(reward),
     busy,
     wrap,
     delegate,

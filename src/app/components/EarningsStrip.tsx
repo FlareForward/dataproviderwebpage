@@ -18,8 +18,15 @@ interface EarningsStripProps {
   emptyMessage: string;
 }
 
+/**
+ * Truncating, not rounding — the same rule the member panels use. Rounding
+ * here made the tile read 4,944.69 WFLR while the panel below it read
+ * 4,944.68: one balance, two numbers, on one page.
+ */
 function formatAmount(wei: bigint, digits = 2): string {
-  return Number(formatUnits(wei, 18)).toLocaleString(undefined, {
+  const [int, frac = ""] = formatUnits(wei, 18).split(".");
+  const trimmed = frac.slice(0, digits).replace(/0+$/, "");
+  return Number(trimmed ? `${int}.${trimmed}` : int).toLocaleString(undefined, {
     maximumFractionDigits: digits,
   });
 }
