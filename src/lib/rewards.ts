@@ -74,6 +74,27 @@ export interface RewardsData {
   delegators: PChainDelegator[];
 }
 
+/**
+ * The one way this site turns wei into an FLR label. TRUNCATING, not rounding.
+ *
+ * My Rewards previously had two formatters: this rule inside EarningsStrip and
+ * a plain `toLocaleString` round in Rewards.tsx. The same 224.6 FLR of staking
+ * reward therefore rendered as "225" in the claim panel and "224" in the tile
+ * directly beneath it — one balance, two numbers, on one screen. Every FLR
+ * figure on a member page goes through here so that cannot happen again, and it
+ * truncates because rounding up shows more money than the wallet actually has.
+ */
+export function fmtFlrWei(wei: bigint, digits = 0): string {
+  const negative = wei < 0n;
+  const abs = negative ? -wei : wei;
+  const int = abs / 10n ** 18n;
+  const frac = (abs % 10n ** 18n).toString().padStart(18, "0").slice(0, digits);
+  const value = Number(frac ? `${int}.${frac}` : int.toString());
+  return `${negative ? "-" : ""}${value.toLocaleString(undefined, {
+    maximumFractionDigits: digits,
+  })}`;
+}
+
 export function fmtFlr(value: number | null | undefined, digits = 0): string {
   if (value == null || !Number.isFinite(value)) return "—";
   return value.toLocaleString(undefined, {

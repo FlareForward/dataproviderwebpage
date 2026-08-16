@@ -10,18 +10,18 @@ import {
   Wallet,
   XCircle,
 } from "lucide-react";
-import { formatUnits } from "viem";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/Card";
 import { Button } from "./components/Button";
 import { useReadContracts } from "wagmi";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { EarningsStrip } from "./components/EarningsStrip";
+import { RewardHistory } from "./components/RewardHistory";
 import { bondLotAbi, CURRENT_LOT, type BondTier } from "../lib/bondLot";
 import { useDelegation } from "../hooks/useDelegation";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
-import { settledRate, fmtPct } from "../lib/rewards";
-import { formatFlr, type DisplayStake } from "../lib/staking";
+import { settledRate, fmtPct, fmtFlrWei } from "../lib/rewards";
+import { type DisplayStake } from "../lib/staking";
 
 
 type ClaimSource = "delegation" | "staking";
@@ -142,6 +142,7 @@ export default function Rewards() {
                   onClaimDelegation={() => claimSource("delegation")}
                   onClaimStaking={() => claimSource("staking")}
                   onClaimBoth={claimBoth}
+                  address={delegation.address}
                 />
 
                 <RewardSection
@@ -204,7 +205,7 @@ export default function Rewards() {
                             />
                             <RateTile
                               label="Claimable now"
-                              value={`${formatAmount(staking.claimableReward)} FLR`}
+                              value={`${fmtFlrWei(staking.claimableReward)} FLR`}
                               accent={staking.claimableReward > 0n}
                             />
                           </div>
@@ -310,6 +311,7 @@ function ClaimPanel({
   onClaimDelegation,
   onClaimStaking,
   onClaimBoth,
+  address,
 }: {
   totalClaimable: bigint;
   delegationClaimable: bigint;
@@ -320,6 +322,7 @@ function ClaimPanel({
   onClaimDelegation: () => void;
   onClaimStaking: () => void;
   onClaimBoth: () => void;
+  address: `0x${string}` | undefined;
 }) {
   const hasDelegationClaim = delegationClaimable > 0n;
   const hasStakingClaim = stakingClaimable > 0n;
@@ -342,7 +345,7 @@ function ClaimPanel({
           <div>
             <div className="text-xs uppercase tracking-wider text-[#8FA0B8]">Total claimable</div>
             <div className="mt-1 text-3xl font-bold tabular-nums text-emerald-400">
-              {formatAmount(totalClaimable)} <span className="text-base text-[#8FA0B8]">FLR</span>
+              {fmtFlrWei(totalClaimable)} <span className="text-base text-[#8FA0B8]">FLR</span>
             </div>
             {totalClaimable === 0n && (
               <p className="mt-2 text-sm text-[#8FA0B8]">
@@ -351,28 +354,26 @@ function ClaimPanel({
               </p>
             )}
           </div>
-          {hasDelegationClaim && hasStakingClaim ? (
+          {/* Only ever the combined action. The per-source buttons below are
+              always rendered now, so the old "use its claim button below" hint
+              had nothing left to explain and only made this row lopsided. */}
+          {hasDelegationClaim && hasStakingClaim && (
             <Button
               variant="action"
               className="gap-2 lg:w-auto w-full"
               disabled={!canClaimBoth}
               onClick={onClaimBoth}
             >
-              {busy && hasDelegationClaim && hasStakingClaim ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Gift size={16} />
-              )}
+              {busy ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
               Claim both
             </Button>
-          ) : totalClaimable > 0n ? (
-            <p className="text-sm text-[#8FA0B8]">
-              Only one source has rewards right now; use its claim button below.
-            </p>
-          ) : null}
+          )}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* items-stretch + h-full on the child: the two source cards hold the
+            same height whatever their state, so the amounts share a baseline
+            instead of one card floating above the other. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
           <ClaimItem
             title="Delegation rewards"
             amount={delegationClaimable}
@@ -388,11 +389,20 @@ function ClaimPanel({
             onClaim={onClaimStaking}
           />
         </div>
+
+        {/* Accumulated payouts live here as one line + a button, not a tile. */}
+        <RewardHistory address={address} />
       </CardContent>
     </Card>
   );
 }
 
+/**
+ * One reward source. Structurally identical whether or not it has money in it —
+ * same rows, same button, same height — because the previous version dropped
+ * the button on an empty source and swapped one line of copy for another, which
+ * is exactly what made the pair sit crooked next to each other.
+ */
 function ClaimItem({
   title,
   amount,
@@ -407,43 +417,46 @@ function ClaimItem({
   onClaim: () => void;
 }) {
   const canClaim = amount > 0n && state !== "claiming";
-  const status = state === "failed" ? "Claim failed. You can retry this source." : null;
+  const status =
+    state === "failed"
+      ? { text: "Claim failed. You can retry this source.", tone: "text-red-400" }
+      : state === "claimed"
+        ? { text: "Claim submitted.", tone: "text-emerald-400" }
+        : amount === 0n
+          ? { text: "Nothing claimable from this source.", tone: "text-[#8FA0B8]" }
+          : { text: "Ready to claim.", tone: "text-[#8FA0B8]" };
 
   return (
-    <div className="glass-panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="glass-panel h-full p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
         <div className="text-sm font-semibold text-[#FAFAFA]">{title}</div>
-        <div className="mt-1 text-xl font-bold tabular-nums text-[#FAFAFA]">
-          {formatAmount(amount)} <span className="text-sm text-[#8FA0B8]">FLR</span>
-        </div>
-        {amount === 0n ? (
-          <p className="mt-1 text-xs text-[#8FA0B8]">Nothing claimable from this source.</p>
-        ) : status ? (
-          <p className="mt-1 text-xs text-red-400">{status}</p>
-        ) : state === "claimed" ? (
-          <p className="mt-1 text-xs text-emerald-400">Claim submitted.</p>
-        ) : null}
-      </div>
-      {amount > 0n && (
-        <Button
-          variant="action"
-          size="sm"
-          className="gap-2 sm:w-auto w-full"
-          disabled={disabled || !canClaim}
-          onClick={onClaim}
+        <div
+          className={`mt-1 text-xl font-bold tabular-nums ${
+            amount > 0n ? "text-emerald-400" : "text-[#FAFAFA]"
+          }`}
         >
-          {state === "claiming" ? (
-            <Loader2 size={15} className="animate-spin" />
-          ) : state === "claimed" ? (
-            <CheckCircle2 size={15} />
-          ) : state === "failed" ? (
-            <XCircle size={15} />
-          ) : (
-            <Gift size={15} />
-          )}
-          {state === "failed" ? "Retry claim" : "Claim"}
-        </Button>
-      )}
+          {fmtFlrWei(amount)} <span className="text-sm font-normal text-[#8FA0B8]">FLR</span>
+        </div>
+        <p className={`mt-1 text-xs ${status.tone}`}>{status.text}</p>
+      </div>
+      <Button
+        variant="action"
+        size="sm"
+        className="gap-2 sm:w-auto w-full shrink-0"
+        disabled={disabled || !canClaim}
+        onClick={onClaim}
+      >
+        {state === "claiming" ? (
+          <Loader2 size={15} className="animate-spin" />
+        ) : state === "claimed" ? (
+          <CheckCircle2 size={15} />
+        ) : state === "failed" ? (
+          <XCircle size={15} />
+        ) : (
+          <Gift size={15} />
+        )}
+        {state === "failed" ? "Retry" : "Claim"}
+      </Button>
     </div>
   );
 }
@@ -558,10 +571,4 @@ function totalStakedWithNode(stakes: DisplayStake[], nodeId: string | null): big
   return stakes
     .filter((stake) => stake.nodeId === nodeId)
     .reduce((sum, stake) => sum + stake.amount, 0n);
-}
-
-function formatAmount(wei: bigint, digits = 0): string {
-  return Number(formatUnits(wei, 18)).toLocaleString(undefined, {
-    maximumFractionDigits: digits,
-  });
 }
