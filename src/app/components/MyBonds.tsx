@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useReadContracts } from "wagmi";
 import { Gem, ExternalLink, Search } from "lucide-react";
 import { useSearchParams } from "react-router";
@@ -114,6 +114,19 @@ export function MyBonds({
   });
 
   const [openTier, setOpenTier] = useState<string | null>(null);
+  /**
+   * The open stack browses as a picker wheel, not a flat list — a hundred
+   * identical rows is a wall, a wheel is a book you thumb through. One bond in
+   * focus at full size; the wheel scroll-snaps through the ids.
+   */
+  const [focusIdx, setFocusIdx] = useState(0);
+  const wheelRef = useRef<HTMLDivElement>(null);
+  const WHEEL_ROW = 40;
+
+  useEffect(() => {
+    setFocusIdx(0);
+    wheelRef.current?.scrollTo({ top: 0 });
+  }, [openTier]);
 
   const held = useMemo(() => {
     return indexCalls
@@ -213,15 +226,17 @@ export function MyBonds({
                 key={g.tier.key}
                 type="button"
                 onClick={() => setOpenTier(g.tier.key)}
-                className="group glass-panel overflow-hidden p-0 text-left transition-colors hover:border-[#E85A95]/40"
+                className="group asset-tile p-0 text-left"
               >
-                <div className="relative">
-                  {/* Fanned edges behind the top card so a stack reads as a
-                      stack at a glance, without rendering N images. */}
+                {/* The fanned edges used to hang ABOVE the card top -- and the
+                    card clips its overflow, so the book spine would have been
+                    invisible the day anyone held two. The wrapper now reserves
+                    headroom and the sheets peek inside it. */}
+                <div className={`relative${g.tokenIds.length > 1 ? " pt-2" : ""}`}>
                   {g.tokenIds.length > 1 && (
                     <>
-                      <div className="absolute inset-x-3 -top-1.5 h-3 rounded-t-lg border border-white/10 bg-white/[0.06]" />
-                      <div className="absolute inset-x-1.5 -top-0.5 h-3 rounded-t-lg border border-white/12 bg-white/[0.09]" />
+                      <div className="absolute inset-x-4 top-0 h-2 rounded-t-md border border-white/10 bg-white/[0.06]" />
+                      <div className="absolute inset-x-2 top-1 h-2 rounded-t-md border border-white/12 bg-white/[0.09]" />
                     </>
                   )}
                   <img
@@ -254,7 +269,17 @@ export function MyBonds({
                       is an observed number; multiplying it out into what someone
                       will receive is a forecast we promised not to make. */}
                   <div className="mt-2 flex items-baseline justify-between gap-3">
-                    <span className="text-xs text-[#8FA0B8]">Earning while staged</span>
+                    <span className="flex items-center gap-1.5 text-xs text-[#8FA0B8]">
+                      {/* Same live pulse the stake tiles carry — one visual
+                          language for money that is working. Still the RATE,
+                          never a per-year figure: this page's terms say we do
+                          not publish projections. */}
+                      <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      </span>
+                      Earning while staged
+                    </span>
                     <span className="text-sm font-semibold tabular-nums text-emerald-400">
                       {stagedRatePct != null ? `${stagedRatePct.toFixed(2)}%` : "—"}
                     </span>
@@ -305,39 +330,97 @@ export function MyBonds({
               </button>
             </div>
 
-            <div className="mt-4 space-y-2">
-              {openGroup.tokenIds.map((tokenId) => (
-                <div
-                  key={tokenId}
-                  className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-2.5"
-                >
-                  <img
-                    src={`${IPFS_GATEWAY}/${openGroup.tier.imageCid}`}
-                    alt=""
-                    loading="lazy"
-                    className="h-12 w-12 shrink-0 rounded-lg object-cover"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold">#{tokenId}</p>
-                    <a
-                      href={`https://flare-explorer.flare.network/token/${openGroup.tier.address}/instance/${tokenId}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-[#E85A95] hover:underline"
-                    >
-                      Explorer <ExternalLink size={10} />
-                    </a>
+            {(() => {
+              const ids = openGroup.tokenIds;
+              const fIdx = Math.min(focusIdx, ids.length - 1);
+              const focused = ids[fIdx];
+              return (
+                <div className="mt-4 flex flex-col gap-5 sm:flex-row">
+                  {/* The focused bond, full size — the page of the book
+                      currently open. */}
+                  <div className="flex items-start gap-4 sm:w-1/2">
+                    <img
+                      src={`${IPFS_GATEWAY}/${openGroup.tier.imageCid}`}
+                      alt=""
+                      className="h-28 w-28 shrink-0 rounded-xl object-cover"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-xl font-semibold tabular-nums">#{focused}</p>
+                      <a
+                        href={`https://flare-explorer.flare.network/token/${openGroup.tier.address}/instance/${focused}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-0.5 inline-flex items-center gap-1 text-xs text-[#E85A95] hover:underline"
+                      >
+                        Explorer <ExternalLink size={10} />
+                      </a>
+                      <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400">
+                        <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        </span>
+                        Earning while staged
+                      </div>
+                      <Button variant="action" size="sm" className="mt-3" disabled>
+                        Claim
+                      </Button>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-semibold tabular-nums text-[#FAFAFA]">0.00 FLR</div>
-                    <div className="text-[10px] uppercase tracking-wide text-[#8FA0B8]">earned</div>
-                  </div>
-                  <Button variant="secondary" size="sm" disabled>
-                    Claim
-                  </Button>
+
+                  {/* The wheel: scroll-snapped ids, centre one in the window.
+                      Only when there is something to thumb through. */}
+                  {ids.length > 1 && (
+                    <div className="relative flex-1">
+                      <div
+                        ref={wheelRef}
+                        onScroll={(e) => {
+                          const idx = Math.max(
+                            0,
+                            Math.min(
+                              ids.length - 1,
+                              Math.round(e.currentTarget.scrollTop / WHEEL_ROW),
+                            ),
+                          );
+                          if (idx !== fIdx) setFocusIdx(idx);
+                        }}
+                        className="h-[200px] snap-y snap-mandatory overflow-y-auto overscroll-contain"
+                      >
+                        <div className="h-[80px]" aria-hidden="true" />
+                        {ids.map((tokenId, i) => {
+                          const dist = Math.abs(i - fIdx);
+                          return (
+                            <button
+                              key={tokenId}
+                              type="button"
+                              onClick={() =>
+                                wheelRef.current?.scrollTo({
+                                  top: i * WHEEL_ROW,
+                                  behavior: "smooth",
+                                })
+                              }
+                              className={`flex h-10 w-full snap-center items-center justify-center text-sm tabular-nums transition-all ${
+                                dist === 0
+                                  ? "font-semibold text-[#FAFAFA]"
+                                  : dist === 1
+                                    ? "text-[#8FA0B8]"
+                                    : "text-[#8FA0B8]/40"
+                              }`}
+                            >
+                              #{tokenId}
+                            </button>
+                          );
+                        })}
+                        <div className="h-[80px]" aria-hidden="true" />
+                      </div>
+                      {/* The picker window and the fade that sells the wheel. */}
+                      <div className="pointer-events-none absolute inset-x-6 top-1/2 h-10 -translate-y-1/2 rounded-lg border border-[#E85A95]/40 bg-[#E85A95]/5" />
+                      <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#152238] to-transparent" />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#152238] to-transparent" />
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
 
             <p className="mt-4 text-xs leading-relaxed text-[#8FA0B8]">
               Per-bond claiming opens once the lot closes and its distribution contract is

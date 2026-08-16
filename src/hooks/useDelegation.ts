@@ -22,7 +22,9 @@ export function useDelegation() {
   const publicClient = usePublicClient();
   const queryClient = useQueryClient();
   const { data: wNatAddress } = useWNatAddress();
-  const [busy, setBusy] = useState<null | "wrap" | "delegate" | "undelegate" | "claim">(null);
+  const [busy, setBusy] = useState<
+    null | "wrap" | "unwrap" | "delegate" | "undelegate" | "claim"
+  >(null);
 
   const balances = useQuery({
     queryKey: ["balances", address],
@@ -94,6 +96,32 @@ export function useDelegation() {
         refresh();
       } catch (e: any) {
         toast.error(e?.shortMessage ?? e?.message ?? "Wrap failed", { id: t });
+        throw e;
+      } finally {
+        setBusy(null);
+      }
+    },
+    [getWallet, refresh]
+  );
+
+  /**
+   * WFLR back to FLR. Delegation is a percentage, so unwrapping part of the
+   * balance needs no re-delegation — the instruction rides on whatever WFLR
+   * remains. The SDK's unwrapToNative mirrors wrapNative exactly.
+   */
+  const unwrap = useCallback(
+    async (amountFlr: string) => {
+      const amount = Number(amountFlr);
+      if (!amount || amount <= 0) return;
+      setBusy("unwrap");
+      const t = toast.loading(`Unwrapping ${amountFlr} WFLR to FLR...`);
+      try {
+        const wallet = await getWallet();
+        await network.unwrapToNative(wallet, Amount.nats(amountFlr));
+        toast.success(`Unwrapped ${amountFlr} WFLR`, { id: t });
+        refresh();
+      } catch (e: any) {
+        toast.error(e?.shortMessage ?? e?.message ?? "Unwrap failed", { id: t });
         throw e;
       } finally {
         setBusy(null);
@@ -181,6 +209,7 @@ export function useDelegation() {
     claimableRewardLabel: formatFlr(reward),
     busy,
     wrap,
+    unwrap,
     delegate,
     undelegate,
     claimRewards,
