@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
+  Gem,
   Gift,
   Landmark,
   Loader2,
@@ -233,27 +234,14 @@ export default function Rewards() {
                   )}
                 </RewardSection>
 
-                {/* Bonds as a glance row, matching Delegation and Staking —
-                    the operator's call after seeing the full card grid here:
-                    this page answers "what is everything earning" in one
-                    sweep, so no artwork and no per-tier cards. The gallery,
-                    the stacks, and the wheel live on /bonds. */}
-                <RewardSection
-                  title="Bonds"
-                  description="Your bonds at a glance — distributions open at lot close."
-                  action={
-                    <Link to="/bonds">
-                      <Button variant="outline" size="sm" className="gap-2">
-                        <Gift size={15} /> Manage bonds <ArrowRight size={14} />
-                      </Button>
-                    </Link>
-                  }
-                >
-                  <BondsGlance
-                    address={delegation.address ?? undefined}
-                    stagedRatePct={settledRate(rewards.rates.delegation_annual_pct)}
-                  />
-                </RewardSection>
+                {/* Bonds do NOT get their own section — the operator pared it
+                    twice: first the card grid, then the titled section. One
+                    slim row in the Soonest-unlock idiom, everything about the
+                    bonds in a single line, detail one click away on /bonds. */}
+                <BondsGlance
+                  address={delegation.address ?? undefined}
+                  stagedRatePct={settledRate(rewards.rates.delegation_annual_pct)}
+                />
                 {/* The address-lookup card that sat here is gone by operator
                     call: My Rewards is about the connected wallet, and /bonds
                     carries the public lookup. Epoch basis lives on analytics,
@@ -521,16 +509,25 @@ function BondsGlance({
 
   return (
     <Card>
-      <CardContent className="p-4 sm:p-5">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <RateTile
-            label="Earning while staged"
-            value={fmtPct(stagedRatePct)}
-            accent={stagedRatePct != null}
-          />
-          <RateTile label="Bonds held" value={String(held)} />
-          <RateTile label="Claimable now" value="0 FLR" />
-        </div>
+      <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
+          <Gem size={15} className="text-[#EE1A58]" /> Bonds
+        </span>
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#8FA0B8]">
+          <span className="tabular-nums font-medium text-[#FAFAFA]">{held}</span> held ·
+          <span className="flex items-center gap-1.5">
+            <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            </span>
+            <span className="font-medium text-emerald-400">{fmtPct(stagedRatePct)}</span> while
+            staged
+          </span>
+          · 0 FLR claimable
+          <Link to="/bonds" className="ml-1 font-medium text-[#E85A95] hover:underline">
+            Manage →
+          </Link>
+        </span>
       </CardContent>
     </Card>
   );
