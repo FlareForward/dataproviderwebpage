@@ -333,7 +333,11 @@ export function Staking() {
                       <ArrowRightLeft size={14} className="text-[#8FA0B8]" />
                       <span>Move FLR</span>
                     </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
+                    {/* min-h matches the duration-chip row opposite: the two
+                        columns are built line-for-line — header, context row,
+                        amount box, action — so the inputs and buttons sit
+                        level. Change one row's height and change both. */}
+                    <div className="grid grid-cols-2 gap-3 text-xs items-center min-h-[30px]">
                       {/* "Wallet" and "P-chain" alone read as places, not
                           balances. Name the token: someone new here does not
                           have to infer what the number is. */}
@@ -454,20 +458,6 @@ export function Staking() {
                         onFinish={() => importToC().catch(() => {})}
                       />
                     )}
-
-                    {/* The lock notice sits here, not in the stake column. It
-                        ends on "ready to move back to your wallet" -- which is
-                        this block -- and the stake column ran far longer than
-                        this one, leaving the left half stopping dead at the
-                        move buttons. It explains the round trip and it evens
-                        the two columns out. */}
-                    <div className="bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
-                      <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
-                      <div className="text-[#FAFAFA]">
-                        Staked FLR is locked for the chosen duration. When the stake ends the FLR
-                        returns to your P-chain balance, ready to move back to your wallet.
-                      </div>
-                    </div>
                   </div>
 
                   {/* "Currently staked" was the third copy of the same figure --
@@ -482,61 +472,66 @@ export function Staking() {
                     ) : (
                       <>
                         {/* Fee and capacity moved to the card header. */}
-                        {/* Amount */}
-                        <div className="space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-[#8FA0B8]">Amount to stake</span>
-                            <button
-                              onClick={() => setStakeAmount(formatFlrInput(balance.availableOnP))}
-                              className="text-xs text-[#EE1A58] hover:underline"
-                            >
-                              MAX
-                            </button>
-                          </div>
-                          <div className="relative">
-                            <input
-                              type="number"
-                              value={stakeAmount}
-                              onChange={(e) => setStakeAmount(e.target.value)}
-                              onWheel={(e) => e.currentTarget.blur()}
-                              placeholder="0.00"
-                              className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
-                            />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">
-                              FLR
+                        {/* Line-for-line with the move column: label row, then
+                            duration chips beside their label (the counterpart
+                            of the balances row opposite), then the amount box
+                            level with the move box, then the button level with
+                            the move buttons. The minimum rides in the label row
+                            so nothing under the input pushes the button out of
+                            line. */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                          <span className="text-[#8FA0B8]">
+                            Amount to stake
+                            {limits && (
+                              <span className="text-xs">
+                                {" "}
+                                · minimum {formatFlr(limits.minStakeAmountDelegator, 0)} FLR
+                              </span>
+                            )}
+                          </span>
+                          <button
+                            onClick={() => setStakeAmount(formatFlrInput(balance.availableOnP))}
+                            className="text-xs text-[#EE1A58] hover:underline"
+                          >
+                            MAX
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 min-h-[30px]">
+                          <span className="text-xs text-[#8FA0B8]">Stake duration</span>
+                          {durationOptions.length === 0 ? (
+                            <span className="text-xs text-yellow-500">
+                              This validator has no window long enough for a new stake.
                             </span>
-                          </div>
-                          {limits && (
-                            <div className="text-xs text-[#8FA0B8]">
-                              Minimum {formatFlr(limits.minStakeAmountDelegator, 0)} FLR
-                            </div>
+                          ) : (
+                            durationOptions.map((opt) => (
+                              <button
+                                key={opt.label}
+                                onClick={() => setDurationSecs(opt.seconds)}
+                                className={`px-3 py-1 rounded-lg text-xs font-medium border transition-all ${
+                                  durationSecs === opt.seconds
+                                    ? "border-[#EE1A58] text-[#EE1A58] bg-[#EE1A58]/15 glass-glow"
+                                    : "border-white/10 text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5"
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))
                           )}
                         </div>
 
-                        {/* Duration */}
-                        <div className="space-y-2">
-                          <span className="text-sm text-[#8FA0B8]">Stake duration</span>
-                          {durationOptions.length === 0 ? (
-                            <div className="text-xs text-yellow-500">
-                              This validator has no window long enough for a new stake.
-                            </div>
-                          ) : (
-                            <div className="flex flex-wrap gap-2">
-                              {durationOptions.map((opt) => (
-                                <button
-                                  key={opt.label}
-                                  onClick={() => setDurationSecs(opt.seconds)}
-                                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                                    durationSecs === opt.seconds
-                                      ? "border-[#EE1A58] text-[#EE1A58] bg-[#EE1A58]/15 glass-glow"
-                                      : "border-white/10 text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5"
-                                  }`}
-                                >
-                                  {opt.label}
-                                </button>
-                              ))}
-                            </div>
-                          )}
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={stakeAmount}
+                            onChange={(e) => setStakeAmount(e.target.value)}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            placeholder="0.00"
+                            className="w-full glass-panel py-3 px-4 text-[#FAFAFA] text-lg focus:outline-none focus:border-[#EE1A58]/60 transition-colors pr-16"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">
+                            FLR
+                          </span>
                         </div>
 
                         {(amountError || capacityError) && stakeAmount && (
@@ -588,6 +583,17 @@ export function Staking() {
                     )}
                   </div>
 
+                  {/* The round-trip explainer spans both columns so neither
+                      runs longer than the other. It covers both halves anyway:
+                      the lock is the stake side, "back to your wallet" is the
+                      move side. */}
+                  <div className="lg:col-span-2 lg:row-start-2 bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
+                    <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                    <div className="text-[#FAFAFA]">
+                      Staked FLR is locked for the chosen duration. When the stake ends the FLR
+                      returns to your P-chain balance, ready to move back to your wallet.
+                    </div>
+                  </div>
                 </>
               )}
             </CardContent>

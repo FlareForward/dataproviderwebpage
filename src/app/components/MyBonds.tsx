@@ -285,7 +285,7 @@ export function MyBonds({
           onClick={() => setOpenTier(null)}
         >
           <div
-            className="glass-card max-h-[80vh] w-full max-w-2xl overflow-y-auto p-5"
+            className="glass-modal max-h-[80vh] w-full max-w-2xl overflow-y-auto p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between gap-4">

@@ -224,6 +224,22 @@
       0 14px 44px rgba(238, 26, 88, 0.18);
   }
 
+  /* Modal / dialog surface. Deliberately near-opaque: the translucent glass
+     idiom works over the calm page background, but a dialog floats over
+     whatever busy content opened it -- artwork, tables -- and at 50% opacity
+     the content behind bleeds through and the dialog reads as murk. Keep the
+     blur for the soft edge; the fill does the legibility. */
+  .glass-modal {
+    background: rgba(21, 34, 56, 0.96);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 1rem;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      0 16px 48px rgba(0, 0, 0, 0.6);
+  }
+
   /* Nested translucent tile: inputs, balance tiles, list sub-panels. */
   .glass-panel {
     background: rgba(28, 45, 71, 0.45);
