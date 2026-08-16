@@ -624,11 +624,18 @@ export default function NftRewards() {
               Under review
             </span>
           </div>
+          {/* Updated 08-16 once the mechanism was settled with the distributor's
+              author: redemption is not a new contract, it is the distribution
+              rail run in reverse — deposit principal, split per bond, claim.
+              What stays open is whether and when we run it, so no terms are
+              promised and the terms below still describe today. */}
           <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            We are looking at whether a bond can be handed back rather than sold. Nothing is agreed
-            and no terms are published, so the terms below still stand as written — today your exit
-            is selling the NFT. We will put the rules here in plain English before anything ships,
-            and we will not ask anyone to burn a token to get out.
+            The rails for this already exist: the same distribution contract that pays rewards can
+            return principal — FLR deposited into it is split equally across every bond and claimed
+            like any other distribution. No burning, ever; a burned bond&apos;s share is gone for
+            good. Whether and when we open a redemption window is the decision still in front of
+            us, so today your exit is selling the NFT. The exact rules will be published here in
+            plain English before anything ships.
           </p>
         </div>
       </section>
