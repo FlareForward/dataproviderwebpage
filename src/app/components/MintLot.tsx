@@ -18,7 +18,7 @@ import { bondLotAbi, IPFS_GATEWAY, MAX_BATCH_MINT, type BondTier } from "../../l
 /** FLR amounts on a sales page need separators: "10,000" not "10000". */
 function fmtFlr(wei: bigint): string {
   const n = Number(formatEther(wei));
-  return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  return n.toLocaleString("en-US", { maximumFractionDigits: 0 });
 }
 
 /**
@@ -213,13 +213,13 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
         </div>
       ) : (
         <>
-          <div className="mt-4 flex items-baseline justify-between text-sm">
-            <span className="font-medium">
-              {sold != null ? sold.toString() : "—"} / {maxSupply != null ? maxSupply.toString() : "—"} minted
-            </span>
-            <span className="text-[#8FA0B8]">
-              {price != null ? `${fmtFlr(price)} FLR each` : "—"}
-            </span>
+          {/* One availability line, one price. The tier's name IS its price, so
+              "10,000 FLR each" next to a card titled "10,000 FLR" said the same
+              number twice — and the blurb used to repeat the supply the minted
+              counter already states. */}
+          <div className="mt-4 text-sm font-medium">
+            {sold != null ? sold.toString() : "—"} /{" "}
+            {maxSupply != null ? maxSupply.toString() : "—"} minted
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/8">
             <div
@@ -370,6 +370,11 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                   </span>
                 ) : remaining === 0 ? (
                   "Sold out"
+                ) : qty === 1 ? (
+                  // The card's title is the price; repeating it on the button
+                  // was the third copy. The total only appears when it says
+                  // something new — a multi-mint's combined cost.
+                  "Mint 1 bond"
                 ) : (
                   `Mint ${qty} · ${total != null ? fmtFlr(total) : "—"} FLR`
                 )}

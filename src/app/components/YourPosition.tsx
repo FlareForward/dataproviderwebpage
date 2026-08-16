@@ -78,7 +78,7 @@ export function YourPosition({
               aria-label="Address to check"
             />
           </div>
-          <Button variant="primary" size="sm" onClick={check} disabled={!input.trim()}>
+          <Button variant="action" size="sm" onClick={check} disabled={!input.trim()}>
             Check standing
           </Button>
         </div>
@@ -160,7 +160,7 @@ export function YourPosition({
                   )}
                 </div>
                 <Link to="/delegation" className="shrink-0">
-                  <Button variant="primary" size="sm" className="gap-2">
+                  <Button variant="action" size="sm" className="gap-2">
                     <Wallet size={15} /> Delegate now <ArrowRight size={14} />
                   </Button>
                 </Link>
@@ -239,7 +239,7 @@ export function YourPosition({
                   current rate.
                 </div>
                 <Link to="/staking" className="shrink-0">
-                  <Button variant="primary" size="sm" className="gap-2">
+                  <Button variant="action" size="sm" className="gap-2">
                     <Landmark size={15} /> Stake now <ArrowRight size={14} />
                   </Button>
                 </Link>

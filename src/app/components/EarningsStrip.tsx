@@ -34,7 +34,7 @@ interface EarningsStripProps {
  * here made the tile read 4,944.69 WFLR while the panel below it read
  * 4,944.68: one balance, two numbers, on one page.
  */
-function formatAmount(wei: bigint, digits = 2): string {
+function formatAmount(wei: bigint, digits = 0): string {
   const [int, frac = ""] = formatUnits(wei, 18).split(".");
   const trimmed = frac.slice(0, digits).replace(/0+$/, "");
   return Number(trimmed ? `${int}.${trimmed}` : int).toLocaleString(undefined, {
@@ -46,7 +46,7 @@ function formatAnnualAtRate(amountWei: bigint, ratePct: number | null | undefine
   if (ratePct == null || !Number.isFinite(ratePct)) return DASH;
   const amount = Number(formatUnits(amountWei, 18));
   return `${((amount * ratePct) / 100).toLocaleString(undefined, {
-    maximumFractionDigits: 2,
+    maximumFractionDigits: 0,
   })} FLR per year`;
 }
 

@@ -54,7 +54,7 @@ export default function Bonds() {
             </p>
           </div>
           <Link to="/nft">
-            <Button variant="primary" className="gap-2">
+            <Button variant="action" className="gap-2">
               <Gem size={16} /> Mint a bond <ArrowRight size={15} />
             </Button>
           </Link>
@@ -81,7 +81,7 @@ export default function Bonds() {
               <div className="mt-1 text-xs text-[#8FA0B8]">across all bonds you hold</div>
             </div>
             <div className="sm:text-right">
-              <Button variant="secondary" className="gap-2 w-full sm:w-auto" disabled>
+              <Button variant="action" className="gap-2 w-full sm:w-auto" disabled>
                 <Gift size={16} /> Claim all
               </Button>
               <p className="mt-2 text-xs text-[#8FA0B8]">

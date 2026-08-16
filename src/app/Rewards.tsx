@@ -15,7 +15,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./com
 import { Button } from "./components/Button";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { EarningsStrip } from "./components/EarningsStrip";
-import { YourPosition } from "./components/YourPosition";
 import { useDelegation } from "../hooks/useDelegation";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
@@ -165,7 +164,6 @@ export default function Rewards() {
                     positionAmount={delegatedWflr}
                     positionUnit="WFLR"
                     claimableReward={delegation.claimableReward}
-                    basis={rewards.rates.basis}
                     emptyMessage="No WFLR from this wallet is delegated to FlareForward."
                   />
                 </RewardSection>
@@ -190,7 +188,6 @@ export default function Rewards() {
                         positionAmount={stakedWithUs}
                         positionUnit="FLR"
                         claimableReward={staking.claimableReward}
-                        basis={rewards.rates.basis}
                         emptyMessage="No active P-chain stake from this wallet is delegated to FlareForward."
                       />
                       <SoonestUnlock stake={soonestUnlock} />
@@ -216,7 +213,7 @@ export default function Rewards() {
                           </p>
                         </div>
                         <Button
-                          variant="primary"
+                          variant="action"
                           className="gap-2 md:w-auto w-full"
                           disabled={staking.busy !== null}
                           onClick={() => staking.enableP().catch(() => {})}
@@ -233,14 +230,16 @@ export default function Rewards() {
                     </Card>
                   )}
                 </RewardSection>
-
-                <YourPosition rewards={rewards} compact />
+                {/* The address-lookup card that sat here is gone by operator
+                    call: My Rewards is about the connected wallet, and /bonds
+                    carries the public lookup. Epoch basis lives on analytics,
+                    not member pages. */}
               </>
             )}
 
             <p className="text-[11px] text-[#8FA0B8]">
-              Figures come from the existing FlareForward rewards hooks, Flare RPC,
-              and lot contracts. Rate basis: {rewards.rates.basis}
+              Figures come from the FlareForward rewards hooks, Flare RPC, and the
+              lot contracts — read live, not cached.
             </p>
           </>
         )}
@@ -283,11 +282,7 @@ function DisconnectedRewards({
                 accent={settledRate(rates.staking_annual_pct) != null}
               />
             </div>
-            {rates.basis && (
-              <p className="text-[11px] leading-relaxed text-[#8FA0B8]">
-                Rate basis: {rates.basis}
-              </p>
-            )}
+            {/* No epoch basis on member pages — that detail lives on analytics. */}
           </div>
           <ConnectWallet size="md" />
         </div>
@@ -349,7 +344,7 @@ function ClaimPanel({
           </div>
           {hasDelegationClaim && hasStakingClaim ? (
             <Button
-              variant="primary"
+              variant="action"
               className="gap-2 lg:w-auto w-full"
               disabled={!canClaimBoth}
               onClick={onClaimBoth}
@@ -422,7 +417,7 @@ function ClaimItem({
       </div>
       {amount > 0n && (
         <Button
-          variant="secondary"
+          variant="action"
           size="sm"
           className="gap-2 sm:w-auto w-full"
           disabled={disabled || !canClaim}
@@ -530,7 +525,7 @@ function soonestFutureStake(stakes: DisplayStake[], nodeId: string | null): Disp
     );
 }
 
-function formatAmount(wei: bigint, digits = 4): string {
+function formatAmount(wei: bigint, digits = 0): string {
   return Number(formatUnits(wei, 18)).toLocaleString(undefined, {
     maximumFractionDigits: digits,
   });

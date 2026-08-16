@@ -108,7 +108,7 @@ export function fmtFlrCompact(value: number | null | undefined): string {
   if (Math.abs(value) >= 1_000_000)
     return `${(value / 1_000_000).toFixed(2)}M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-  return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return value.toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
 export function fmtDate(unix: number | null | undefined): string {
