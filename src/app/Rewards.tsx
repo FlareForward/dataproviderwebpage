@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import {
   ArrowRight,
   CheckCircle2,
-  Clock,
   Gem,
   Gift,
   Landmark,
@@ -21,7 +20,7 @@ import { bondLotAbi, CURRENT_LOT, type BondTier } from "../lib/bondLot";
 import { useDelegation } from "../hooks/useDelegation";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
-import { settledRate, fmtDate, fmtPct } from "../lib/rewards";
+import { settledRate, fmtPct } from "../lib/rewards";
 import { formatFlr, type DisplayStake } from "../lib/staking";
 
 
@@ -58,10 +57,6 @@ export default function Rewards() {
 
   const stakedWithUs = useMemo(
     () => totalStakedWithNode(staking.stakes, rewards?.node_id ?? null),
-    [staking.stakes, rewards?.node_id]
-  );
-  const soonestUnlock = useMemo(
-    () => soonestFutureStake(staking.stakes, rewards?.node_id ?? null),
     [staking.stakes, rewards?.node_id]
   );
   const totalClaimable = delegation.claimableReward + staking.claimableReward;
@@ -173,7 +168,7 @@ export default function Rewards() {
 
                 <RewardSection
                   title="Staking"
-                  description="Your FLR staked with FlareForward, staking rewards claimable now, and soonest unlock."
+                  description="Your FLR staked with FlareForward and staking rewards claimable now."
                   action={
                     <Link to="/staking">
                       <Button variant="outline" size="sm" className="gap-2">
@@ -193,7 +188,9 @@ export default function Rewards() {
                         claimableReward={staking.claimableReward}
                         emptyMessage="No active P-chain stake from this wallet is delegated to FlareForward."
                       />
-                      <SoonestUnlock stake={soonestUnlock} />
+                      {/* Soonest-unlock came off the glance page with the rest
+                          of the per-position detail — every stake's unlock now
+                          rides its own life bar on /staking. */}
                     </div>
                   ) : (
                     <Card>
@@ -556,42 +553,11 @@ function RateTile({
   );
 }
 
-function SoonestUnlock({ stake }: { stake: DisplayStake | null }) {
-  return (
-    <Card>
-      <CardContent className="p-5">
-        <div className="glass-panel px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-            <Clock size={16} className="text-[#EE1A58]" />
-            Soonest unlock
-          </div>
-          <div className="text-sm text-[#8FA0B8]">
-            {stake
-              ? `${formatFlr(stake.amount)} FLR unlocks ${fmtDate(Number(stake.endTime))}`
-              : "No active FlareForward stake has a future unlock."}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 function totalStakedWithNode(stakes: DisplayStake[], nodeId: string | null): bigint {
   if (!nodeId) return 0n;
   return stakes
     .filter((stake) => stake.nodeId === nodeId)
     .reduce((sum, stake) => sum + stake.amount, 0n);
-}
-
-function soonestFutureStake(stakes: DisplayStake[], nodeId: string | null): DisplayStake | null {
-  if (!nodeId) return null;
-  const nowSecs = BigInt(Math.floor(Date.now() / 1000));
-  return stakes
-    .filter((stake) => stake.nodeId === nodeId && stake.endTime > nowSecs)
-    .reduce<DisplayStake | null>(
-      (soonest, stake) => (!soonest || stake.endTime < soonest.endTime ? stake : soonest),
-      null
-    );
 }
 
 function formatAmount(wei: bigint, digits = 0): string {
