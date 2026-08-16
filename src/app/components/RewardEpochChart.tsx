@@ -54,7 +54,7 @@ export function RewardEpochChart({ address }: { address: string }) {
               tickLine={false}
               axisLine={false}
               tickFormatter={(v) =>
-                Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 })
+                Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })
               }
             />
             <RechartsTooltip
@@ -66,7 +66,7 @@ export function RewardEpochChart({ address }: { address: string }) {
               }}
               itemStyle={{ color: "#FAFAFA" }}
               formatter={(v: number) => [
-                `${Number(v).toLocaleString(undefined, { maximumFractionDigits: 4 })} FLR`,
+                `${Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 })} FLR`,
                 "Reward",
               ]}
               labelFormatter={(e) => `Reward epoch #${e}`}

@@ -1,7 +1,9 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { useReadContracts } from "wagmi";
+import { useRewards } from "../hooks/useRewards";
+import { settledRate } from "../lib/rewards";
 import { MintLot } from "./components/MintLot";
 import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
@@ -229,7 +231,12 @@ function MeasuredPerformance() {
       : data?.last_measured
         ? { ...data.last_measured, delegator_staking_pct: null, delegation_fee_pct: null }
         : live;
-  const weeks = data?.weeks ?? [];
+
+  // Fallback for the delegator tile: the rewards API measures the same rate
+  // and is what the staking page already shows.
+  const { data: rewards } = useRewards();
+  const delegatorPct =
+    cur?.delegator_staking_pct ?? settledRate(rewards?.rates.staking_annual_pct);
 
   return (
     <section className="mt-10">
@@ -260,15 +267,19 @@ function MeasuredPerformance() {
                 {pct(cur.bond_rate_annualized_pct)}
               </p>
               <p className="mt-1 text-xs text-[#8FA0B8]">
-                staking {pct(cur.staking_component_pct)} + pure {pct(cur.pure_component_pct)} ·
-                epoch {cur.reward_epoch}
+                staking {pct(cur.staking_component_pct)} + pure {pct(cur.pure_component_pct)}
               </p>
             </div>
             <div className="glass-panel p-5">
               <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
                 P-chain staking APY — what a delegator earns
               </p>
-              <p className="mt-1 text-3xl font-semibold">{pct(cur.delegator_staking_pct)}</p>
+              {/* The bond-yield fallback bucket nulls the delegator rate, which
+                  left this tile a dash for 3.5 days at a stretch — on the page
+                  whose whole argument is the gap between the two numbers. The
+                  rewards API publishes the same measured delegator rate, so use
+                  it whenever the primary read has nothing. */}
+              <p className="mt-1 text-3xl font-semibold">{pct(delegatorPct)}</p>
               <p className="mt-1 text-xs text-[#8FA0B8]">
                 after our {cur.delegation_fee_pct ?? 20}% provider fee
               </p>
@@ -286,60 +297,17 @@ function MeasuredPerformance() {
             </p>
           </div>
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="glass-panel p-4">
-              <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                Provider income this epoch
-              </p>
-              <p className="mt-1 text-2xl font-semibold">
-                {cur.provider_income_flr != null
-                  ? `${Math.round(cur.provider_income_flr).toLocaleString("en-US")} FLR`
-                  : "—"}
-              </p>
-              <p className="mt-1 text-xs text-[#8FA0B8]">the pool holder rewards come from</p>
-            </div>
-            <div className="glass-panel p-4">
-              <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">Epochs on record</p>
-              <p className="mt-1 text-2xl font-semibold">{data?.total_epochs ?? 0}</p>
-              <p className="mt-1 text-xs text-[#8FA0B8]">3.5 days each · log grows every epoch</p>
-            </div>
-          </div>
-
-          {weeks.length > 0 && (
-            <div className="glass-panel mt-3 overflow-x-auto p-0">
-              <table className="w-full min-w-[420px] text-left text-sm">
-                <thead className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                  <tr className="border-b border-white/8">
-                    <th className="px-4 py-3">Period</th>
-                    <th className="px-4 py-3">Epochs</th>
-                    <th className="px-4 py-3">Measured bond rate</th>
-                    <th className="px-4 py-3">Provider income</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[...weeks, ...(data?.overall ? [data.overall] : [])].map((w) => (
-                    <tr key={w.label} className="border-b border-white/5 last:border-0">
-                      <td className="px-4 py-2.5 font-medium">{w.label}</td>
-                      <td className="px-4 py-2.5 text-[#8FA0B8]">{w.epoch_count}</td>
-                      <td className="px-4 py-2.5 tabular-nums">
-                        {pct(w.bond_rate_annualized_pct)}
-                      </td>
-                      <td className="px-4 py-2.5 tabular-nums text-[#8FA0B8]">
-                        {w.provider_income_flr != null
-                          ? `${Math.round(w.provider_income_flr).toLocaleString("en-US")} FLR`
-                          : "—"}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
+          {/* The provider-income tile, epoch counter, and the week-by-week
+              table came off this page by operator call: this is the mint page,
+              and epoch bookkeeping is analytics' job. What stays is the one
+              honest sentence the numbers above need. */}
           <p className="mt-3 max-w-3xl text-xs leading-relaxed text-[#8FA0B8]/80">
-            Rates are the observed per-epoch bond rate restated annually (×365/3.5) — a restatement
-            of what happened, not a prediction of what will. Past epochs do not guarantee future
-            ones, and nothing here is a promised return.
+            These are measured rates, not promises — past performance does not guarantee future
+            rates. The full epoch-by-epoch record lives on{" "}
+            <Link to="/analytics" className="text-[#E85A95] hover:underline">
+              Analytics
+            </Link>
+            .
           </p>
         </>
       )}
@@ -399,7 +367,6 @@ function CurrentLot({
           : "Price, supply, sold count, remaining supply, and mint state will be read from each tier contract once deployed."}
       </p>
       <LotCloseLine />
-      <RabbyArtworkNote />
       <div className="mt-4 grid gap-3 md:grid-cols-2">
         {tiers.map((tier) => (
           <TierOffer
@@ -687,6 +654,15 @@ export default function NftRewards() {
           </li>
         </ul>
       </div>
+
+      {/* Wallet quirks and other footnotes live at the bottom by operator call
+          — useful the moment you need them, noise the rest of the time. */}
+      <section className="mt-10 max-w-3xl">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
+          Good to know
+        </h3>
+        <RabbyArtworkNote />
+      </section>
     </div>
   );
 }

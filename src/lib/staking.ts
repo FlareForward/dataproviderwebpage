@@ -215,7 +215,10 @@ const BIPS_DENOMINATOR = 10000;
  */
 export const STAKE_LATENCY_BUFFER = 3600n;
 
-export function formatFlr(wei: bigint, maxFractionDigits = 2): string {
+export function formatFlr(wei: bigint, maxFractionDigits = 0): string {
+  // Whole FLR by operator call: nobody cares that they hold .25 of a FLR, and
+  // fractions just add noise to every balance on the site. (USD displays keep
+  // their cents; this is the FLR default only.)
   // Truncate, never round. Rounding up shows a balance larger than the one
   // actually held, which then disagrees with what MAX fills and invites a
   // transfer that cannot settle. Erring downward is always safe.
@@ -238,16 +241,17 @@ export function formatFlrPlain(wei: bigint, maxFractionDigits = 6): string {
 }
 
 /**
- * What a MAX button should put in an amount field: two decimals, matching the
+ * What a MAX button should put in an amount field: whole FLR, matching the
  * balance shown beside it, because "905.116478" is noise nobody reads.
  *
- * The fallback matters. Truncating a dust balance to two places yields "0",
- * which would disable the very button meant to sweep it — so anything that
- * rounds away to nothing keeps full precision instead.
+ * The fallback matters. Truncating a sub-1-FLR balance yields "0", which would
+ * disable the very button meant to sweep it — so anything that truncates away
+ * to nothing keeps full precision instead. That is the one place display and
+ * MAX may disagree, and it is the harmless direction.
  */
 export function formatFlrInput(wei: bigint): string {
-  const short = formatFlrPlain(wei, 2);
-  return Number(short) > 0 ? short : formatFlrPlain(wei, 18);
+  const whole = formatFlrPlain(wei, 0);
+  return Number(whole) > 0 ? whole : formatFlrPlain(wei, 18);
 }
 
 /** Compact form of a NodeID for tight UI spots (keeps the recognizable head/tail). */
