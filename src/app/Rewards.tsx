@@ -13,9 +13,10 @@ import {
 import { formatUnits } from "viem";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/Card";
 import { Button } from "./components/Button";
+import { useReadContracts } from "wagmi";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { EarningsStrip } from "./components/EarningsStrip";
-import { MyBonds } from "./components/MyBonds";
+import { bondLotAbi, CURRENT_LOT, type BondTier } from "../lib/bondLot";
 import { useDelegation } from "../hooks/useDelegation";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
@@ -232,14 +233,14 @@ export default function Rewards() {
                   )}
                 </RewardSection>
 
-                {/* Bonds came OFF this page in the 08-13 rework when /bonds
-                    was created, but the page's own copy kept promising "bond
-                    holdings" — and the operator noticed the gap. Restored as a
-                    third section in the same idiom as Delegation and Staking:
-                    the wallet's stacks here, the full detail one click away. */}
+                {/* Bonds as a glance row, matching Delegation and Staking —
+                    the operator's call after seeing the full card grid here:
+                    this page answers "what is everything earning" in one
+                    sweep, so no artwork and no per-tier cards. The gallery,
+                    the stacks, and the wheel live on /bonds. */}
                 <RewardSection
                   title="Bonds"
-                  description="Your FlareForward Bond NFTs, read straight from the lot contracts."
+                  description="Your bonds at a glance — distributions open at lot close."
                   action={
                     <Link to="/bonds">
                       <Button variant="outline" size="sm" className="gap-2">
@@ -248,7 +249,10 @@ export default function Rewards() {
                     </Link>
                   }
                 >
-                  <MyBonds compact bare />
+                  <BondsGlance
+                    address={delegation.address ?? undefined}
+                    stagedRatePct={settledRate(rewards.rates.delegation_annual_pct)}
+                  />
                 </RewardSection>
                 {/* The address-lookup card that sat here is gone by operator
                     call: My Rewards is about the connected wallet, and /bonds
@@ -481,6 +485,54 @@ function RewardSection({
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * Bonds at a glance — deliberately no artwork and no per-tier cards. This page
+ * answers "what is everything earning" in one sweep; the gallery and per-bond
+ * detail live on /bonds. The count comes from the same balanceOf reads MyBonds
+ * makes, minus everything visual. Claimable is a hard 0 until a lot closes and
+ * its distribution contract exists; the section description says why.
+ */
+function BondsGlance({
+  address,
+  stagedRatePct,
+}: {
+  address: `0x${string}` | undefined;
+  stagedRatePct: number | null;
+}) {
+  const tiers = CURRENT_LOT.tiers.filter(
+    (t): t is BondTier & { address: `0x${string}` } => !!t.address
+  );
+  const { data } = useReadContracts({
+    contracts: tiers.map((t) => ({
+      address: t.address,
+      abi: bondLotAbi,
+      functionName: "balanceOf" as const,
+      args: [address ?? "0x0000000000000000000000000000000000000000"] as const,
+    })),
+    query: { enabled: !!address && tiers.length > 0 },
+  });
+  const held = (data ?? []).reduce(
+    (sum, r) => sum + Number((r?.result as bigint | undefined) ?? 0n),
+    0
+  );
+
+  return (
+    <Card>
+      <CardContent className="p-4 sm:p-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <RateTile
+            label="Earning while staged"
+            value={fmtPct(stagedRatePct)}
+            accent={stagedRatePct != null}
+          />
+          <RateTile label="Bonds held" value={String(held)} />
+          <RateTile label="Claimable now" value="0 FLR" />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
