@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { formatUnits } from "viem";
 import { Gift, Loader2 } from "lucide-react";
 import { Card, CardContent } from "./Card";
@@ -27,6 +28,13 @@ interface EarningsStripProps {
   onClaim?: () => void;
   claimBusy?: boolean;
   claimLabel?: string;
+  /**
+   * Optional row under the hero's claim line — for state that is one fact and
+   * one action, like delegation's "100% to FlareForward · Undelegate". Lets a
+   * page fold a whole status card into the hero instead of spending a card on
+   * a single line.
+   */
+  heroExtra?: ReactNode;
 }
 
 /**
@@ -88,6 +96,7 @@ export function EarningsStrip({
   onClaim,
   claimBusy,
   claimLabel = "Claim rewards",
+  heroExtra,
 }: EarningsStripProps) {
   const hasPosition = positionAmount > 0n;
   const hasRate = ratePct != null && Number.isFinite(ratePct);
@@ -99,34 +108,39 @@ export function EarningsStrip({
         {hasPosition ? (
           <>
             {hero && (
-              <div className="glass-panel p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                    Claimable now
+              <div className="glass-panel p-4 sm:p-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-wide text-[#8FA0B8]">
+                      Claimable now
+                    </div>
+                    <div
+                      className={`mt-1 text-3xl sm:text-4xl font-semibold ${
+                        claimableReward > 0n ? "text-emerald-400" : "text-[#FAFAFA]"
+                      }`}
+                    >
+                      {formatAmount(claimableReward)}{" "}
+                      <span className="text-lg text-[#8FA0B8]">FLR</span>
+                    </div>
                   </div>
-                  <div
-                    className={`mt-1 text-3xl sm:text-4xl font-semibold ${
-                      claimableReward > 0n ? "text-emerald-400" : "text-[#FAFAFA]"
-                    }`}
+                  <Button
+                    variant="action"
+                    className="gap-2 w-full sm:w-auto sm:px-8"
+                    disabled={claimBusy || claimableReward <= 0n}
+                    onClick={onClaim}
                   >
-                    {formatAmount(claimableReward)}{" "}
-                    <span className="text-lg text-[#8FA0B8]">FLR</span>
-                  </div>
+                    {claimBusy ? (
+                      <Loader2 className="animate-spin" size={16} />
+                    ) : (
+                      <>
+                        <Gift size={16} /> {claimLabel}
+                      </>
+                    )}
+                  </Button>
                 </div>
-                <Button
-                  variant="action"
-                  className="gap-2 w-full sm:w-auto sm:px-8"
-                  disabled={claimBusy || claimableReward <= 0n}
-                  onClick={onClaim}
-                >
-                  {claimBusy ? (
-                    <Loader2 className="animate-spin" size={16} />
-                  ) : (
-                    <>
-                      <Gift size={16} /> {claimLabel}
-                    </>
-                  )}
-                </Button>
+                {heroExtra && (
+                  <div className="mt-3 border-t border-white/8 pt-3">{heroExtra}</div>
+                )}
               </div>
             )}
             <div

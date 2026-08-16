@@ -81,6 +81,17 @@ export function Delegation() {
     return (wflrBalance * BigInt(delegatedBips)) / 10_000n;
   }, [currentDelegations, flareForwardDelegationAddress, wflrBalance]);
   const hasVotePower = wflrBalance > 0n;
+  // Delegations to providers other than us — the only case the list card
+  // still exists for.
+  const otherDelegations = useMemo(
+    () =>
+      flareForward
+        ? currentDelegations.filter(
+            (d) => d.address.toLowerCase() !== flareForward.address.toLowerCase()
+          )
+        : currentDelegations,
+    [currentDelegations, flareForward]
+  );
   const alreadyDelegated =
     flareForward != null &&
     currentDelegations.some(
@@ -128,15 +139,43 @@ export function Delegation() {
           onClaim={handleClaim}
           claimBusy={busy === "claim"}
           claimLabel="Claim rewards"
+          /* Delegation state is one fact and one action — a percentage set
+             once, undone once. It rides in the hero instead of spending a
+             whole card on a single line. */
+          heroExtra={
+            alreadyDelegated ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <span className="flex items-center gap-2 text-sm text-emerald-400">
+                  <CheckCircle2 size={15} className="shrink-0" />
+                  Vote power delegated — 100% to FlareForward
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2 text-red-400 hover:bg-red-500/10"
+                  disabled={busy !== null}
+                  onClick={() => undelegate()}
+                >
+                  {busy === "undelegate" ? (
+                    <Loader2 className="animate-spin" size={14} />
+                  ) : (
+                    <>
+                      <XCircle size={14} /> Undelegate
+                    </>
+                  )}
+                </Button>
+              </div>
+            ) : undefined
+          }
         />
       )}
 
-      {/* Your delegations — the user's own current position. Full width, like
-          Your Stakes: the rewards card that used to sit beside it has moved
-          into the action panel, where staking already keeps its claim. */}
-      {isConnected && currentDelegations.length > 0 && (
+      {/* The delegations card only earns its place when something needs a
+          list: vote power split with a provider that is not us. Our own
+          delegation is one line in the hero above. */}
+      {isConnected && otherDelegations.length > 0 && (
         <YourDelegations
-          delegations={currentDelegations}
+          delegations={otherDelegations}
           flareForward={flareForward}
           busy={busy}
           onUndelegate={undelegate}
@@ -218,10 +257,9 @@ export function Delegation() {
                   <div className="space-y-6">
                   {alreadyDelegated ? (
                     <>
-                      <div className="glass-panel p-3 flex items-center gap-2 text-sm text-emerald-400">
-                        <CheckCircle2 size={16} className="shrink-0" />
-                        You're already delegated to FlareForward. Thank you!
-                      </div>
+                      {/* The delegated state lives in the hero now — repeating
+                          the green line here would be the duplication this page
+                          just shed. */}
                       {/* Delegating again is not a thing to do. On Flare the
                           instruction is a percentage, set once — anything wrapped
                           later follows it on its own. Showing a "Delegate" CTA to
