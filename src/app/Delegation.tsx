@@ -149,10 +149,12 @@ export function Delegation() {
                   <CheckCircle2 size={15} className="shrink-0" />
                   Vote power delegated — 100% to FlareForward
                 </span>
+                {/* Quiet at rest, red only on hover: the escape hatch should be
+                    findable, not the loudest thing in the hero. */}
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="gap-2 text-red-400 hover:bg-red-500/10"
+                  className="gap-2 text-[#8FA0B8] hover:text-red-400 hover:bg-red-500/10"
                   disabled={busy !== null}
                   onClick={() => undelegate()}
                 >
