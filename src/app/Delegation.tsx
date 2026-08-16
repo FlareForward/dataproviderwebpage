@@ -61,6 +61,7 @@ export function Delegation() {
     claimableReward,
     busy,
     wrap,
+    unwrap,
     delegate,
     undelegate,
     claimRewards,
@@ -101,6 +102,15 @@ export function Delegation() {
   async function handleWrap() {
     try {
       await wrap(wrapAmount);
+      setWrapAmount("");
+    } catch {
+      /* toast already shown */
+    }
+  }
+
+  async function handleUnwrap() {
+    try {
+      await unwrap(wrapAmount);
       setWrapAmount("");
     } catch {
       /* toast already shown */
@@ -226,7 +236,7 @@ export function Delegation() {
                   {/* Wrap step */}
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-[#8FA0B8]">Wrap FLR to WFLR (optional)</span>
+                      <span className="text-[#8FA0B8]">Wrap or unwrap (optional)</span>
                       <button
                         onClick={() => setWrapAmount(formatFlrInput(flrBalance))}
                         className="text-xs text-[#EE1A58] hover:underline"
@@ -245,14 +255,45 @@ export function Delegation() {
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8FA0B8] font-medium">FLR</span>
                     </div>
-                    <Button
-                      variant="action"
-                      className="w-full"
-                      disabled={busy !== null || !wrapAmount || Number(wrapAmount) <= 0}
-                      onClick={handleWrap}
-                    >
-                      {busy === "wrap" ? <Loader2 className="animate-spin" size={16} /> : "Wrap FLR"}
-                    </Button>
+                    {/* Both directions off one amount, the Move FLR idiom.
+                        Each button gates on its own source balance; the chain
+                        enforces the real limit either way. */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="action"
+                        className="w-full"
+                        disabled={
+                          busy !== null ||
+                          !wrapAmount ||
+                          Number(wrapAmount) <= 0 ||
+                          Number(wrapAmount) > Number(formatUnits(flrBalance, 18))
+                        }
+                        onClick={handleWrap}
+                      >
+                        {busy === "wrap" ? (
+                          <Loader2 className="animate-spin" size={16} />
+                        ) : (
+                          "Wrap FLR"
+                        )}
+                      </Button>
+                      <Button
+                        variant="action"
+                        className="w-full"
+                        disabled={
+                          busy !== null ||
+                          !wrapAmount ||
+                          Number(wrapAmount) <= 0 ||
+                          Number(wrapAmount) > Number(formatUnits(wflrBalance, 18))
+                        }
+                        onClick={handleUnwrap}
+                      >
+                        {busy === "unwrap" ? (
+                          <Loader2 className="animate-spin" size={16} />
+                        ) : (
+                          "Unwrap to FLR"
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   </div>
 
@@ -345,7 +386,7 @@ function YourDelegations({
 }: {
   delegations: CurrentDelegation[];
   flareForward: ProviderRow | null;
-  busy: null | "wrap" | "delegate" | "undelegate" | "claim";
+  busy: null | "wrap" | "unwrap" | "delegate" | "undelegate" | "claim";
   onUndelegate: () => void;
 }) {
   const totalPct = delegations.reduce((sum, d) => sum + d.bips, 0) / 100;
