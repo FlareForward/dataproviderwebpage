@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./com
 import { Button } from "./components/Button";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { EarningsStrip } from "./components/EarningsStrip";
+import { MyBonds } from "./components/MyBonds";
 import { useDelegation } from "../hooks/useDelegation";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
@@ -229,6 +230,25 @@ export default function Rewards() {
                       </CardContent>
                     </Card>
                   )}
+                </RewardSection>
+
+                {/* Bonds came OFF this page in the 08-13 rework when /bonds
+                    was created, but the page's own copy kept promising "bond
+                    holdings" — and the operator noticed the gap. Restored as a
+                    third section in the same idiom as Delegation and Staking:
+                    the wallet's stacks here, the full detail one click away. */}
+                <RewardSection
+                  title="Bonds"
+                  description="Your FlareForward Bond NFTs, read straight from the lot contracts."
+                  action={
+                    <Link to="/bonds">
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <Gift size={15} /> Manage bonds <ArrowRight size={14} />
+                      </Button>
+                    </Link>
+                  }
+                >
+                  <MyBonds compact bare />
                 </RewardSection>
                 {/* The address-lookup card that sat here is gone by operator
                     call: My Rewards is about the connected wallet, and /bonds
