@@ -7,7 +7,7 @@ import { settledRate } from "../lib/rewards";
 import { MintLot } from "./components/MintLot";
 import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
-import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, Undo2 } from "lucide-react";
+import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, Undo2, HeartHandshake } from "lucide-react";
 
 /**
  * Measured bond performance, served by /api/bond-yield (worker/bondYield.ts).
@@ -589,6 +589,42 @@ export default function NftRewards() {
         statusLoading={statusLoading}
         preview={preview}
       />
+
+      {/* Giving, deliberately loose. The operator's call: signal the intent
+          long before the details exist -- another reason to back us -- while
+          promising nothing. No cause is named, no percentage stated, no date
+          given; the only concrete thing here is the one that already works
+          today, gifting a bond, which is a plain NFT transfer. When the
+          partner and the split are settled they get published here in the
+          same plain English, transactions and all. */}
+      <section className="mt-10 max-w-3xl space-y-4">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
+          Giving back
+        </h3>
+        <div className="glass-panel p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <HeartHandshake size={18} className="text-[#E85A95]" />
+            <h3 className="font-semibold">Your working money, working for a cause</h3>
+            <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+              In the works
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
+            We&apos;re shaping a way for this project to give — part of what the infrastructure
+            earns going to a cause worth backing. Choosing who, and settling how much, is going to
+            take time, and we&apos;d rather get it right than get it named. Nothing is promised yet;
+            when it&apos;s settled, the details go here in plain English, transactions and all. More
+            ways to give alongside the bonds are on the drawing board too.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
+            <span className="font-medium text-[#FAFAFA]">One thing already works today:</span> a
+            bond is a gift that keeps giving. Mint one and send it to an organization you care
+            about — whoever holds a bond holds its share of the lot&apos;s distributions, for as
+            long as they hold it. Make sure it goes to an address they control, and as always:
+            sell or send, never burn.
+          </p>
+        </div>
+      </section>
 
       {/* Getting out, in one place. Two routes, at very different stages: the
           marketplace is being built, redemption is not agreed and has no
