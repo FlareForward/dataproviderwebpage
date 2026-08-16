@@ -224,6 +224,64 @@
       0 14px 44px rgba(238, 26, 88, 0.18);
   }
 
+  /* A position that holds real money — a stake, a delegation, a bond stack —
+     renders as its own tile: lit left edge, and on hover the same sheen the
+     action buttons carry, slowed down. The row-scale sibling of .btn-action:
+     quiet at rest, alive under the pointer. Reuses btn-action-shimmer. */
+  .asset-tile {
+    position: relative;
+    overflow: hidden;
+    background: rgba(28, 45, 71, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 2px solid rgba(238, 26, 88, 0.55);
+    border-radius: 0.75rem;
+    transition: border-color 200ms ease, background 200ms ease;
+  }
+
+  .asset-tile:hover {
+    background: rgba(28, 45, 71, 0.6);
+    border-color: rgba(255, 255, 255, 0.14);
+    border-left-color: rgba(238, 26, 88, 0.9);
+  }
+
+  /* Unlocked / ready positions trade the pink edge for emerald: done working,
+     ready to collect. */
+  .asset-tile--ready {
+    border-left-color: rgba(52, 211, 153, 0.6);
+  }
+
+  .asset-tile--ready:hover {
+    border-left-color: rgba(52, 211, 153, 0.95);
+  }
+
+  .asset-tile::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 40%,
+      rgba(255, 255, 255, 0.14) 50%,
+      rgba(238, 26, 88, 0.18) 56%,
+      transparent 66%
+    );
+    background-size: 250% 100%;
+    background-position: 160% 0;
+  }
+
+  .asset-tile:hover::after {
+    opacity: 1;
+    animation: btn-action-shimmer 1100ms ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .asset-tile:hover::after {
+      animation: none;
+    }
+  }
+
   /* Modal / dialog surface. Deliberately near-opaque: the translucent glass
      idiom works over the calm page background, but a dialog floats over
      whatever busy content opened it -- artwork, tables -- and at 50% opacity

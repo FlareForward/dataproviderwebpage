@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { settledRate } from "../lib/rewards";
-import { parseUnits } from "viem";
+import { formatUnits, parseUnits } from "viem";
 import {
   Server,
   Wallet,
@@ -259,7 +259,7 @@ export function Staking() {
         <YourStakes
           stakes={stakes}
           ourNodeId={ourNodeId}
-          ourFeePct={selectedValidator?.delegationFeePct ?? null}
+          ratePct={settledRate(rewards?.rates.staking_annual_pct)}
           totalStaked={balance.stakedOnP}
           claimable={claimableReward}
           fetching={stakesFetching}
@@ -612,7 +612,7 @@ export function Staking() {
 function YourStakes({
   stakes,
   ourNodeId,
-  ourFeePct,
+  ratePct,
   totalStaked,
   claimable,
   fetching,
@@ -621,7 +621,8 @@ function YourStakes({
 }: {
   stakes: DisplayStake[];
   ourNodeId: string | null;
-  ourFeePct: number | null;
+  /** Live staking APY — each stake shows its own output at this rate. */
+  ratePct: number | null;
   totalStaked: bigint;
   claimable: bigint;
   fetching: boolean;
@@ -654,7 +655,11 @@ function YourStakes({
           </div>
         </div>
       </CardHeader>
-      <div className="divide-y divide-white/8">
+      {/* Each stake is a position holding real money, so each renders as its
+          own asset tile rather than a table row: lit edge, hover sheen, its
+          own output at the current rate, and a life bar walking start to
+          unlock. Someone with three stakes should see three engines. */}
+      <div className="p-4 space-y-3">
         {stakes.length === 0 && (
           <div className="p-6 text-center text-sm text-[#8FA0B8]">
             {fetching
@@ -664,13 +669,29 @@ function YourStakes({
         )}
         {stakes.map((s) => {
           const isUs = ourNodeId != null && s.nodeId === ourNodeId;
-          const fee = isUs ? (ourFeePct ?? undefined) : undefined;
           const unlocked = Number(s.endTime) <= nowSecs;
+          const start = Number(s.startTime);
+          const end = Number(s.endTime);
+          // How far through its term this stake is, clamped: pending local
+          // records and clock skew must never draw <0% or >100%.
+          const pctDone =
+            end > start
+              ? Math.min(100, Math.max(0, ((nowSecs - start) / (end - start)) * 100))
+              : 100;
+          // This stake's own output at the live rate — a labelled restatement,
+          // same idiom as the hero's "at the current rate". Rewards are paid to
+          // the address, not per stake, so this is rate × principal, never a
+          // claim of attribution.
+          const perYear =
+            !unlocked && ratePct != null
+              ? Number(formatUnits(s.amount, 18)) * (ratePct / 100)
+              : null;
           return (
             <div
               key={s.key}
-              className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              className={`asset-tile p-4${unlocked ? " asset-tile--ready" : ""}`}
             >
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-4 min-w-0">
                 {isUs ? (
                   <div className="w-10 h-10 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
@@ -714,14 +735,37 @@ function YourStakes({
               </div>
               <div className="flex items-center gap-3 sm:justify-end pl-14 sm:pl-0">
                 <div className="text-right">
-                  <div className="text-sm font-semibold text-[#FAFAFA]">
+                  <div className="text-lg font-semibold tabular-nums text-[#FAFAFA]">
                     {formatFlr(s.amount, 0)} FLR
                   </div>
+                  {perYear != null && (
+                    <div className="mt-0.5 flex items-center justify-end gap-1.5 text-xs text-emerald-400">
+                      <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                      </span>
+                      ≈ {perYear.toLocaleString(undefined, { maximumFractionDigits: 0 })} FLR /
+                      yr at the current rate
+                    </div>
+                  )}
                 </div>
                 <Badge variant={s.pending ? "outline" : unlocked ? "dark" : "success"}>
                   {s.pending ? "Pending" : unlocked ? "Unlocked" : "Active"}
                 </Badge>
               </div>
+            </div>
+            {/* The life bar: this stake walking its term, start to unlock.
+                Pink while working, emerald once it is done and collectable. */}
+            <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/8">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  unlocked
+                    ? "bg-emerald-400/80"
+                    : "bg-gradient-to-r from-[#EE1A58] to-[#E85A95]"
+                }`}
+                style={{ width: `${pctDone}%` }}
+              />
+            </div>
             </div>
           );
         })}
