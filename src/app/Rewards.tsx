@@ -232,11 +232,7 @@ export default function Rewards() {
                   )}
                 </RewardSection>
 
-                {/* Bonds do NOT get their own section — the operator pared it
-                    twice: first the card grid, then the titled section. One
-                    slim row in the Soonest-unlock idiom, everything about the
-                    bonds in a single line, detail one click away on /bonds. */}
-                <BondsGlance
+                <BondsSection
                   address={delegation.address ?? undefined}
                   stagedRatePct={settledRate(rewards.rates.delegation_annual_pct)}
                 />
@@ -487,13 +483,19 @@ function RewardSection({
 }
 
 /**
- * Bonds at a glance — deliberately no artwork and no per-tier cards. This page
- * answers "what is everything earning" in one sweep; the gallery and per-bond
- * detail live on /bonds. The count comes from the same balanceOf reads MyBonds
- * makes, minus everything visual. Claimable is a hard 0 until a lot closes and
- * its distribution contract exists; the section description says why.
+ * Bonds, as a peer of Delegation and Staking.
+ *
+ * This was twice pared down to a one-line strip, and twice that left the third
+ * thing a member can hold reading as an afterthought next to two full sections
+ * — a 52px strip beside two 168px blocks. Restored by operator call to the same
+ * shape as the others: heading, manage action, four tiles on the same 104px
+ * grid, so all three holdings answer "what is this earning" identically.
+ *
+ * Staged capital is derived, not hardcoded: balanceOf x mintPrice per tier,
+ * both read from the lot contracts. Claimable is a hard 0 until a lot closes
+ * and its distributor is funded.
  */
-function BondsGlance({
+function BondsSection({
   address,
   stagedRatePct,
 }: {
@@ -503,43 +505,92 @@ function BondsGlance({
   const tiers = CURRENT_LOT.tiers.filter(
     (t): t is BondTier & { address: `0x${string}` } => !!t.address
   );
+
   const { data } = useReadContracts({
-    contracts: tiers.map((t) => ({
-      address: t.address,
-      abi: bondLotAbi,
-      functionName: "balanceOf" as const,
-      args: [address ?? "0x0000000000000000000000000000000000000000"] as const,
-    })),
+    contracts: tiers.flatMap((t) => [
+      {
+        address: t.address,
+        abi: bondLotAbi,
+        functionName: "balanceOf" as const,
+        args: [address ?? "0x0000000000000000000000000000000000000000"] as const,
+      },
+      { address: t.address, abi: bondLotAbi, functionName: "mintPrice" as const },
+    ]),
     query: { enabled: !!address && tiers.length > 0 },
   });
-  const held = (data ?? []).reduce(
-    (sum, r) => sum + Number((r?.result as bigint | undefined) ?? 0n),
-    0
-  );
+
+  // Reads come back as [balanceOf, mintPrice] per tier, in tier order.
+  let held = 0;
+  let stagedWei = 0n;
+  tiers.forEach((_, i) => {
+    const balance = (data?.[i * 2]?.result as bigint | undefined) ?? 0n;
+    const price = (data?.[i * 2 + 1]?.result as bigint | undefined) ?? 0n;
+    held += Number(balance);
+    stagedWei += balance * price;
+  });
+
+  const annualWei =
+    stagedRatePct != null && Number.isFinite(stagedRatePct)
+      ? (stagedWei * BigInt(Math.round(stagedRatePct * 100))) / 10_000n
+      : null;
 
   return (
-    <Card>
-      <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-          <Gem size={15} className="text-[#EE1A58]" /> Bonds
-        </span>
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#8FA0B8]">
-          <span className="tabular-nums font-medium text-[#FAFAFA]">{held}</span> held ·
-          <span className="flex items-center gap-1.5">
-            <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            </span>
-            <span className="font-medium text-emerald-400">{fmtPct(stagedRatePct)}</span> while
-            staged
-          </span>
-          · 0 FLR claimable
-          <Link to="/bonds" className="ml-1 font-medium text-[#E85A95] hover:underline">
-            Manage →
-          </Link>
-        </span>
-      </CardContent>
-    </Card>
+    <RewardSection
+      title="Bonds"
+      description="Your FlareForward Bonds and what they earn while the capital is staged."
+      action={
+        <Link to="/bonds">
+          <Button variant="outline" size="sm" className="gap-2">
+            <Gem size={15} /> Manage bonds <ArrowRight size={14} />
+          </Button>
+        </Link>
+      }
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-stretch">
+        <BondStat
+          label="Bond rate"
+          value={fmtPct(stagedRatePct)}
+          sub="while staged"
+          accent={stagedRatePct != null}
+        />
+        <BondStat label="Bonds held" value={`${held}`} sub="your position" />
+        <BondStat label="Claimable now" value="0 FLR" sub="nothing waiting" />
+        <BondStat
+          label="At the current rate"
+          value={annualWei != null ? `${fmtFlrWei(annualWei)} FLR` : "—"}
+          sub="per year, projection"
+        />
+      </div>
+    </RewardSection>
+  );
+}
+
+/** Same tile as the earnings strip, so all three sections share one grid. */
+function BondStat({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="glass-panel h-full px-4 py-3 flex flex-col">
+      <div className="min-h-[2.4em] text-[11px] uppercase leading-[1.2] tracking-wider text-[#8FA0B8]">
+        {label}
+      </div>
+      <div
+        className={`mt-1 text-xl font-bold tabular-nums ${
+          accent ? "text-emerald-400" : "text-[#FAFAFA]"
+        }`}
+      >
+        {value}
+      </div>
+      <div className="mt-1 text-xs text-[#8FA0B8]">{sub}</div>
+    </div>
   );
 }
 
