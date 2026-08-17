@@ -330,46 +330,46 @@ function ClaimPanel({
 
   return (
     <Card>
+      {/* The title and the headline number share one row. They used to sit in
+          two stacked bands — a header block, then a separate 70px band for
+          "Total claimable" — which made this card more than twice the height of
+          the sections under it and threw the whole page's vertical rhythm out. */}
       <CardHeader className="border-b border-white/8 pb-4">
-        <div className="flex items-center gap-2">
-          <Gift size={18} className="text-[#EE1A58]" />
-          <CardTitle className="text-[#FAFAFA]">Claimable now</CardTitle>
-        </div>
-        <CardDescription className="text-[#8FA0B8]">
-          What you've earned and can take right now. Delegation and staking pay from separate
-          contracts, so claiming both is two confirmations rather than one.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-5 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="text-xs uppercase tracking-wider text-[#8FA0B8]">Total claimable</div>
-            <div className="mt-1 text-3xl font-bold tabular-nums text-emerald-400">
-              {fmtFlrWei(totalClaimable)} <span className="text-base text-[#8FA0B8]">FLR</span>
+            <div className="flex items-center gap-2">
+              <Gift size={18} className="text-[#EE1A58]" />
+              <CardTitle className="text-[#FAFAFA]">Claimable now</CardTitle>
             </div>
-            {totalClaimable === 0n && (
-              <p className="mt-2 text-sm text-[#8FA0B8]">
-                Nothing to claim at this moment. Delegation rewards accrue every reward epoch
-                and land here when the epoch closes — nothing is lost in the meantime.
-              </p>
+            <CardDescription className="text-[#8FA0B8]">
+              Delegation and staking pay from separate contracts, so claiming both is two
+              confirmations.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="sm:text-right">
+              <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+                Total claimable
+              </div>
+              <div className="text-3xl font-bold tabular-nums text-emerald-400">
+                {fmtFlrWei(totalClaimable)} <span className="text-base text-[#8FA0B8]">FLR</span>
+              </div>
+            </div>
+            {hasDelegationClaim && hasStakingClaim && (
+              <Button
+                variant="action"
+                className="gap-2"
+                disabled={!canClaimBoth}
+                onClick={onClaimBoth}
+              >
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
+                Claim both
+              </Button>
             )}
           </div>
-          {/* Only ever the combined action. The per-source buttons below are
-              always rendered now, so the old "use its claim button below" hint
-              had nothing left to explain and only made this row lopsided. */}
-          {hasDelegationClaim && hasStakingClaim && (
-            <Button
-              variant="action"
-              className="gap-2 lg:w-auto w-full"
-              disabled={!canClaimBoth}
-              onClick={onClaimBoth}
-            >
-              {busy ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
-              Claim both
-            </Button>
-          )}
         </div>
-
+      </CardHeader>
+      <CardContent className="p-5 space-y-4">
         {/* items-stretch + h-full on the child: the two source cards hold the
             same height whatever their state, so the amounts share a baseline
             instead of one card floating above the other. */}

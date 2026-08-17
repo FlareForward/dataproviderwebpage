@@ -37,12 +37,19 @@ interface EarningsStripProps {
   heroExtra?: ReactNode;
 }
 
+/**
+ * Amount only — "per year" moved to the sub-line. Carrying it in the value made
+ * the string long enough to wrap at a big stake ("36,128 FLR per year"), which
+ * stretched that one tile and, because the row is height-matched, every tile
+ * beside it: the Staking row stood 28px taller than the Delegation row for no
+ * reason but a line break.
+ */
 function formatAnnualAtRate(amountWei: bigint, ratePct: number | null | undefined): string {
   if (ratePct == null || !Number.isFinite(ratePct)) return DASH;
   const amount = Number(formatUnits(amountWei, 18));
   return `${((amount * ratePct) / 100).toLocaleString(undefined, {
     maximumFractionDigits: 0,
-  })} FLR per year`;
+  })} FLR`;
 }
 
 /**
@@ -102,9 +109,8 @@ export function EarningsStrip({
   const hasRate = ratePct != null && Number.isFinite(ratePct);
   const hero = onClaim != null;
 
-  return (
-    <Card>
-      <CardContent className="p-4 sm:p-5 space-y-3">
+  const body = (
+    <>
         {hasPosition ? (
           <>
             {hero && (
@@ -171,7 +177,7 @@ export function EarningsStrip({
               <EarningsStat
                 label="At the current rate"
                 value={formatAnnualAtRate(positionAmount, ratePct)}
-                sub="projection, not a guarantee"
+                sub="per year, projection"
               />
             </div>
           </>
@@ -189,7 +195,22 @@ export function EarningsStrip({
           </div>
         )}
         {basis && <p className="text-[11px] leading-relaxed text-[#8FA0B8]">Rate basis: {basis}</p>}
-      </CardContent>
+    </>
+  );
+
+  /**
+   * The tiles are already boxes. Wrapping them in a card as well framed a frame
+   * — every row on My Rewards sat inset inside a second panel, which is what
+   * made the page read as boxes inside boxes and stretched it vertically for no
+   * information. The wrapper stays only for the hero variant (/delegation and
+   * /staking), where the strip is a standalone panel with a claim action and
+   * genuinely is its own surface.
+   */
+  if (!hero) return <div className="space-y-3">{body}</div>;
+
+  return (
+    <Card>
+      <CardContent className="p-4 sm:p-5 space-y-3">{body}</CardContent>
     </Card>
   );
 }
