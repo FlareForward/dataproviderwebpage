@@ -7,7 +7,7 @@ import { settledRate } from "../lib/rewards";
 import { MintLot } from "./components/MintLot";
 import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
-import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, Undo2, HeartHandshake } from "lucide-react";
+import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, HeartHandshake } from "lucide-react";
 
 /**
  * Measured bond performance, served by /api/bond-yield (worker/bondYield.ts).
@@ -634,21 +634,20 @@ export default function NftRewards() {
         </div>
       </section>
 
-      {/* Getting out, in one place. Two routes, at very different stages: the
-          marketplace is being built, redemption is not agreed and has no
-          published terms. They are labelled differently on purpose -- a matched
-          pair of "coming soon" badges would imply redemption is as settled as
-          the marketplace, and the terms directly below still say there is no
-          redeem-for-principal. Nothing here promises one. */}
+      {/* One exit on the page, by operator call 2026-08-17: the marketplace.
+          The "Redeem your bond" card was pulled entirely rather than reworded.
+          Redemption is genuinely buildable — two routes exist (deposit into the
+          distributor and split pro-rata, or Jon's escrow that swaps one token
+          for a set amount of FLR) — but whether we ever open either window is
+          undecided, and an "under review" card invites people to plan around a
+          thing that may not ship. Say nothing until it is decided. Do NOT
+          reinstate a redemption card without an operator decision on terms. */}
       <section className="mt-10 space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
           When you want out
         </h3>
 
-        {/* The two exits sit side by side rather than stacked — they are a pair
-            of alternatives, and reading them as a pair is the point. */}
-        <div className="grid gap-4 lg:grid-cols-2 items-stretch">
-        <div className="glass-panel h-full p-5">
+        <div className="glass-panel p-5">
           <div className="flex flex-wrap items-center gap-3">
             <Store size={18} className="text-[#E85A95]" />
             <h3 className="font-semibold">Sell on the marketplace</h3>
@@ -656,45 +655,23 @@ export default function NftRewards() {
               Coming soon
             </span>
           </div>
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
             Buy a bond from another holder instead of minting a new one. A listed bond can carry
             unclaimed rewards, so both sides can see what it&apos;s actually worth. Holders will be
             able to list at whatever price they choose. In build now.
           </p>
-        </div>
-
-        <div className="glass-panel h-full p-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <Undo2 size={18} className="text-[#8FA0B8]" />
-            <h3 className="font-semibold">Redeem your bond</h3>
-            <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8FA0B8]">
-              Under review
-            </span>
-          </div>
-          {/* Updated 08-16 once the mechanism was settled with the distributor's
-              author: redemption is not a new contract, it is the distribution
-              rail run in reverse — deposit principal, split per bond, claim.
-              What stays open is whether and when we run it, so no terms are
-              promised and the terms below still describe today. */}
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            The rails for this already exist: the same distribution contract that pays rewards can
-            return principal — FLR deposited into it is split equally across every bond and claimed
-            like any other distribution. No burning, ever; a burned bond&apos;s share is gone for
-            good. Whether and when we open a redemption window is the decision still in front of
-            us, so today your exit is selling the NFT. The exact rules will be published here in
-            plain English before anything ships.
-          </p>
-        </div>
         </div>
       </section>
 
       <div className="glass-panel mt-10 p-5">
         <h3 className="font-semibold">The plain-English terms</h3>
         <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
-          <li>
-            • Funds bond at lot close. After that, your exit is selling the NFT — there is no
-            redeem-for-principal.
-          </li>
+          {/* The "there is no redeem-for-principal" clause came off with the
+              redemption card. It was a promise in the negative, and an untrue
+              one -- the rails exist, only the decision to use them doesn't.
+              Stating the exit we DO offer says everything a buyer needs without
+              claiming anything about one we haven't decided on. */}
+          <li>• Funds bond at lot close. After that, your exit is selling the NFT.</li>
           <li>
             • Distributions will be equal per NFT within a lot, enforced on-chain by that
             lot&apos;s distribution contract once it is deployed.
