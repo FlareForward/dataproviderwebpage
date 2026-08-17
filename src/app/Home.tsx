@@ -194,11 +194,17 @@ export default function Home() {
               title="FlareForward Bonds"
               body="Mint a bond NFT and fund the validator self-bond directly. Lot 1 is open now."
             />
+            {/* The odd one out: the first three are ways to back us, this one
+                is where you go once you have. It keeps its slot in the row, but
+                it carries the destination's own name — everywhere else in the
+                app that page is "My Rewards", and a card called "See what
+                you've earned" landed people somewhere that never used the
+                phrase. */}
             <SupportCard
               to="/rewards"
               icon={<Gift size={18} />}
-              title="See what you've earned"
-              body="Your delegation, staking and bonds in one place — and what's ready to claim."
+              title="My Rewards"
+              body="Already backing us? Your delegation, staking and bonds in one place — and what's ready to claim."
             />
           </div>
         </section>

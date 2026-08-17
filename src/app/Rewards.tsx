@@ -31,6 +31,22 @@ const FLAREFORWARD_ADDRESS =
   "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110".toLowerCase();
 
 /**
+ * Bond distributions claimable by this wallet. Hard zero, deliberately.
+ *
+ * Bonds pay through Jon's distribution contract: FLR deposited into it is split
+ * equally across every token id and holders claim their share. Nothing has been
+ * deposited for Lot 1, so zero is the true figure rather than a placeholder.
+ *
+ * Wiring it live needs veriguardnft.xyz/royalty-api, which serves per-wallet
+ * claimable amounts — but only for collections listed in the on-chain
+ * CollectionRegistry, and both Lot 1 tiers currently answer "Collection is not
+ * supported". Left as a constant until they are registered and a real response
+ * can be read, rather than shipping a parser written against a shape nobody
+ * has seen return data.
+ */
+const BONDS_CLAIMABLE_WEI = 0n;
+
+/**
  * /rewards is the connected wallet's member page: delegation, staking, and
  * bond holdings in one place. Bond distributions are status-only here because
  * no claim contract exists yet.
@@ -134,6 +150,7 @@ export default function Rewards() {
                   totalClaimable={totalClaimable}
                   delegationClaimable={delegation.claimableReward}
                   stakingClaimable={staking.claimableReward}
+                  bondsClaimable={BONDS_CLAIMABLE_WEI}
                   delegationState={
                     delegation.busy === "claim" ? "claiming" : claimState.delegation
                   }
@@ -301,6 +318,7 @@ function ClaimPanel({
   totalClaimable,
   delegationClaimable,
   stakingClaimable,
+  bondsClaimable,
   delegationState,
   stakingState,
   busy,
@@ -312,6 +330,7 @@ function ClaimPanel({
   totalClaimable: bigint;
   delegationClaimable: bigint;
   stakingClaimable: bigint;
+  bondsClaimable: bigint;
   delegationState: ClaimState;
   stakingState: ClaimState;
   busy: boolean;
@@ -369,7 +388,7 @@ function ClaimPanel({
         {/* items-stretch + h-full on the child: the two source cards hold the
             same height whatever their state, so the amounts share a baseline
             instead of one card floating above the other. */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-stretch">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
           <ClaimItem
             title="Delegation rewards"
             amount={delegationClaimable}
@@ -383,6 +402,20 @@ function ClaimPanel({
             state={stakingState}
             disabled={busy && stakingState !== "claiming"}
             onClaim={onClaimStaking}
+          />
+          {/* Three holdings, three claim cards, three sections below — the
+              panel mirrors the page. Bonds pay through Jon's distribution
+              contract, which has nothing in it until a lot closes, so this
+              card states the condition rather than reading as a broken zero.
+              It stays inert until the lots are registered in the on-chain
+              CollectionRegistry; see BondsSection. */}
+          <ClaimItem
+            title="Bond distributions"
+            amount={bondsClaimable}
+            state="idle"
+            disabled
+            onClaim={() => {}}
+            emptyNote="Opens when a lot closes and its distribution is funded."
           />
         </div>
 
@@ -405,12 +438,15 @@ function ClaimItem({
   state,
   disabled,
   onClaim,
+  emptyNote,
 }: {
   title: string;
   amount: bigint;
   state: ClaimState;
   disabled: boolean;
   onClaim: () => void;
+  /** Replaces the generic zero-state line when a source is 0 for a reason. */
+  emptyNote?: string;
 }) {
   const canClaim = amount > 0n && state !== "claiming";
   const status =
@@ -419,7 +455,10 @@ function ClaimItem({
       : state === "claimed"
         ? { text: "Claim submitted.", tone: "text-emerald-400" }
         : amount === 0n
-          ? { text: "Nothing claimable from this source.", tone: "text-[#8FA0B8]" }
+          ? {
+              text: emptyNote ?? "Nothing claimable from this source.",
+              tone: "text-[#8FA0B8]",
+            }
           : { text: "Ready to claim.", tone: "text-[#8FA0B8]" };
 
   return (
@@ -554,7 +593,11 @@ function BondsSection({
           accent={stagedRatePct != null}
         />
         <BondStat label="Bonds held" value={`${held}`} sub="your position" />
-        <BondStat label="Claimable now" value="0 FLR" sub="nothing waiting" />
+        <BondStat
+          label="Claimable now"
+          value={`${fmtFlrWei(BONDS_CLAIMABLE_WEI)} FLR`}
+          sub="nothing waiting"
+        />
         <BondStat
           label="At the current rate"
           value={annualWei != null ? `${fmtFlrWei(annualWei)} FLR` : "—"}

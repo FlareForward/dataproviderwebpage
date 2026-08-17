@@ -597,10 +597,16 @@ export default function NftRewards() {
           today, gifting a bond, which is a plain NFT transfer. When the
           partner and the split are settled they get published here in the
           same plain English, transactions and all. */}
-      <section className="mt-10 max-w-3xl space-y-4">
+      <section className="mt-10 space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
           Giving back
         </h3>
+        {/* Full width, with the two paragraphs in a matched pair of columns.
+            These sections were pinned to max-w-3xl while everything above them
+            ran the full page, so the bottom half of /nft was a narrow stack down
+            the left with dead space beside it. Splitting the prose keeps the
+            line length readable at full width rather than running one very long
+            measure across the page. */}
         <div className="glass-panel p-5">
           <div className="flex flex-wrap items-center gap-3">
             <HeartHandshake size={18} className="text-[#E85A95]" />
@@ -609,20 +615,22 @@ export default function NftRewards() {
               In the works
             </span>
           </div>
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            We&apos;re shaping a way for this project to give — part of what the infrastructure
-            earns going to a cause worth backing. Choosing who, and settling how much, is going to
-            take time, and we&apos;d rather get it right than get it named. Nothing is promised yet;
-            when it&apos;s settled, the details go here in plain English, transactions and all. More
-            ways to give alongside the bonds are on the drawing board too.
-          </p>
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            <span className="font-medium text-[#FAFAFA]">One thing already works today:</span> a
-            bond is a gift that keeps giving. Mint one and send it to an organization you care
-            about — whoever holds a bond holds its share of the lot&apos;s distributions, for as
-            long as they hold it. Make sure it goes to an address they control, and as always:
-            sell or send, never burn.
-          </p>
+          <div className="mt-3 grid gap-x-8 gap-y-3 lg:grid-cols-2">
+            <p className="text-sm leading-relaxed text-[#8FA0B8]">
+              We&apos;re shaping a way for this project to give — part of what the infrastructure
+              earns going to a cause worth backing. Choosing who, and settling how much, is going to
+              take time, and we&apos;d rather get it right than get it named. Nothing is promised
+              yet; when it&apos;s settled, the details go here in plain English, transactions and
+              all. More ways to give alongside the bonds are on the drawing board too.
+            </p>
+            <p className="text-sm leading-relaxed text-[#8FA0B8]">
+              <span className="font-medium text-[#FAFAFA]">One thing already works today:</span> a
+              bond is a gift that keeps giving. Mint one and send it to an organization you care
+              about — whoever holds a bond holds its share of the lot&apos;s distributions, for as
+              long as they hold it. Make sure it goes to an address they control, and as always:
+              sell or send, never burn.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -632,12 +640,15 @@ export default function NftRewards() {
           pair of "coming soon" badges would imply redemption is as settled as
           the marketplace, and the terms directly below still say there is no
           redeem-for-principal. Nothing here promises one. */}
-      <section className="mt-10 max-w-3xl space-y-4">
+      <section className="mt-10 space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
           When you want out
         </h3>
 
-        <div className="glass-panel p-5">
+        {/* The two exits sit side by side rather than stacked — they are a pair
+            of alternatives, and reading them as a pair is the point. */}
+        <div className="grid gap-4 lg:grid-cols-2 items-stretch">
+        <div className="glass-panel h-full p-5">
           <div className="flex flex-wrap items-center gap-3">
             <Store size={18} className="text-[#E85A95]" />
             <h3 className="font-semibold">Sell on the marketplace</h3>
@@ -652,7 +663,7 @@ export default function NftRewards() {
           </p>
         </div>
 
-        <div className="glass-panel p-5">
+        <div className="glass-panel h-full p-5">
           <div className="flex flex-wrap items-center gap-3">
             <Undo2 size={18} className="text-[#8FA0B8]" />
             <h3 className="font-semibold">Redeem your bond</h3>
@@ -674,11 +685,12 @@ export default function NftRewards() {
             plain English before anything ships.
           </p>
         </div>
+        </div>
       </section>
 
-      <div className="glass-panel mt-10 max-w-3xl p-5">
+      <div className="glass-panel mt-10 p-5">
         <h3 className="font-semibold">The plain-English terms</h3>
-        <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#8FA0B8]">
+        <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
           <li>
             • Funds bond at lot close. After that, your exit is selling the NFT — there is no
             redeem-for-principal.
@@ -700,7 +712,7 @@ export default function NftRewards() {
 
       {/* Wallet quirks and other footnotes live at the bottom by operator call
           — useful the moment you need them, noise the rest of the time. */}
-      <section className="mt-10 max-w-3xl">
+      <section className="mt-10">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
           Good to know
         </h3>
