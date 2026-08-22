@@ -1,11 +1,11 @@
 import { useCallback, useState } from "react";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, useConfig, usePublicClient } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatUnits } from "viem";
 import { toast } from "sonner";
 import { Network, Amount } from "@flarenetwork/flare-tx-sdk";
 import { EIP1193WalletController } from "@flarenetwork/flare-tx-sdk";
-import { wNatAbi, wrapWalletProvider } from "../lib/flare";
+import { resolveLiveConnector, wNatAbi, wrapWalletProvider } from "../lib/flare";
 import { formatFlr } from "../lib/staking";
 import { useWNatAddress } from "./useProviders";
 
@@ -18,7 +18,11 @@ export interface DelegationTarget {
 }
 
 export function useDelegation() {
-  const { address, connector, isConnected } = useAccount();
+  const { address, connector, status } = useAccount();
+  // wagmi reports `isConnected` while it is still reconnecting a persisted
+  // session, at which point the connector cannot sign anything yet.
+  const isConnected = status === "connected";
+  const config = useConfig();
   const publicClient = usePublicClient();
   const queryClient = useQueryClient();
   const { data: wNatAddress } = useWNatAddress();
@@ -64,15 +68,19 @@ export function useDelegation() {
 
   const getWallet = useCallback(async () => {
     if (!connector) throw new Error("No wallet connector available");
-    console.info("[claim] getWallet: requesting provider from connector", connector?.id);
-    const provider = wrapWalletProvider((await connector.getProvider()) as any);
+    const live = resolveLiveConnector(config, connector);
+    if (!live) {
+      throw new Error("Wallet is still reconnecting — try again in a moment.");
+    }
+    console.info("[claim] getWallet: requesting provider from connector", live.id);
+    const provider = wrapWalletProvider((await live.getProvider()) as any);
     console.info("[claim] getWallet: got provider, resolving active wallet");
     const controller = new EIP1193WalletController(provider);
     const wallet = await controller.getActiveWallet();
     if (!wallet) throw new Error("Could not resolve an active wallet account");
     console.info("[claim] getWallet: active wallet resolved");
     return wallet;
-  }, [connector]);
+  }, [connector, config]);
 
   const refresh = useCallback(() => {
     balances.refetch();
