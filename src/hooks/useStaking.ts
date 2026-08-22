@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useAccount, usePublicClient } from "wagmi";
+import { useAccount, useConfig, usePublicClient } from "wagmi";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -34,6 +34,7 @@ import {
   flareSystemsManagerAbi,
   voterRegistryAbi,
   FLARE_RPC_URL,
+  resolveLiveConnector,
   wrapWalletProvider,
 } from "../lib/flare";
 
@@ -70,7 +71,11 @@ const ZERO_BALANCE: Balance = {
 };
 
 export function useStaking() {
-  const { address, connector, isConnected } = useAccount();
+  const { address, connector, status } = useAccount();
+  // wagmi reports `isConnected` while it is still reconnecting a persisted
+  // session, at which point the connector cannot sign anything yet.
+  const isConnected = status === "connected";
+  const config = useConfig();
   const publicClient = usePublicClient();
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState<StakingBusy>(null);
@@ -106,12 +111,16 @@ export function useStaking() {
 
   const getWallet = useCallback(async () => {
     if (!connector) throw new Error("No wallet connector available");
-    const provider = wrapWalletProvider((await connector.getProvider()) as any);
+    const live = resolveLiveConnector(config, connector);
+    if (!live) {
+      throw new Error("Wallet is still reconnecting — try again in a moment.");
+    }
+    const provider = wrapWalletProvider((await live.getProvider()) as any);
     const controller = new EIP1193WalletController(provider);
     const wallet = await controller.getActiveWallet();
     if (!wallet) throw new Error("Could not resolve an active wallet account");
     return wallet;
-  }, [connector]);
+  }, [connector, config]);
 
   // Protocol stake limits and the validator roster are public P-chain reads and
   // do not require the user's public key, so they load as soon as possible.

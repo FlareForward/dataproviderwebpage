@@ -1,5 +1,6 @@
 import { flare as flareChain } from "viem/chains";
 import { flare as flareAbis } from "@flarenetwork/flare-wagmi-periphery-package";
+import type { Config, Connector } from "wagmi";
 
 /**
  * The FlareContractRegistry has the same address on every Flare network and is
@@ -62,6 +63,28 @@ export const EXPLORER_URL = "https://flare-explorer.flare.network";
 export function shortAddress(address?: string, chars = 4): string {
   if (!address) return "";
   return `${address.slice(0, 2 + chars)}...${address.slice(-chars)}`;
+}
+
+/**
+ * Returns a connector that can actually be used to reach the wallet.
+ *
+ * wagmi persists only `{ id, name, type, uid }` of the active connector, and
+ * during `status === "reconnecting"` that stripped object is what `useAccount`
+ * returns — while `isConnected` is already `true`. Calling `getProvider()` on
+ * it throws "getProvider is not a function". Re-resolve the real instance from
+ * the config (the `uid` is regenerated per page load, so fall back to the
+ * stable `id`), and return `undefined` when no usable instance exists yet.
+ */
+export function resolveLiveConnector(
+  config: Config,
+  connector: Connector | undefined
+): Connector | undefined {
+  if (!connector) return undefined;
+  if (typeof connector.getProvider === "function") return connector;
+  const live = config.connectors.find(
+    (c) => c.uid === connector.uid || c.id === connector.id
+  );
+  return live && typeof live.getProvider === "function" ? live : undefined;
 }
 
 type Eip1193RequestArgs = { method: string; params?: unknown };
