@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
   useAccount,
+  useBalance,
   useReadContracts,
   useSwitchChain,
   useWaitForTransactionReceipt,
@@ -29,7 +30,8 @@ function fmtFlr(wei: bigint): string {
  * contract wouldn't honour.
  */
 export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }) {
-  const { isConnected, chainId: walletChainId } = useAccount();
+  // `address` below is the tier contract, so the wallet is `account`.
+  const { isConnected, chainId: walletChainId, address: account } = useAccount();
   // Raw input text, not a number: coercing on every keystroke snaps a cleared
   // field straight back to "1" and makes the quantity impossible to edit. The
   // clamped numeric `qty` is derived below, once `maxQty` is known.
@@ -116,6 +118,38 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
   // total and the mint call can never be driven from a blank input.
   const qty = Math.max(1, Math.min(maxQty, Number(qtyText) || 1));
   const total = price != null ? price * BigInt(qty) : undefined;
+
+  /**
+   * What the connected wallet can actually spend here.
+   *
+   * The page quoted a price without ever saying whether the buyer could meet
+   * it, so the first time anyone learned they were short was a failed wallet
+   * confirmation. Native FLR only — the mint is payable in FLR and WFLR cannot
+   * pay for it, so showing a wrapped balance here would be misleading.
+   */
+  const { data: balance } = useBalance({
+    address: account,
+    query: { enabled: !!account && onFlare, refetchInterval: 30_000 },
+  });
+
+  /**
+   * Bonds affordable at this tier's price, holding back a little for gas.
+   * A wallet with exactly one bond's worth of FLR cannot mint — it would have
+   * nothing left to pay the transaction with — and telling someone they can
+   * afford one when they can't is the same failed confirmation by another
+   * route. The reserve is deliberately generous against Flare's spiky gas.
+   */
+  const GAS_RESERVE_WEI = 5n * 10n ** 18n;
+  const affordable = useMemo(() => {
+    if (balance == null || price == null || price === 0n) return null;
+    const spendable = balance.value > GAS_RESERVE_WEI ? balance.value - GAS_RESERVE_WEI : 0n;
+    return Number(spendable / price);
+  }, [balance, price]);
+
+  const shortfall =
+    balance != null && price != null && affordable === 0
+      ? price + GAS_RESERVE_WEI - balance.value
+      : null;
 
   async function onSwitch() {
     try {
@@ -357,6 +391,41 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                 />
                 <span className="text-xs text-[#8FA0B8]">max {maxQty} per transaction</span>
               </div>
+
+              {/* Balance, stated once and quietly. Deliberately a line of text
+                  rather than a panel: it is a fact you check on the way past,
+                  not a feature. It only ever appears for a connected wallet on
+                  Flare, since a balance from another network would be a number
+                  that cannot buy this. */}
+              {balance != null && (
+                <p className="mt-2 text-xs text-[#8FA0B8]">
+                  {affordable != null && affordable > 0 ? (
+                    <>
+                      <span className="font-medium text-[#FAFAFA] tabular-nums">
+                        {fmtFlr(balance.value)} FLR
+                      </span>{" "}
+                      in your wallet — enough for {affordable}
+                      {affordable === 1 ? " bond" : " bonds"} at this tier.
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-medium text-[#FAFAFA] tabular-nums">
+                        {fmtFlr(balance.value)} FLR
+                      </span>{" "}
+                      in your wallet
+                      {shortfall != null && shortfall > 0n && (
+                        <>
+                          {" "}
+                          — about{" "}
+                          <span className="tabular-nums">{fmtFlr(shortfall)} FLR</span> short of one
+                          bond here, allowing for gas
+                        </>
+                      )}
+                      .
+                    </>
+                  )}
+                </p>
+              )}
 
               <Button
                 className="mt-3 w-full"

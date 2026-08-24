@@ -7,7 +7,7 @@ import { settledRate } from "../lib/rewards";
 import { MintLot } from "./components/MintLot";
 import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
-import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, Undo2, HeartHandshake } from "lucide-react";
+import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, HeartHandshake } from "lucide-react";
 
 /**
  * Measured bond performance, served by /api/bond-yield (worker/bondYield.ts).
@@ -597,10 +597,16 @@ export default function NftRewards() {
           today, gifting a bond, which is a plain NFT transfer. When the
           partner and the split are settled they get published here in the
           same plain English, transactions and all. */}
-      <section className="mt-10 max-w-3xl space-y-4">
+      <section className="mt-10 space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
           Giving back
         </h3>
+        {/* Full width, with the two paragraphs in a matched pair of columns.
+            These sections were pinned to max-w-3xl while everything above them
+            ran the full page, so the bottom half of /nft was a narrow stack down
+            the left with dead space beside it. Splitting the prose keeps the
+            line length readable at full width rather than running one very long
+            measure across the page. */}
         <div className="glass-panel p-5">
           <div className="flex flex-wrap items-center gap-3">
             <HeartHandshake size={18} className="text-[#E85A95]" />
@@ -609,30 +615,34 @@ export default function NftRewards() {
               In the works
             </span>
           </div>
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            We&apos;re shaping a way for this project to give — part of what the infrastructure
-            earns going to a cause worth backing. Choosing who, and settling how much, is going to
-            take time, and we&apos;d rather get it right than get it named. Nothing is promised yet;
-            when it&apos;s settled, the details go here in plain English, transactions and all. More
-            ways to give alongside the bonds are on the drawing board too.
-          </p>
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            <span className="font-medium text-[#FAFAFA]">One thing already works today:</span> a
-            bond is a gift that keeps giving. Mint one and send it to an organization you care
-            about — whoever holds a bond holds its share of the lot&apos;s distributions, for as
-            long as they hold it. Make sure it goes to an address they control, and as always:
-            sell or send, never burn.
-          </p>
+          <div className="mt-3 grid gap-x-8 gap-y-3 lg:grid-cols-2">
+            <p className="text-sm leading-relaxed text-[#8FA0B8]">
+              We&apos;re shaping a way for this project to give — part of what the infrastructure
+              earns going to a cause worth backing. Choosing who, and settling how much, is going to
+              take time, and we&apos;d rather get it right than get it named. Nothing is promised
+              yet; when it&apos;s settled, the details go here in plain English, transactions and
+              all. More ways to give alongside the bonds are on the drawing board too.
+            </p>
+            <p className="text-sm leading-relaxed text-[#8FA0B8]">
+              <span className="font-medium text-[#FAFAFA]">One thing already works today:</span> a
+              bond is a gift that keeps giving. Mint one and send it to an organization you care
+              about — whoever holds a bond holds its share of the lot&apos;s distributions, for as
+              long as they hold it. Make sure it goes to an address they control, and as always:
+              sell or send, never burn.
+            </p>
+          </div>
         </div>
       </section>
 
-      {/* Getting out, in one place. Two routes, at very different stages: the
-          marketplace is being built, redemption is not agreed and has no
-          published terms. They are labelled differently on purpose -- a matched
-          pair of "coming soon" badges would imply redemption is as settled as
-          the marketplace, and the terms directly below still say there is no
-          redeem-for-principal. Nothing here promises one. */}
-      <section className="mt-10 max-w-3xl space-y-4">
+      {/* One exit on the page, by operator call 2026-08-17: the marketplace.
+          The "Redeem your bond" card was pulled entirely rather than reworded.
+          Redemption is genuinely buildable — two routes exist (deposit into the
+          distributor and split pro-rata, or Jon's escrow that swaps one token
+          for a set amount of FLR) — but whether we ever open either window is
+          undecided, and an "under review" card invites people to plan around a
+          thing that may not ship. Say nothing until it is decided. Do NOT
+          reinstate a redemption card without an operator decision on terms. */}
+      <section className="mt-10 space-y-4">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
           When you want out
         </h3>
@@ -645,44 +655,23 @@ export default function NftRewards() {
               Coming soon
             </span>
           </div>
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
+          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
             Buy a bond from another holder instead of minting a new one. A listed bond can carry
             unclaimed rewards, so both sides can see what it&apos;s actually worth. Holders will be
             able to list at whatever price they choose. In build now.
           </p>
         </div>
-
-        <div className="glass-panel p-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <Undo2 size={18} className="text-[#8FA0B8]" />
-            <h3 className="font-semibold">Redeem your bond</h3>
-            <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8FA0B8]">
-              Under review
-            </span>
-          </div>
-          {/* Updated 08-16 once the mechanism was settled with the distributor's
-              author: redemption is not a new contract, it is the distribution
-              rail run in reverse — deposit principal, split per bond, claim.
-              What stays open is whether and when we run it, so no terms are
-              promised and the terms below still describe today. */}
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            The rails for this already exist: the same distribution contract that pays rewards can
-            return principal — FLR deposited into it is split equally across every bond and claimed
-            like any other distribution. No burning, ever; a burned bond&apos;s share is gone for
-            good. Whether and when we open a redemption window is the decision still in front of
-            us, so today your exit is selling the NFT. The exact rules will be published here in
-            plain English before anything ships.
-          </p>
-        </div>
       </section>
 
-      <div className="glass-panel mt-10 max-w-3xl p-5">
+      <div className="glass-panel mt-10 p-5">
         <h3 className="font-semibold">The plain-English terms</h3>
-        <ul className="mt-3 space-y-2 text-sm leading-relaxed text-[#8FA0B8]">
-          <li>
-            • Funds bond at lot close. After that, your exit is selling the NFT — there is no
-            redeem-for-principal.
-          </li>
+        <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
+          {/* The "there is no redeem-for-principal" clause came off with the
+              redemption card. It was a promise in the negative, and an untrue
+              one -- the rails exist, only the decision to use them doesn't.
+              Stating the exit we DO offer says everything a buyer needs without
+              claiming anything about one we haven't decided on. */}
+          <li>• Funds bond at lot close. After that, your exit is selling the NFT.</li>
           <li>
             • Distributions will be equal per NFT within a lot, enforced on-chain by that
             lot&apos;s distribution contract once it is deployed.
@@ -700,7 +689,7 @@ export default function NftRewards() {
 
       {/* Wallet quirks and other footnotes live at the bottom by operator call
           — useful the moment you need them, noise the rest of the time. */}
-      <section className="mt-10 max-w-3xl">
+      <section className="mt-10">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
           Good to know
         </h3>

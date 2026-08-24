@@ -3,7 +3,7 @@ import { formatUnits } from "viem";
 import { Gift, Loader2 } from "lucide-react";
 import { Card, CardContent } from "./Card";
 import { Button } from "./Button";
-import { fmtPct } from "../../lib/rewards";
+import { fmtPct, fmtFlrWei } from "../../lib/rewards";
 
 const DASH = "—";
 
@@ -38,26 +38,27 @@ interface EarningsStripProps {
 }
 
 /**
- * Truncating, not rounding — the same rule the member panels use. Rounding
- * here made the tile read 4,944.69 WFLR while the panel below it read
- * 4,944.68: one balance, two numbers, on one page.
+ * Amount only — "per year" moved to the sub-line. Carrying it in the value made
+ * the string long enough to wrap at a big stake ("36,128 FLR per year"), which
+ * stretched that one tile and, because the row is height-matched, every tile
+ * beside it: the Staking row stood 28px taller than the Delegation row for no
+ * reason but a line break.
  */
-function formatAmount(wei: bigint, digits = 0): string {
-  const [int, frac = ""] = formatUnits(wei, 18).split(".");
-  const trimmed = frac.slice(0, digits).replace(/0+$/, "");
-  return Number(trimmed ? `${int}.${trimmed}` : int).toLocaleString(undefined, {
-    maximumFractionDigits: digits,
-  });
-}
-
 function formatAnnualAtRate(amountWei: bigint, ratePct: number | null | undefined): string {
   if (ratePct == null || !Number.isFinite(ratePct)) return DASH;
   const amount = Number(formatUnits(amountWei, 18));
   return `${((amount * ratePct) / 100).toLocaleString(undefined, {
     maximumFractionDigits: 0,
-  })} FLR per year`;
+  })} FLR`;
 }
 
+/**
+ * A tile in the strip. Every tile reserves its sub-line whether or not it has
+ * one: previously only the rate tile passed `sub`, so it grew a third row its
+ * neighbours lacked and the whole row sat with mismatched heights and baselines
+ * — the "uneven" the operator was looking at. `h-full` matches the tiles to the
+ * tallest in the row; the placeholder keeps the values on one baseline.
+ */
 function EarningsStat({
   label,
   value,
@@ -70,8 +71,14 @@ function EarningsStat({
   accent?: boolean;
 }) {
   return (
-    <div className="glass-panel px-4 py-3">
-      <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">{label}</div>
+    <div className="glass-panel h-full px-4 py-3 flex flex-col">
+      {/* Two lines of label are reserved whether or not this one wraps.
+          "Staked with FlareForward" wraps where "Staking APY" does not, which
+          pushed the Staking row's values a line lower than the Delegation
+          row's — the same figures at two different heights down one page. */}
+      <div className="min-h-[2.4em] text-[11px] uppercase leading-[1.2] tracking-wider text-[#8FA0B8]">
+        {label}
+      </div>
       <div
         className={`mt-1 text-xl font-bold tabular-nums ${
           accent ? "text-emerald-400" : "text-[#FAFAFA]"
@@ -79,7 +86,7 @@ function EarningsStat({
       >
         {value}
       </div>
-      {sub && <div className="mt-1 text-xs text-[#8FA0B8]">{sub}</div>}
+      <div className="mt-1 text-xs text-[#8FA0B8]">{sub ?? " "}</div>
     </div>
   );
 }
@@ -102,9 +109,8 @@ export function EarningsStrip({
   const hasRate = ratePct != null && Number.isFinite(ratePct);
   const hero = onClaim != null;
 
-  return (
-    <Card>
-      <CardContent className="p-4 sm:p-5 space-y-3">
+  const body = (
+    <>
         {hasPosition ? (
           <>
             {hero && (
@@ -119,7 +125,7 @@ export function EarningsStrip({
                         claimableReward > 0n ? "text-emerald-400" : "text-[#FAFAFA]"
                       }`}
                     >
-                      {formatAmount(claimableReward)}{" "}
+                      {fmtFlrWei(claimableReward)}{" "}
                       <span className="text-lg text-[#8FA0B8]">FLR</span>
                     </div>
                   </div>
@@ -144,7 +150,7 @@ export function EarningsStrip({
               </div>
             )}
             <div
-              className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${
+              className={`grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch ${
                 hero ? "xl:grid-cols-3" : "xl:grid-cols-4"
               }`}
             >
@@ -156,37 +162,55 @@ export function EarningsStrip({
               />
               <EarningsStat
                 label={positionLabel}
-                value={`${formatAmount(positionAmount)} ${positionUnit}`}
+                value={`${fmtFlrWei(positionAmount)} ${positionUnit}`}
+                sub="your position"
               />
               {/* Absent when the hero carries it -- one figure, one place. */}
               {!hero && (
                 <EarningsStat
                   label="Claimable now"
-                  value={`${formatAmount(claimableReward)} FLR`}
+                  value={`${fmtFlrWei(claimableReward)} FLR`}
+                  sub={claimableReward > 0n ? "ready to claim" : "nothing waiting"}
                   accent={claimableReward > 0n}
                 />
               )}
               <EarningsStat
                 label="At the current rate"
                 value={formatAnnualAtRate(positionAmount, ratePct)}
+                sub="per year, projection"
               />
             </div>
           </>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,220px)_1fr] gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(0,220px)_1fr] gap-3 items-stretch">
             <EarningsStat
               label={rateLabel}
               value={fmtPct(ratePct)}
               sub="current rate"
               accent={hasRate}
             />
-            <div className="glass-panel px-4 py-3 flex items-center">
+            <div className="glass-panel h-full px-4 py-3 flex items-center">
               <p className="text-sm text-[#FAFAFA]">{emptyMessage}</p>
             </div>
           </div>
         )}
         {basis && <p className="text-[11px] leading-relaxed text-[#8FA0B8]">Rate basis: {basis}</p>}
-      </CardContent>
+    </>
+  );
+
+  /**
+   * The tiles are already boxes. Wrapping them in a card as well framed a frame
+   * — every row on My Rewards sat inset inside a second panel, which is what
+   * made the page read as boxes inside boxes and stretched it vertically for no
+   * information. The wrapper stays only for the hero variant (/delegation and
+   * /staking), where the strip is a standalone panel with a claim action and
+   * genuinely is its own surface.
+   */
+  if (!hero) return <div className="space-y-3">{body}</div>;
+
+  return (
+    <Card>
+      <CardContent className="p-4 sm:p-5 space-y-3">{body}</CardContent>
     </Card>
   );
 }

@@ -10,18 +10,18 @@ import {
   Wallet,
   XCircle,
 } from "lucide-react";
-import { formatUnits } from "viem";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/Card";
 import { Button } from "./components/Button";
 import { useReadContracts } from "wagmi";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { EarningsStrip } from "./components/EarningsStrip";
+import { RewardHistory } from "./components/RewardHistory";
 import { bondLotAbi, CURRENT_LOT, type BondTier } from "../lib/bondLot";
 import { useDelegation } from "../hooks/useDelegation";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
-import { settledRate, fmtPct } from "../lib/rewards";
-import { formatFlr, type DisplayStake } from "../lib/staking";
+import { settledRate, fmtPct, fmtFlrWei } from "../lib/rewards";
+import { type DisplayStake } from "../lib/staking";
 
 
 type ClaimSource = "delegation" | "staking";
@@ -29,6 +29,22 @@ type ClaimState = "idle" | "claiming" | "claimed" | "failed";
 
 const FLAREFORWARD_ADDRESS =
   "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110".toLowerCase();
+
+/**
+ * Bond distributions claimable by this wallet. Hard zero, deliberately.
+ *
+ * Bonds pay through Jon's distribution contract: FLR deposited into it is split
+ * equally across every token id and holders claim their share. Nothing has been
+ * deposited for Lot 1, so zero is the true figure rather than a placeholder.
+ *
+ * Wiring it live needs veriguardnft.xyz/royalty-api, which serves per-wallet
+ * claimable amounts — but only for collections listed in the on-chain
+ * CollectionRegistry, and both Lot 1 tiers currently answer "Collection is not
+ * supported". Left as a constant until they are registered and a real response
+ * can be read, rather than shipping a parser written against a shape nobody
+ * has seen return data.
+ */
+const BONDS_CLAIMABLE_WEI = 0n;
 
 /**
  * /rewards is the connected wallet's member page: delegation, staking, and
@@ -134,6 +150,7 @@ export default function Rewards() {
                   totalClaimable={totalClaimable}
                   delegationClaimable={delegation.claimableReward}
                   stakingClaimable={staking.claimableReward}
+                  bondsClaimable={BONDS_CLAIMABLE_WEI}
                   delegationState={
                     delegation.busy === "claim" ? "claiming" : claimState.delegation
                   }
@@ -142,6 +159,7 @@ export default function Rewards() {
                   onClaimDelegation={() => claimSource("delegation")}
                   onClaimStaking={() => claimSource("staking")}
                   onClaimBoth={claimBoth}
+                  address={delegation.address}
                 />
 
                 <RewardSection
@@ -204,7 +222,7 @@ export default function Rewards() {
                             />
                             <RateTile
                               label="Claimable now"
-                              value={`${formatAmount(staking.claimableReward)} FLR`}
+                              value={`${fmtFlrWei(staking.claimableReward)} FLR`}
                               accent={staking.claimableReward > 0n}
                             />
                           </div>
@@ -231,11 +249,7 @@ export default function Rewards() {
                   )}
                 </RewardSection>
 
-                {/* Bonds do NOT get their own section — the operator pared it
-                    twice: first the card grid, then the titled section. One
-                    slim row in the Soonest-unlock idiom, everything about the
-                    bonds in a single line, detail one click away on /bonds. */}
-                <BondsGlance
+                <BondsSection
                   address={delegation.address ?? undefined}
                   stagedRatePct={settledRate(rewards.rates.delegation_annual_pct)}
                 />
@@ -304,22 +318,26 @@ function ClaimPanel({
   totalClaimable,
   delegationClaimable,
   stakingClaimable,
+  bondsClaimable,
   delegationState,
   stakingState,
   busy,
   onClaimDelegation,
   onClaimStaking,
   onClaimBoth,
+  address,
 }: {
   totalClaimable: bigint;
   delegationClaimable: bigint;
   stakingClaimable: bigint;
+  bondsClaimable: bigint;
   delegationState: ClaimState;
   stakingState: ClaimState;
   busy: boolean;
   onClaimDelegation: () => void;
   onClaimStaking: () => void;
   onClaimBoth: () => void;
+  address: `0x${string}` | undefined;
 }) {
   const hasDelegationClaim = delegationClaimable > 0n;
   const hasStakingClaim = stakingClaimable > 0n;
@@ -327,52 +345,50 @@ function ClaimPanel({
 
   return (
     <Card>
+      {/* The title and the headline number share one row. They used to sit in
+          two stacked bands — a header block, then a separate 70px band for
+          "Total claimable" — which made this card more than twice the height of
+          the sections under it and threw the whole page's vertical rhythm out. */}
       <CardHeader className="border-b border-white/8 pb-4">
-        <div className="flex items-center gap-2">
-          <Gift size={18} className="text-[#EE1A58]" />
-          <CardTitle className="text-[#FAFAFA]">Claimable now</CardTitle>
-        </div>
-        <CardDescription className="text-[#8FA0B8]">
-          What you've earned and can take right now. Delegation and staking pay from separate
-          contracts, so claiming both is two confirmations rather than one.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-5 space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="text-xs uppercase tracking-wider text-[#8FA0B8]">Total claimable</div>
-            <div className="mt-1 text-3xl font-bold tabular-nums text-emerald-400">
-              {formatAmount(totalClaimable)} <span className="text-base text-[#8FA0B8]">FLR</span>
+            <div className="flex items-center gap-2">
+              <Gift size={18} className="text-[#EE1A58]" />
+              <CardTitle className="text-[#FAFAFA]">Claimable now</CardTitle>
             </div>
-            {totalClaimable === 0n && (
-              <p className="mt-2 text-sm text-[#8FA0B8]">
-                Nothing to claim at this moment. Delegation rewards accrue every reward epoch
-                and land here when the epoch closes — nothing is lost in the meantime.
-              </p>
+            <CardDescription className="text-[#8FA0B8]">
+              Delegation and staking pay from separate contracts, so claiming both is two
+              confirmations.
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-4 shrink-0">
+            <div className="sm:text-right">
+              <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+                Total claimable
+              </div>
+              <div className="text-3xl font-bold tabular-nums text-emerald-400">
+                {fmtFlrWei(totalClaimable)} <span className="text-base text-[#8FA0B8]">FLR</span>
+              </div>
+            </div>
+            {hasDelegationClaim && hasStakingClaim && (
+              <Button
+                variant="action"
+                className="gap-2"
+                disabled={!canClaimBoth}
+                onClick={onClaimBoth}
+              >
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
+                Claim both
+              </Button>
             )}
           </div>
-          {hasDelegationClaim && hasStakingClaim ? (
-            <Button
-              variant="action"
-              className="gap-2 lg:w-auto w-full"
-              disabled={!canClaimBoth}
-              onClick={onClaimBoth}
-            >
-              {busy && hasDelegationClaim && hasStakingClaim ? (
-                <Loader2 size={16} className="animate-spin" />
-              ) : (
-                <Gift size={16} />
-              )}
-              Claim both
-            </Button>
-          ) : totalClaimable > 0n ? (
-            <p className="text-sm text-[#8FA0B8]">
-              Only one source has rewards right now; use its claim button below.
-            </p>
-          ) : null}
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      </CardHeader>
+      <CardContent className="p-5 space-y-4">
+        {/* items-stretch + h-full on the child: the two source cards hold the
+            same height whatever their state, so the amounts share a baseline
+            instead of one card floating above the other. */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 items-stretch">
           <ClaimItem
             title="Delegation rewards"
             amount={delegationClaimable}
@@ -387,63 +403,95 @@ function ClaimPanel({
             disabled={busy && stakingState !== "claiming"}
             onClaim={onClaimStaking}
           />
+          {/* Three holdings, three claim cards, three sections below — the
+              panel mirrors the page. Bonds pay through Jon's distribution
+              contract, which has nothing in it until a lot closes, so this
+              card states the condition rather than reading as a broken zero.
+              It stays inert until the lots are registered in the on-chain
+              CollectionRegistry; see BondsSection. */}
+          <ClaimItem
+            title="Bond distributions"
+            amount={bondsClaimable}
+            state="idle"
+            disabled
+            onClaim={() => {}}
+            emptyNote="Opens when a lot closes and its distribution is funded."
+          />
         </div>
+
+        {/* Accumulated payouts live here as one line + a button, not a tile. */}
+        <RewardHistory address={address} />
       </CardContent>
     </Card>
   );
 }
 
+/**
+ * One reward source. Structurally identical whether or not it has money in it —
+ * same rows, same button, same height — because the previous version dropped
+ * the button on an empty source and swapped one line of copy for another, which
+ * is exactly what made the pair sit crooked next to each other.
+ */
 function ClaimItem({
   title,
   amount,
   state,
   disabled,
   onClaim,
+  emptyNote,
 }: {
   title: string;
   amount: bigint;
   state: ClaimState;
   disabled: boolean;
   onClaim: () => void;
+  /** Replaces the generic zero-state line when a source is 0 for a reason. */
+  emptyNote?: string;
 }) {
   const canClaim = amount > 0n && state !== "claiming";
-  const status = state === "failed" ? "Claim failed. You can retry this source." : null;
+  const status =
+    state === "failed"
+      ? { text: "Claim failed. You can retry this source.", tone: "text-red-400" }
+      : state === "claimed"
+        ? { text: "Claim submitted.", tone: "text-emerald-400" }
+        : amount === 0n
+          ? {
+              text: emptyNote ?? "Nothing claimable from this source.",
+              tone: "text-[#8FA0B8]",
+            }
+          : { text: "Ready to claim.", tone: "text-[#8FA0B8]" };
 
   return (
-    <div className="glass-panel p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="glass-panel h-full p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
       <div>
         <div className="text-sm font-semibold text-[#FAFAFA]">{title}</div>
-        <div className="mt-1 text-xl font-bold tabular-nums text-[#FAFAFA]">
-          {formatAmount(amount)} <span className="text-sm text-[#8FA0B8]">FLR</span>
-        </div>
-        {amount === 0n ? (
-          <p className="mt-1 text-xs text-[#8FA0B8]">Nothing claimable from this source.</p>
-        ) : status ? (
-          <p className="mt-1 text-xs text-red-400">{status}</p>
-        ) : state === "claimed" ? (
-          <p className="mt-1 text-xs text-emerald-400">Claim submitted.</p>
-        ) : null}
-      </div>
-      {amount > 0n && (
-        <Button
-          variant="action"
-          size="sm"
-          className="gap-2 sm:w-auto w-full"
-          disabled={disabled || !canClaim}
-          onClick={onClaim}
+        <div
+          className={`mt-1 text-xl font-bold tabular-nums ${
+            amount > 0n ? "text-emerald-400" : "text-[#FAFAFA]"
+          }`}
         >
-          {state === "claiming" ? (
-            <Loader2 size={15} className="animate-spin" />
-          ) : state === "claimed" ? (
-            <CheckCircle2 size={15} />
-          ) : state === "failed" ? (
-            <XCircle size={15} />
-          ) : (
-            <Gift size={15} />
-          )}
-          {state === "failed" ? "Retry claim" : "Claim"}
-        </Button>
-      )}
+          {fmtFlrWei(amount)} <span className="text-sm font-normal text-[#8FA0B8]">FLR</span>
+        </div>
+        <p className={`mt-1 text-xs ${status.tone}`}>{status.text}</p>
+      </div>
+      <Button
+        variant="action"
+        size="sm"
+        className="gap-2 sm:w-auto w-full shrink-0"
+        disabled={disabled || !canClaim}
+        onClick={onClaim}
+      >
+        {state === "claiming" ? (
+          <Loader2 size={15} className="animate-spin" />
+        ) : state === "claimed" ? (
+          <CheckCircle2 size={15} />
+        ) : state === "failed" ? (
+          <XCircle size={15} />
+        ) : (
+          <Gift size={15} />
+        )}
+        {state === "failed" ? "Retry" : "Claim"}
+      </Button>
     </div>
   );
 }
@@ -474,13 +522,19 @@ function RewardSection({
 }
 
 /**
- * Bonds at a glance — deliberately no artwork and no per-tier cards. This page
- * answers "what is everything earning" in one sweep; the gallery and per-bond
- * detail live on /bonds. The count comes from the same balanceOf reads MyBonds
- * makes, minus everything visual. Claimable is a hard 0 until a lot closes and
- * its distribution contract exists; the section description says why.
+ * Bonds, as a peer of Delegation and Staking.
+ *
+ * This was twice pared down to a one-line strip, and twice that left the third
+ * thing a member can hold reading as an afterthought next to two full sections
+ * — a 52px strip beside two 168px blocks. Restored by operator call to the same
+ * shape as the others: heading, manage action, four tiles on the same 104px
+ * grid, so all three holdings answer "what is this earning" identically.
+ *
+ * Staged capital is derived, not hardcoded: balanceOf x mintPrice per tier,
+ * both read from the lot contracts. Claimable is a hard 0 until a lot closes
+ * and its distributor is funded.
  */
-function BondsGlance({
+function BondsSection({
   address,
   stagedRatePct,
 }: {
@@ -490,43 +544,96 @@ function BondsGlance({
   const tiers = CURRENT_LOT.tiers.filter(
     (t): t is BondTier & { address: `0x${string}` } => !!t.address
   );
+
   const { data } = useReadContracts({
-    contracts: tiers.map((t) => ({
-      address: t.address,
-      abi: bondLotAbi,
-      functionName: "balanceOf" as const,
-      args: [address ?? "0x0000000000000000000000000000000000000000"] as const,
-    })),
+    contracts: tiers.flatMap((t) => [
+      {
+        address: t.address,
+        abi: bondLotAbi,
+        functionName: "balanceOf" as const,
+        args: [address ?? "0x0000000000000000000000000000000000000000"] as const,
+      },
+      { address: t.address, abi: bondLotAbi, functionName: "mintPrice" as const },
+    ]),
     query: { enabled: !!address && tiers.length > 0 },
   });
-  const held = (data ?? []).reduce(
-    (sum, r) => sum + Number((r?.result as bigint | undefined) ?? 0n),
-    0
-  );
+
+  // Reads come back as [balanceOf, mintPrice] per tier, in tier order.
+  let held = 0;
+  let stagedWei = 0n;
+  tiers.forEach((_, i) => {
+    const balance = (data?.[i * 2]?.result as bigint | undefined) ?? 0n;
+    const price = (data?.[i * 2 + 1]?.result as bigint | undefined) ?? 0n;
+    held += Number(balance);
+    stagedWei += balance * price;
+  });
+
+  const annualWei =
+    stagedRatePct != null && Number.isFinite(stagedRatePct)
+      ? (stagedWei * BigInt(Math.round(stagedRatePct * 100))) / 10_000n
+      : null;
 
   return (
-    <Card>
-      <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
-        <span className="flex items-center gap-2 text-sm font-semibold text-[#FAFAFA]">
-          <Gem size={15} className="text-[#EE1A58]" /> Bonds
-        </span>
-        <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[#8FA0B8]">
-          <span className="tabular-nums font-medium text-[#FAFAFA]">{held}</span> held ·
-          <span className="flex items-center gap-1.5">
-            <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            </span>
-            <span className="font-medium text-emerald-400">{fmtPct(stagedRatePct)}</span> while
-            staged
-          </span>
-          · 0 FLR claimable
-          <Link to="/bonds" className="ml-1 font-medium text-[#E85A95] hover:underline">
-            Manage →
-          </Link>
-        </span>
-      </CardContent>
-    </Card>
+    <RewardSection
+      title="Bonds"
+      description="Your FlareForward Bonds and what they earn while the capital is staged."
+      action={
+        <Link to="/bonds">
+          <Button variant="outline" size="sm" className="gap-2">
+            <Gem size={15} /> Manage bonds <ArrowRight size={14} />
+          </Button>
+        </Link>
+      }
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-stretch">
+        <BondStat
+          label="Bond rate"
+          value={fmtPct(stagedRatePct)}
+          sub="while staged"
+          accent={stagedRatePct != null}
+        />
+        <BondStat label="Bonds held" value={`${held}`} sub="your position" />
+        <BondStat
+          label="Claimable now"
+          value={`${fmtFlrWei(BONDS_CLAIMABLE_WEI)} FLR`}
+          sub="nothing waiting"
+        />
+        <BondStat
+          label="At the current rate"
+          value={annualWei != null ? `${fmtFlrWei(annualWei)} FLR` : "—"}
+          sub="per year, projection"
+        />
+      </div>
+    </RewardSection>
+  );
+}
+
+/** Same tile as the earnings strip, so all three sections share one grid. */
+function BondStat({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="glass-panel h-full px-4 py-3 flex flex-col">
+      <div className="min-h-[2.4em] text-[11px] uppercase leading-[1.2] tracking-wider text-[#8FA0B8]">
+        {label}
+      </div>
+      <div
+        className={`mt-1 text-xl font-bold tabular-nums ${
+          accent ? "text-emerald-400" : "text-[#FAFAFA]"
+        }`}
+      >
+        {value}
+      </div>
+      <div className="mt-1 text-xs text-[#8FA0B8]">{sub}</div>
+    </div>
   );
 }
 
@@ -558,10 +665,4 @@ function totalStakedWithNode(stakes: DisplayStake[], nodeId: string | null): big
   return stakes
     .filter((stake) => stake.nodeId === nodeId)
     .reduce((sum, stake) => sum + stake.amount, 0n);
-}
-
-function formatAmount(wei: bigint, digits = 0): string {
-  return Number(formatUnits(wei, 18)).toLocaleString(undefined, {
-    maximumFractionDigits: digits,
-  });
 }
