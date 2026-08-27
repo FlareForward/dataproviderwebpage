@@ -141,6 +141,16 @@ export function fmtDate(unix: number | null | undefined): string {
   });
 }
 
+export function fmtUtcDate(unix: number | null | undefined): string {
+  if (unix == null || !Number.isFinite(unix)) return "—";
+  return new Date(unix * 1000).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export function daysLeft(unix: number | null | undefined): number | null {
   if (unix == null || !Number.isFinite(unix)) return null;
   return Math.max(0, Math.ceil((unix * 1000 - Date.now()) / 86_400_000));

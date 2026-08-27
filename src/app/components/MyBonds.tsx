@@ -424,7 +424,7 @@ export function MyBonds({
 
             <p className="mt-4 text-xs leading-relaxed text-[#8FA0B8]">
               Per-bond claiming opens once the lot closes and its distribution contract is
-              deployed. Until then every bond here has earned the same — nothing yet.
+              deployed. Until then distribution tracking is pending.
             </p>
           </div>
         </div>

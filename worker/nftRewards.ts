@@ -25,11 +25,16 @@ const SEL = {
   cumulativeRewardPerToken: "0x9862ddb6", // cumulativeRewardPerToken(address)
   lastClaimedCumulativeReward: "0x943ed41d", // lastClaimedCumulativeReward(uint256,address)
   precision: "0xaaf5eb68", // PRECISION()
+  erc721BalanceOf: "0x70a08231", // balanceOf(address)
+  erc721TokenOfOwnerByIndex: "0x2f745c59", // tokenOfOwnerByIndex(address,uint256)
 } as const;
 
 const NATIVE = "0x0000000000000000000000000000000000000000";
 const WFLR = "0x1d80c49bbbcd1c0911346656b529df9e5c2f783d";
-const TOKEN_LABELS: Record<string, string> = { [NATIVE]: "FLR", [WFLR]: "WFLR" };
+const TOKEN_LABELS: Record<string, string> = {
+  [NATIVE]: "FLR",
+  [WFLR]: "WFLR",
+};
 
 /**
  * Lot registry. A lot appears on the public board by being added here with
@@ -43,7 +48,7 @@ interface Lot {
   live: boolean;
 }
 
-const LOTS: Lot[] = [
+export const LOTS: Lot[] = [
   // Lot 1 ("Bond Series Q3-2026") lands here once its mint closes and its
   // distributor is deployed.
 ];
@@ -67,7 +72,10 @@ function padUint(n: number | bigint): string {
   return BigInt(n).toString(16).padStart(64, "0");
 }
 
-async function ethCallBatch(calls: RpcCall[], chunkSize = 200): Promise<string[]> {
+async function ethCallBatch(
+  calls: RpcCall[],
+  chunkSize = 200,
+): Promise<string[]> {
   const results: string[] = new Array(calls.length);
   for (let start = 0; start < calls.length; start += chunkSize) {
     const chunk = calls.slice(start, start + chunkSize);
@@ -83,7 +91,11 @@ async function ethCallBatch(calls: RpcCall[], chunkSize = 200): Promise<string[]
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`RPC ${res.status}`);
-    const json = (await res.json()) as { id: number; result?: string; error?: unknown }[];
+    const json = (await res.json()) as {
+      id: number;
+      result?: string;
+      error?: unknown;
+    }[];
     for (const entry of json) {
       if (entry.result === undefined) {
         throw new Error(`eth_call failed: ${JSON.stringify(entry.error)}`);
@@ -108,7 +120,10 @@ function weiToDecimal(wei: bigint, decimals = 4): string {
   const neg = wei < 0n;
   const abs = neg ? -wei : wei;
   const whole = abs / 10n ** 18n;
-  const frac = (abs % 10n ** 18n).toString().padStart(18, "0").slice(0, decimals);
+  const frac = (abs % 10n ** 18n)
+    .toString()
+    .padStart(18, "0")
+    .slice(0, decimals);
   return `${neg ? "-" : ""}${whole}${decimals > 0 ? "." + frac : ""}`;
 }
 
@@ -119,14 +134,122 @@ interface BoardRowJson {
   has_claimed: boolean;
 }
 
-async function fetchBoard(lot: { slug: string; name: string; distributor: string; preview: boolean }) {
+export interface BondRewardClaim {
+  lot_slug: string;
+  lot_name: string;
+  distributor: string;
+  collection: string;
+  token_id: number;
+  lifetime_amount_wei: string;
+  claimable_amount_wei: string;
+}
+
+export function hasLiveBondRewardDistributors(): boolean {
+  return LOTS.some((l) => l.live);
+}
+
+async function fetchBondRewardClaimsForLot(
+  owner: string,
+  lot: { slug: string; name: string; distributor: string },
+): Promise<BondRewardClaim[]> {
   const d = lot.distributor;
-  const [supplyRaw, collectionRaw, tokensRaw, precisionRaw] = await ethCallBatch([
-    { to: d, data: SEL.totalTokenSupply },
+  const [collectionRaw, tokensRaw, precisionRaw] = await ethCallBatch([
     { to: d, data: SEL.erc721Token },
     { to: d, data: SEL.supportedPaymentTokens },
     { to: d, data: SEL.precision },
   ]);
+
+  const collection = "0x" + collectionRaw.slice(-40);
+  const paymentTokens = decodeAddressArray(tokensRaw);
+  const precision = BigInt(precisionRaw);
+
+  const [balanceRaw] = await ethCallBatch([
+    { to: collection, data: SEL.erc721BalanceOf + pad(owner) },
+  ]);
+  const balance = Number(BigInt(balanceRaw));
+  if (balance <= 0 || paymentTokens.length === 0) return [];
+
+  const tokenIdRaw = await ethCallBatch(
+    Array.from({ length: balance }, (_, index) => ({
+      to: collection,
+      data: SEL.erc721TokenOfOwnerByIndex + pad(owner) + padUint(index),
+    })),
+  );
+  const tokenIds = tokenIdRaw.map((raw) => Number(BigInt(raw)));
+
+  const cumRaw = await ethCallBatch(
+    paymentTokens.map((t) => ({
+      to: d,
+      data: SEL.cumulativeRewardPerToken + pad(t),
+    })),
+  );
+  const cum = paymentTokens.map((_, i) => BigInt(cumRaw[i]));
+
+  const lastRaw = await ethCallBatch(
+    tokenIds.flatMap((tokenId) =>
+      paymentTokens.map((t) => ({
+        to: d,
+        data: SEL.lastClaimedCumulativeReward + padUint(tokenId) + pad(t),
+      })),
+    ),
+  );
+
+  return tokenIds
+    .map((tokenId, tokenIndex) => {
+      let lifetime = 0n;
+      let claimable = 0n;
+      paymentTokens.forEach((_, tokenPaymentIndex) => {
+        const last = BigInt(
+          lastRaw[tokenIndex * paymentTokens.length + tokenPaymentIndex],
+        );
+        if (precision > 0n) {
+          lifetime += cum[tokenPaymentIndex] / precision;
+          claimable += (cum[tokenPaymentIndex] - last) / precision;
+        }
+      });
+      return {
+        lot_slug: lot.slug,
+        lot_name: lot.name,
+        distributor: d,
+        collection,
+        token_id: tokenId,
+        lifetime_amount_wei: lifetime.toString(),
+        claimable_amount_wei: claimable.toString(),
+      };
+    })
+    .filter(
+      (claim) =>
+        claim.lifetime_amount_wei !== "0" || claim.claimable_amount_wei !== "0",
+    );
+}
+
+export async function loadBondRewardClaims(
+  owner: string,
+): Promise<{ tracked: boolean; claims: BondRewardClaim[] }> {
+  const targets = LOTS.filter((l) => l.live);
+  if (targets.length === 0) return { tracked: false, claims: [] };
+
+  const claims: BondRewardClaim[] = [];
+  for (const lot of targets) {
+    claims.push(...(await fetchBondRewardClaimsForLot(owner, lot)));
+  }
+  return { tracked: true, claims };
+}
+
+async function fetchBoard(lot: {
+  slug: string;
+  name: string;
+  distributor: string;
+  preview: boolean;
+}) {
+  const d = lot.distributor;
+  const [supplyRaw, collectionRaw, tokensRaw, precisionRaw] =
+    await ethCallBatch([
+      { to: d, data: SEL.totalTokenSupply },
+      { to: d, data: SEL.erc721Token },
+      { to: d, data: SEL.supportedPaymentTokens },
+      { to: d, data: SEL.precision },
+    ]);
 
   const supply = Number(BigInt(supplyRaw));
   const collection = "0x" + collectionRaw.slice(-40);
@@ -134,14 +257,20 @@ async function fetchBoard(lot: { slug: string; name: string; distributor: string
   const paymentTokens = decodeAddressArray(tokensRaw);
 
   const cumRaw = await ethCallBatch(
-    paymentTokens.map((t) => ({ to: d, data: SEL.cumulativeRewardPerToken + pad(t) })),
+    paymentTokens.map((t) => ({
+      to: d,
+      data: SEL.cumulativeRewardPerToken + pad(t),
+    })),
   );
   const cum = paymentTokens.map((_, i) => BigInt(cumRaw[i]));
 
   const lastCalls: RpcCall[] = [];
   for (let id = 1; id <= supply; id++) {
     for (const t of paymentTokens) {
-      lastCalls.push({ to: d, data: SEL.lastClaimedCumulativeReward + padUint(id) + pad(t) });
+      lastCalls.push({
+        to: d,
+        data: SEL.lastClaimedCumulativeReward + padUint(id) + pad(t),
+      });
     }
   }
   const lastRaw = await ethCallBatch(lastCalls);
@@ -160,7 +289,12 @@ async function fetchBoard(lot: { slug: string; name: string; distributor: string
       total += wei;
     });
     unclaimedTotal += total;
-    rows.push({ id, claimable, total: weiToDecimal(total), has_claimed: hasClaimed });
+    rows.push({
+      id,
+      claimable,
+      total: weiToDecimal(total),
+      has_claimed: hasClaimed,
+    });
   }
   // Biggest unclaimed balances first; stable by id.
   rows.sort((a, b) => Number(b.total) - Number(a.total) || a.id - b.id);
@@ -194,10 +328,19 @@ export async function handleNftRewards(request: Request): Promise<Response> {
   const hit = await cache.match(cacheKey);
   if (hit) return hit;
 
-  const targets: { slug: string; name: string; distributor: string; preview: boolean }[] =
-    LOTS.filter((l) => l.live).map((l) => ({ ...l, preview: false }));
+  const targets: {
+    slug: string;
+    name: string;
+    distributor: string;
+    preview: boolean;
+  }[] = LOTS.filter((l) => l.live).map((l) => ({ ...l, preview: false }));
   if (preview && ADDRESS_RE.test(preview)) {
-    targets.push({ slug: "preview", name: "Preview", distributor: preview, preview: true });
+    targets.push({
+      slug: "preview",
+      name: "Preview",
+      distributor: preview,
+      preview: true,
+    });
   }
 
   let body: unknown;

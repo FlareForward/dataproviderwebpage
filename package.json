@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && NODE_OPTIONS=--max-old-space-size=4096 vite build",
     "preview": "vite preview",
+    "test:earned": "tsc -p tsconfig.worker-tests.json && node --test .tmp/worker-tests/worker/earned.test.js",
     "snapshot:preview": "OUT_PATH=public/ftso-performance-history.json node scripts/snapshot-performance.mjs"
   },
   "dependencies": {
