@@ -13,7 +13,13 @@ import {
   RefreshCw,
   Landmark,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "./components/Card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "./components/Card";
 import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
 import { ConnectWallet } from "./components/ConnectWallet";
@@ -21,6 +27,7 @@ import { EarningsStrip } from "./components/EarningsStrip";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useStaking } from "../hooks/useStaking";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
+import { useEarned } from "../hooks/useEarned";
 import { useRewards } from "../hooks/useRewards";
 import logoImage from "../imports/flareforward_logo.png";
 import {
@@ -49,6 +56,7 @@ export function Staking() {
   const { data: rewards } = useRewards();
   const {
     isConnected,
+    address,
     pEnabled,
     balance,
     limits,
@@ -58,6 +66,9 @@ export function Staking() {
     stakesFetching,
     stakesOnchainFailed,
     claimableReward,
+    claimableRewardReady,
+    claimableRewardLoading,
+    claimableRewardError,
     busy,
     enableP,
     moveToP,
@@ -73,6 +84,10 @@ export function Staking() {
   // FlareForward's own validator node — the only staking target on this site.
   const { data: ffValidator } = useValidatorStaking();
   const ourNodeId = ffValidator?.node_id ?? null;
+  const earned = useEarned(address, {
+    stakingWei: claimableReward,
+    claimableReady: claimableRewardReady,
+  });
 
   const [amount, setAmount] = useState("");
   // Which way the user last signalled they want to move FLR. One input feeds
@@ -89,7 +104,7 @@ export function Staking() {
   const selectedNodeId = ourNodeId;
   const selectedValidator = useMemo(
     () => validators.find((v) => v.nodeId === selectedNodeId) ?? null,
-    [validators, selectedNodeId]
+    [validators, selectedNodeId],
   );
 
   const durationOptions: DurationOption[] = useMemo(() => {
@@ -183,13 +198,13 @@ export function Staking() {
             .filter((stake) => stake.nodeId === ourNodeId)
             .reduce((sum, stake) => sum + stake.amount, 0n)
         : 0n,
-    [stakes, ourNodeId]
+    [stakes, ourNodeId],
   );
   const withdrawUnavailableMessage =
     balance.availableOnP === 0n
       ? nextUnlockingStake
         ? `Nothing available yet — ${formatFlr(nextUnlockingStake.amount)} FLR unlocks ${new Date(
-            Number(nextUnlockingStake.endTime) * 1000
+            Number(nextUnlockingStake.endTime) * 1000,
           ).toLocaleDateString()}`
         : "No FLR on the P-chain to move."
       : null;
@@ -250,6 +265,14 @@ export function Staking() {
           onClaim={() => claimRewards()}
           claimBusy={busy === "claim"}
           claimLabel="Claim staking rewards"
+          earnedTotalWei={earned.data?.earned.stakingWei}
+          earnedTrackingStartUnix={earned.data?.trackingStartUnix}
+          earnedLoading={earned.isLoading || claimableRewardLoading}
+          earnedUnavailable={
+            !!earned.error ||
+            claimableRewardError ||
+            (earned.data != null && !earned.data.claimableReady)
+          }
         />
       )}
 
@@ -275,21 +298,27 @@ export function Staking() {
         <div>
           <Card>
             <CardHeader className="border-b border-white/8 pb-4">
-              <CardTitle className="text-[#FAFAFA]">Stake on the P-chain</CardTitle>
+              <CardTitle className="text-[#FAFAFA]">
+                Stake on the P-chain
+              </CardTitle>
               {/* Terms belong with the title, in fine print. They are context
                   for the whole panel, not a step in the stake form -- sitting
                   in the column they read like something to act on. */}
               {selectedValidator && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-[#8FA0B8]">
-                  <span>Fee {selectedValidator.delegationFeePct.toFixed(2)}%</span>
+                  <span>
+                    Fee {selectedValidator.delegationFeePct.toFixed(2)}%
+                  </span>
                   {effectiveCapacity !== null && (
-                    <span>Open capacity {formatFlr(effectiveCapacity, 0)} FLR</span>
+                    <span>
+                      Open capacity {formatFlr(effectiveCapacity, 0)} FLR
+                    </span>
                   )}
                 </div>
               )}
             </CardHeader>
             <CardContent className="p-5 grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
-                  {/* Claim has moved up to the hero at the top of the page --
+              {/* Claim has moved up to the hero at the top of the page --
                       money already earned is the one number here worth making
                       large, and it only belongs in one place.
 
@@ -300,16 +329,19 @@ export function Staking() {
               {!isConnected ? (
                 <div className="text-center py-8 text-[#8FA0B8] flex flex-col items-center gap-4">
                   <Wallet size={32} className="opacity-20" />
-                  <p className="text-sm">Connect your wallet to stake on Flare Mainnet.</p>
+                  <p className="text-sm">
+                    Connect your wallet to stake on Flare Mainnet.
+                  </p>
                   <ConnectWallet size="md" />
                 </div>
               ) : !pEnabled ? (
                 <div className="text-center py-8 text-[#8FA0B8] flex flex-col items-center gap-4">
                   <ShieldCheck size={32} className="opacity-20" />
                   <p className="text-sm">
-                    P-chain staking needs your account's public key. If your wallet prompts you,
-                    sign the one-time message to enable it — this never moves funds or submits a
-                    transaction. Wallets whose account already has on-chain activity may be enabled
+                    P-chain staking needs your account's public key. If your
+                    wallet prompts you, sign the one-time message to enable it —
+                    this never moves funds or submits a transaction. Wallets
+                    whose account already has on-chain activity may be enabled
                     without any prompt.
                   </p>
                   <Button
@@ -342,7 +374,9 @@ export function Staking() {
                           balances. Name the token: someone new here does not
                           have to infer what the number is. */}
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[#8FA0B8] shrink-0">FLR in wallet</span>
+                        <span className="text-[#8FA0B8] shrink-0">
+                          FLR in wallet
+                        </span>
                         <span className="text-[#FAFAFA] font-medium tabular-nums truncate">
                           {formatFlr(balance.availableOnC)}
                         </span>
@@ -357,7 +391,9 @@ export function Staking() {
                         </button>
                       </div>
                       <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[#8FA0B8] shrink-0">FLR on P-chain</span>
+                        <span className="text-[#8FA0B8] shrink-0">
+                          FLR on P-chain
+                        </span>
                         <span className="text-[#FAFAFA] font-medium tabular-nums truncate">
                           {formatFlr(balance.availableOnP)}
                         </span>
@@ -389,10 +425,14 @@ export function Staking() {
                       </span>
                     </div>
                     {amount && toPError && (
-                      <div className="text-xs text-red-400">To P-chain: {toPError}</div>
+                      <div className="text-xs text-red-400">
+                        To P-chain: {toPError}
+                      </div>
                     )}
                     {amount && toCError && (
-                      <div className="text-xs text-red-400">To wallet: {toCError}</div>
+                      <div className="text-xs text-red-400">
+                        To wallet: {toCError}
+                      </div>
                     )}
                     <div className="grid grid-cols-2 gap-2">
                       {/* Both directions are always available, so neither gets a
@@ -401,7 +441,12 @@ export function Staking() {
                       <Button
                         variant="action"
                         className={`w-full${intent === "toP" ? " border-[#EE1A58]/45" : ""}`}
-                        disabled={busy !== null || !amount || Number(amount) <= 0 || !!toPError}
+                        disabled={
+                          busy !== null ||
+                          !amount ||
+                          Number(amount) <= 0 ||
+                          !!toPError
+                        }
                         onClick={handleMove}
                       >
                         {busy === "moveToP" ? (
@@ -413,7 +458,12 @@ export function Staking() {
                       <Button
                         variant="action"
                         className={`w-full${intent === "toC" ? " border-[#EE1A58]/45" : ""}`}
-                        disabled={busy !== null || !amount || Number(amount) <= 0 || !!toCError}
+                        disabled={
+                          busy !== null ||
+                          !amount ||
+                          Number(amount) <= 0 ||
+                          !!toCError
+                        }
                         onClick={handleWithdraw}
                       >
                         {busy === "withdraw" ? (
@@ -423,15 +473,17 @@ export function Staking() {
                         )}
                       </Button>
                     </div>
-                    {balance.availableOnP === 0n && withdrawUnavailableMessage && (
-                      <p className="text-xs text-[#8FA0B8]">
-                        {withdrawUnavailableMessage}
-                      </p>
-                    )}
+                    {balance.availableOnP === 0n &&
+                      withdrawUnavailableMessage && (
+                        <p className="text-xs text-[#8FA0B8]">
+                          {withdrawUnavailableMessage}
+                        </p>
+                      )}
                     {busy === "moveToP" && (
                       <p className="text-xs text-[#8FA0B8]">
-                        This takes two wallet confirmations — export from your wallet, then import
-                        to the P-chain. Approve both and keep this tab open until they complete.
+                        This takes two wallet confirmations — export from your
+                        wallet, then import to the P-chain. Approve both and
+                        keep this tab open until they complete.
                       </p>
                     )}
                     {balance.notImportedToP > 0n && (
@@ -445,8 +497,9 @@ export function Staking() {
                     )}
                     {busy === "withdraw" && (
                       <p className="text-xs text-[#8FA0B8]">
-                        This takes two wallet confirmations — export from the P-chain, then import
-                        to your wallet. Approve both and keep this tab open until they complete.
+                        This takes two wallet confirmations — export from the
+                        P-chain, then import to your wallet. Approve both and
+                        keep this tab open until they complete.
                       </p>
                     )}
                     {balance.notImportedToC > 0n && (
@@ -467,7 +520,9 @@ export function Staking() {
                     {!selectedValidator ? (
                       <div className="text-center py-4 text-[#8FA0B8] flex flex-col items-center">
                         <Server size={28} className="mb-2 opacity-20" />
-                        <p className="text-sm">Loading the FlareForward validator…</p>
+                        <p className="text-sm">
+                          Loading the FlareForward validator…
+                        </p>
                       </div>
                     ) : (
                       <>
@@ -485,12 +540,21 @@ export function Staking() {
                             {limits && (
                               <span className="text-xs">
                                 {" "}
-                                · minimum {formatFlr(limits.minStakeAmountDelegator, 0)} FLR
+                                · minimum{" "}
+                                {formatFlr(
+                                  limits.minStakeAmountDelegator,
+                                  0,
+                                )}{" "}
+                                FLR
                               </span>
                             )}
                           </span>
                           <button
-                            onClick={() => setStakeAmount(formatFlrInput(balance.availableOnP))}
+                            onClick={() =>
+                              setStakeAmount(
+                                formatFlrInput(balance.availableOnP),
+                              )
+                            }
                             className="text-xs text-[#EE1A58] hover:underline"
                           >
                             MAX
@@ -498,10 +562,13 @@ export function Staking() {
                         </div>
 
                         <div className="flex flex-wrap items-center gap-2 min-h-[30px]">
-                          <span className="text-xs text-[#8FA0B8]">Stake duration</span>
+                          <span className="text-xs text-[#8FA0B8]">
+                            Stake duration
+                          </span>
                           {durationOptions.length === 0 ? (
                             <span className="text-xs text-yellow-500">
-                              This validator has no window long enough for a new stake.
+                              This validator has no window long enough for a new
+                              stake.
                             </span>
                           ) : (
                             durationOptions.map((opt) => (
@@ -588,10 +655,14 @@ export function Staking() {
                       the lock is the stake side, "back to your wallet" is the
                       move side. */}
                   <div className="lg:col-span-2 lg:row-start-2 bg-[#EE1A58]/10 border border-[#EE1A58]/20 rounded-lg p-3 flex gap-3 text-sm">
-                    <Info size={16} className="text-[#EE1A58] shrink-0 mt-0.5" />
+                    <Info
+                      size={16}
+                      className="text-[#EE1A58] shrink-0 mt-0.5"
+                    />
                     <div className="text-[#FAFAFA]">
-                      Staked FLR is locked for the chosen duration. When the stake ends the FLR
-                      returns to your P-chain balance, ready to move back to your wallet.
+                      Staked FLR is locked for the chosen duration. When the
+                      stake ends the FLR returns to your P-chain balance, ready
+                      to move back to your wallet.
                     </div>
                   </div>
                 </>
@@ -676,7 +747,10 @@ function YourStakes({
           // records and clock skew must never draw <0% or >100%.
           const pctDone =
             end > start
-              ? Math.min(100, Math.max(0, ((nowSecs - start) / (end - start)) * 100))
+              ? Math.min(
+                  100,
+                  Math.max(0, ((nowSecs - start) / (end - start)) * 100),
+                )
               : 100;
           // This stake's own output at the live rate — a labelled restatement,
           // same idiom as the hero's "at the current rate". Rewards are paid to
@@ -691,81 +765,99 @@ function YourStakes({
               key={s.key}
               className={`asset-tile p-4${unlocked ? " asset-tile--ready" : ""}`}
             >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-4 min-w-0">
-                {isUs ? (
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
-                    <ImageWithFallback
-                      src={logoImage}
-                      alt="FlareForward"
-                      className="w-7 h-7 object-contain"
-                    />
-                  </div>
-                ) : (
-                  <ValidatorAvatar />
-                )}
-                <div className="min-w-0">
-                  {/* The node id and our fee used to repeat on every row. A
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-4 min-w-0">
+                  {isUs ? (
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center border border-[#EE1A58]/40 bg-white/5 overflow-hidden shrink-0">
+                      <ImageWithFallback
+                        src={logoImage}
+                        alt="FlareForward"
+                        className="w-7 h-7 object-contain"
+                      />
+                    </div>
+                  ) : (
+                    <ValidatorAvatar />
+                  )}
+                  <div className="min-w-0">
+                    {/* The node id and our fee used to repeat on every row. A
                       staker knows who they staked with; what they want is when
                       it unlocks. Non-FlareForward nodes still show an id,
                       because there the id IS the identity. */}
-                  {/* Our own name is not information: the logo is right there,
+                    {/* Our own name is not information: the logo is right there,
                       and ours is the only validator this page offers. A
                       third-party node still shows its id, because there the id
                       IS the identity. */}
-                  {!isUs && (
-                    <div className="font-mono text-sm text-[#FAFAFA] truncate" title={s.nodeId}>
-                      {shortNodeId(s.nodeId, 10)}
+                    {!isUs && (
+                      <div
+                        className="font-mono text-sm text-[#FAFAFA] truncate"
+                        title={s.nodeId}
+                      >
+                        {shortNodeId(s.nodeId, 10)}
+                      </div>
+                    )}
+                    <div className="text-xs text-[#8FA0B8] flex items-center gap-1.5 mt-1">
+                      <Clock size={12} />
+                      {unlocked ? (
+                        <span className="text-emerald-400">
+                          Unlocked — ready to withdraw
+                        </span>
+                      ) : (
+                        <span>
+                          <span className="text-[#FAFAFA] font-medium">
+                            {countdownTo(s.endTime)}
+                          </span>{" "}
+                          left · unlocks{" "}
+                          {new Date(
+                            Number(s.endTime) * 1000,
+                          ).toLocaleDateString()}
+                        </span>
+                      )}
                     </div>
-                  )}
-                  <div className="text-xs text-[#8FA0B8] flex items-center gap-1.5 mt-1">
-                    <Clock size={12} />
-                    {unlocked ? (
-                      <span className="text-emerald-400">Unlocked — ready to withdraw</span>
-                    ) : (
-                      <span>
-                        <span className="text-[#FAFAFA] font-medium">
-                          {countdownTo(s.endTime)}
-                        </span>{" "}
-                        left · unlocks {new Date(Number(s.endTime) * 1000).toLocaleDateString()}
-                      </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 sm:justify-end pl-14 sm:pl-0">
+                  <div className="text-right">
+                    <div className="text-lg font-semibold tabular-nums text-[#FAFAFA]">
+                      {formatFlr(s.amount, 0)} FLR
+                    </div>
+                    {perYear != null && (
+                      <div className="mt-0.5 flex items-center justify-end gap-1.5 text-xs text-emerald-400">
+                        <span
+                          className="relative flex h-1.5 w-1.5"
+                          aria-hidden="true"
+                        >
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                        </span>
+                        ≈{" "}
+                        {perYear.toLocaleString(undefined, {
+                          maximumFractionDigits: 0,
+                        })}{" "}
+                        FLR / yr at the current rate
+                      </div>
                     )}
                   </div>
+                  <Badge
+                    variant={
+                      s.pending ? "outline" : unlocked ? "dark" : "success"
+                    }
+                  >
+                    {s.pending ? "Pending" : unlocked ? "Unlocked" : "Active"}
+                  </Badge>
                 </div>
               </div>
-              <div className="flex items-center gap-3 sm:justify-end pl-14 sm:pl-0">
-                <div className="text-right">
-                  <div className="text-lg font-semibold tabular-nums text-[#FAFAFA]">
-                    {formatFlr(s.amount, 0)} FLR
-                  </div>
-                  {perYear != null && (
-                    <div className="mt-0.5 flex items-center justify-end gap-1.5 text-xs text-emerald-400">
-                      <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                      </span>
-                      ≈ {perYear.toLocaleString(undefined, { maximumFractionDigits: 0 })} FLR /
-                      yr at the current rate
-                    </div>
-                  )}
-                </div>
-                <Badge variant={s.pending ? "outline" : unlocked ? "dark" : "success"}>
-                  {s.pending ? "Pending" : unlocked ? "Unlocked" : "Active"}
-                </Badge>
-              </div>
-            </div>
-            {/* The life bar: this stake walking its term, start to unlock.
+              {/* The life bar: this stake walking its term, start to unlock.
                 Pink while working, emerald once it is done and collectable. */}
-            <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/8">
-              <div
-                className={`h-full rounded-full transition-all ${
-                  unlocked
-                    ? "bg-emerald-400/80"
-                    : "bg-gradient-to-r from-[#EE1A58] to-[#E85A95]"
-                }`}
-                style={{ width: `${pctDone}%` }}
-              />
-            </div>
+              <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-white/8">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    unlocked
+                      ? "bg-emerald-400/80"
+                      : "bg-gradient-to-r from-[#EE1A58] to-[#E85A95]"
+                  }`}
+                  style={{ width: `${pctDone}%` }}
+                />
+              </div>
             </div>
           );
         })}
@@ -773,8 +865,8 @@ function YourStakes({
       {onchainFailed && (
         <div className="px-4 py-3 border-t border-white/8 text-xs text-[#8FA0B8] flex items-center gap-2">
           <Info size={12} className="shrink-0" />
-          Showing stakes recorded on this device. The P-chain is busy right now — use refresh to
-          reconcile with on-chain data.
+          Showing stakes recorded on this device. The P-chain is busy right now
+          — use refresh to reconcile with on-chain data.
         </div>
       )}
     </Card>
@@ -815,7 +907,10 @@ function ValidatorAvatar({
           onError={() => setErrored(true)}
         />
       ) : (
-        <Server size={iconSize} className={selected ? "text-[#EE1A58]" : "text-[#8FA0B8]"} />
+        <Server
+          size={iconSize}
+          className={selected ? "text-[#EE1A58]" : "text-[#8FA0B8]"}
+        />
       )}
     </div>
   );
@@ -844,12 +939,18 @@ function PendingImportNotice({
       <div className="flex gap-3">
         <Clock size={16} className="text-yellow-500 shrink-0 mt-0.5" />
         <div className="text-[#FAFAFA]">
-          <span className="font-semibold">{formatFlr(amount)} FLR</span> is part-way to {target}. The
-          export step confirmed, but the import step hasn't. Your FLR is safe — it just needs one
-          more confirmation to land.
+          <span className="font-semibold">{formatFlr(amount)} FLR</span> is
+          part-way to {target}. The export step confirmed, but the import step
+          hasn't. Your FLR is safe — it just needs one more confirmation to
+          land.
         </div>
       </div>
-      <Button variant="action" className="w-full" disabled={disabled} onClick={onFinish}>
+      <Button
+        variant="action"
+        className="w-full"
+        disabled={disabled}
+        onClick={onFinish}
+      >
         {finishing ? (
           <Loader2 className="animate-spin" size={16} />
         ) : (

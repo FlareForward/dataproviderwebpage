@@ -10,7 +10,13 @@ import {
   Wallet,
   XCircle,
 } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./components/Card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "./components/Card";
 import { Button } from "./components/Button";
 import { useReadContracts } from "wagmi";
 import { ConnectWallet } from "./components/ConnectWallet";
@@ -18,33 +24,17 @@ import { EarningsStrip } from "./components/EarningsStrip";
 import { RewardHistory } from "./components/RewardHistory";
 import { bondLotAbi, CURRENT_LOT, type BondTier } from "../lib/bondLot";
 import { useDelegation } from "../hooks/useDelegation";
+import { useEarned } from "../hooks/useEarned";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
 import { settledRate, fmtPct, fmtFlrWei } from "../lib/rewards";
 import { type DisplayStake } from "../lib/staking";
-
 
 type ClaimSource = "delegation" | "staking";
 type ClaimState = "idle" | "claiming" | "claimed" | "failed";
 
 const FLAREFORWARD_ADDRESS =
   "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110".toLowerCase();
-
-/**
- * Bond distributions claimable by this wallet. Hard zero, deliberately.
- *
- * Bonds pay through Jon's distribution contract: FLR deposited into it is split
- * equally across every token id and holders claim their share. Nothing has been
- * deposited for Lot 1, so zero is the true figure rather than a placeholder.
- *
- * Wiring it live needs veriguardnft.xyz/royalty-api, which serves per-wallet
- * claimable amounts — but only for collections listed in the on-chain
- * CollectionRegistry, and both Lot 1 tiers currently answer "Collection is not
- * supported". Left as a constant until they are registered and a real response
- * can be read, rather than shipping a parser written against a shape nobody
- * has seen return data.
- */
-const BONDS_CLAIMABLE_WEI = 0n;
 
 /**
  * /rewards is the connected wallet's member page: delegation, staking, and
@@ -55,10 +45,12 @@ export default function Rewards() {
   const { data: rewards, isLoading, error } = useRewards();
   const delegation = useDelegation();
   const staking = useStaking();
-  const [claimState, setClaimState] = useState<Record<ClaimSource, ClaimState>>({
-    delegation: "idle",
-    staking: "idle",
-  });
+  const [claimState, setClaimState] = useState<Record<ClaimSource, ClaimState>>(
+    {
+      delegation: "idle",
+      staking: "idle",
+    },
+  );
 
   const isConnected = delegation.isConnected || staking.isConnected;
   const ffDelegationAddress =
@@ -66,16 +58,30 @@ export default function Rewards() {
   const delegatedWflr = useMemo(() => {
     const delegatedBips =
       delegation.currentDelegations.find(
-        (d) => d.address.toLowerCase() === ffDelegationAddress
+        (d) => d.address.toLowerCase() === ffDelegationAddress,
       )?.bips ?? 0;
     return (delegation.wflrBalance * BigInt(delegatedBips)) / 10_000n;
-  }, [delegation.currentDelegations, delegation.wflrBalance, ffDelegationAddress]);
+  }, [
+    delegation.currentDelegations,
+    delegation.wflrBalance,
+    ffDelegationAddress,
+  ]);
 
   const stakedWithUs = useMemo(
     () => totalStakedWithNode(staking.stakes, rewards?.node_id ?? null),
-    [staking.stakes, rewards?.node_id]
+    [staking.stakes, rewards?.node_id],
   );
-  const totalClaimable = delegation.claimableReward + staking.claimableReward;
+  const earned = useEarned(delegation.address, {
+    delegationWei: delegation.claimableReward,
+    stakingWei: staking.claimableReward,
+    claimableReady:
+      delegation.claimableRewardReady && staking.claimableRewardReady,
+  });
+  const bondsClaimable = earned.data?.claimable.bondsWei;
+  const totalClaimable =
+    delegation.claimableReward +
+    staking.claimableReward +
+    (bondsClaimable ?? 0n);
   const claimBusy =
     delegation.busy === "claim" ||
     staking.busy === "claim" ||
@@ -88,7 +94,9 @@ export default function Rewards() {
 
   async function claimSource(source: ClaimSource) {
     const amount =
-      source === "delegation" ? delegation.claimableReward : staking.claimableReward;
+      source === "delegation"
+        ? delegation.claimableReward
+        : staking.claimableReward;
     if (amount <= 0n) return;
 
     setSourceState(source, "claiming");
@@ -115,10 +123,12 @@ export default function Rewards() {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">My Rewards</h1>
+            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">
+              My Rewards
+            </h1>
             <p className="text-[#8FA0B8] text-sm mt-1">
-              Thank you for backing FlareForward. Here's what your wallet has earned, and
-              what's ready to claim.
+              Thank you for backing FlareForward. Here's what your wallet has
+              earned, and what's ready to claim.
             </p>
           </div>
           {isConnected && delegation.address && (
@@ -150,16 +160,32 @@ export default function Rewards() {
                   totalClaimable={totalClaimable}
                   delegationClaimable={delegation.claimableReward}
                   stakingClaimable={staking.claimableReward}
-                  bondsClaimable={BONDS_CLAIMABLE_WEI}
+                  bondsClaimable={bondsClaimable}
+                  bondsLoading={earned.isLoading}
                   delegationState={
-                    delegation.busy === "claim" ? "claiming" : claimState.delegation
+                    delegation.busy === "claim"
+                      ? "claiming"
+                      : claimState.delegation
                   }
-                  stakingState={staking.busy === "claim" ? "claiming" : claimState.staking}
+                  stakingState={
+                    staking.busy === "claim" ? "claiming" : claimState.staking
+                  }
                   busy={claimBusy}
                   onClaimDelegation={() => claimSource("delegation")}
                   onClaimStaking={() => claimSource("staking")}
                   onClaimBoth={claimBoth}
                   address={delegation.address}
+                  claimableReady={earned.data?.claimableReady === true}
+                  claimableLoading={
+                    earned.isLoading ||
+                    delegation.claimableRewardLoading ||
+                    staking.claimableRewardLoading
+                  }
+                  claimableError={
+                    !!earned.error ||
+                    delegation.claimableRewardError ||
+                    staking.claimableRewardError
+                  }
                 />
 
                 <RewardSection
@@ -168,7 +194,8 @@ export default function Rewards() {
                   action={
                     <Link to="/delegation">
                       <Button variant="outline" size="sm" className="gap-2">
-                        <Wallet size={15} /> Manage delegation <ArrowRight size={14} />
+                        <Wallet size={15} /> Manage delegation{" "}
+                        <ArrowRight size={14} />
                       </Button>
                     </Link>
                   }
@@ -190,7 +217,8 @@ export default function Rewards() {
                   action={
                     <Link to="/staking">
                       <Button variant="outline" size="sm" className="gap-2">
-                        <Landmark size={15} /> Manage staking <ArrowRight size={14} />
+                        <Landmark size={15} /> Manage staking{" "}
+                        <ArrowRight size={14} />
                       </Button>
                     </Link>
                   }
@@ -217,8 +245,13 @@ export default function Rewards() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <RateTile
                               label="Staking APY"
-                              value={fmtPct(settledRate(rewards.rates.staking_annual_pct))}
-                              accent={settledRate(rewards.rates.staking_annual_pct) != null}
+                              value={fmtPct(
+                                settledRate(rewards.rates.staking_annual_pct),
+                              )}
+                              accent={
+                                settledRate(rewards.rates.staking_annual_pct) !=
+                                null
+                              }
                             />
                             <RateTile
                               label="Claimable now"
@@ -227,7 +260,8 @@ export default function Rewards() {
                             />
                           </div>
                           <p className="text-sm text-[#8FA0B8]">
-                            Enable P-chain staking to read your FlareForward stake and soonest unlock.
+                            Enable P-chain staking to read your FlareForward
+                            stake and soonest unlock.
                           </p>
                         </div>
                         <Button
@@ -251,7 +285,11 @@ export default function Rewards() {
 
                 <BondsSection
                   address={delegation.address ?? undefined}
-                  stagedRatePct={settledRate(rewards.rates.delegation_annual_pct)}
+                  stagedRatePct={settledRate(
+                    rewards.rates.delegation_annual_pct,
+                  )}
+                  earnedBondsWei={earned.data?.earned.bondsWei}
+                  earnedLoading={earned.isLoading}
                 />
                 {/* The address-lookup card that sat here is gone by operator
                     call: My Rewards is about the connected wallet, and /bonds
@@ -261,8 +299,8 @@ export default function Rewards() {
             )}
 
             <p className="text-[11px] text-[#8FA0B8]">
-              Figures come from the FlareForward rewards hooks, Flare RPC, and the
-              lot contracts — read live, not cached.
+              Figures come from the FlareForward rewards hooks, Flare RPC, and
+              the lot contracts — read live, not cached.
             </p>
           </>
         )}
@@ -290,7 +328,8 @@ function DisconnectedRewards({
                 Connect your wallet to see your rewards.
               </h2>
               <p className="mt-1.5 text-sm text-[#8FA0B8]">
-                This page shows your delegation rewards, staking rewards, and bond holdings.
+                This page shows your delegation rewards, staking rewards, and
+                bond holdings.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -319,6 +358,7 @@ function ClaimPanel({
   delegationClaimable,
   stakingClaimable,
   bondsClaimable,
+  bondsLoading,
   delegationState,
   stakingState,
   busy,
@@ -326,11 +366,15 @@ function ClaimPanel({
   onClaimStaking,
   onClaimBoth,
   address,
+  claimableReady,
+  claimableLoading,
+  claimableError,
 }: {
   totalClaimable: bigint;
   delegationClaimable: bigint;
   stakingClaimable: bigint;
-  bondsClaimable: bigint;
+  bondsClaimable: bigint | null | undefined;
+  bondsLoading: boolean;
   delegationState: ClaimState;
   stakingState: ClaimState;
   busy: boolean;
@@ -338,6 +382,9 @@ function ClaimPanel({
   onClaimStaking: () => void;
   onClaimBoth: () => void;
   address: `0x${string}` | undefined;
+  claimableReady: boolean;
+  claimableLoading: boolean;
+  claimableError: boolean;
 }) {
   const hasDelegationClaim = delegationClaimable > 0n;
   const hasStakingClaim = stakingClaimable > 0n;
@@ -357,8 +404,8 @@ function ClaimPanel({
               <CardTitle className="text-[#FAFAFA]">Claimable now</CardTitle>
             </div>
             <CardDescription className="text-[#8FA0B8]">
-              Delegation and staking pay from separate contracts, so claiming both is two
-              confirmations.
+              Delegation and staking pay from separate contracts, so claiming
+              both is two confirmations.
             </CardDescription>
           </div>
           <div className="flex items-center gap-4 shrink-0">
@@ -367,7 +414,8 @@ function ClaimPanel({
                 Total claimable
               </div>
               <div className="text-3xl font-bold tabular-nums text-emerald-400">
-                {fmtFlrWei(totalClaimable)} <span className="text-base text-[#8FA0B8]">FLR</span>
+                {fmtFlrWei(totalClaimable)}{" "}
+                <span className="text-base text-[#8FA0B8]">FLR</span>
               </div>
             </div>
             {hasDelegationClaim && hasStakingClaim && (
@@ -377,7 +425,11 @@ function ClaimPanel({
                 disabled={!canClaimBoth}
                 onClick={onClaimBoth}
               >
-                {busy ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
+                {busy ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Gift size={16} />
+                )}
                 Claim both
               </Button>
             )}
@@ -415,12 +467,22 @@ function ClaimPanel({
             state="idle"
             disabled
             onClaim={() => {}}
-            emptyNote="Opens when a lot closes and its distribution is funded."
+            pending={bondsLoading}
+            emptyNote="not tracked yet"
           />
         </div>
 
         {/* Accumulated payouts live here as one line + a button, not a tile. */}
-        <RewardHistory address={address} />
+        <RewardHistory
+          address={address}
+          claimable={{
+            delegationWei: delegationClaimable,
+            stakingWei: stakingClaimable,
+            claimableReady,
+          }}
+          claimableLoading={claimableLoading}
+          claimableError={claimableError}
+        />
       </CardContent>
     </Card>
   );
@@ -439,27 +501,37 @@ function ClaimItem({
   disabled,
   onClaim,
   emptyNote,
+  pending,
 }: {
   title: string;
-  amount: bigint;
+  amount: bigint | null | undefined;
   state: ClaimState;
   disabled: boolean;
   onClaim: () => void;
   /** Replaces the generic zero-state line when a source is 0 for a reason. */
   emptyNote?: string;
+  pending?: boolean;
 }) {
-  const canClaim = amount > 0n && state !== "claiming";
+  const hasAmount = typeof amount === "bigint";
+  const canClaim = hasAmount && amount > 0n && state !== "claiming";
   const status =
     state === "failed"
-      ? { text: "Claim failed. You can retry this source.", tone: "text-red-400" }
+      ? {
+          text: "Claim failed. You can retry this source.",
+          tone: "text-red-400",
+        }
       : state === "claimed"
         ? { text: "Claim submitted.", tone: "text-emerald-400" }
-        : amount === 0n
-          ? {
-              text: emptyNote ?? "Nothing claimable from this source.",
-              tone: "text-[#8FA0B8]",
-            }
-          : { text: "Ready to claim.", tone: "text-[#8FA0B8]" };
+        : pending || amount === undefined
+          ? { text: "Reading this source.", tone: "text-[#8FA0B8]" }
+          : amount === null
+            ? { text: emptyNote ?? "not tracked yet", tone: "text-[#8FA0B8]" }
+            : amount === 0n
+              ? {
+                  text: emptyNote ?? "Nothing claimable from this source.",
+                  tone: "text-[#8FA0B8]",
+                }
+              : { text: "Ready to claim.", tone: "text-[#8FA0B8]" };
 
   return (
     <div className="glass-panel h-full p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -467,10 +539,17 @@ function ClaimItem({
         <div className="text-sm font-semibold text-[#FAFAFA]">{title}</div>
         <div
           className={`mt-1 text-xl font-bold tabular-nums ${
-            amount > 0n ? "text-emerald-400" : "text-[#FAFAFA]"
+            hasAmount && amount > 0n ? "text-emerald-400" : "text-[#FAFAFA]"
           }`}
         >
-          {fmtFlrWei(amount)} <span className="text-sm font-normal text-[#8FA0B8]">FLR</span>
+          {pending || amount === undefined
+            ? "—"
+            : amount === null
+              ? "not tracked yet"
+              : fmtFlrWei(amount)}{" "}
+          {hasAmount && (
+            <span className="text-sm font-normal text-[#8FA0B8]">FLR</span>
+          )}
         </div>
         <p className={`mt-1 text-xs ${status.tone}`}>{status.text}</p>
       </div>
@@ -511,7 +590,9 @@ function RewardSection({
     <section className="space-y-3">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight text-[#FAFAFA]">{title}</h2>
+          <h2 className="text-xl font-semibold tracking-tight text-[#FAFAFA]">
+            {title}
+          </h2>
           <p className="mt-1 text-sm text-[#8FA0B8]">{description}</p>
         </div>
         {action}
@@ -531,18 +612,22 @@ function RewardSection({
  * grid, so all three holdings answer "what is this earning" identically.
  *
  * Staged capital is derived, not hardcoded: balanceOf x mintPrice per tier,
- * both read from the lot contracts. Claimable is a hard 0 until a lot closes
- * and its distributor is funded.
+ * both read from the lot contracts. Bond payouts stay "not tracked yet" until
+ * a RoyaltyDistributor lands in the worker LOTS registry.
  */
 function BondsSection({
   address,
   stagedRatePct,
+  earnedBondsWei,
+  earnedLoading,
 }: {
   address: `0x${string}` | undefined;
   stagedRatePct: number | null;
+  earnedBondsWei: bigint | null | undefined;
+  earnedLoading: boolean;
 }) {
   const tiers = CURRENT_LOT.tiers.filter(
-    (t): t is BondTier & { address: `0x${string}` } => !!t.address
+    (t): t is BondTier & { address: `0x${string}` } => !!t.address,
   );
 
   const { data } = useReadContracts({
@@ -551,9 +636,15 @@ function BondsSection({
         address: t.address,
         abi: bondLotAbi,
         functionName: "balanceOf" as const,
-        args: [address ?? "0x0000000000000000000000000000000000000000"] as const,
+        args: [
+          address ?? "0x0000000000000000000000000000000000000000",
+        ] as const,
       },
-      { address: t.address, abi: bondLotAbi, functionName: "mintPrice" as const },
+      {
+        address: t.address,
+        abi: bondLotAbi,
+        functionName: "mintPrice" as const,
+      },
     ]),
     query: { enabled: !!address && tiers.length > 0 },
   });
@@ -594,9 +685,19 @@ function BondsSection({
         />
         <BondStat label="Bonds held" value={`${held}`} sub="your position" />
         <BondStat
-          label="Claimable now"
-          value={`${fmtFlrWei(BONDS_CLAIMABLE_WEI)} FLR`}
-          sub="nothing waiting"
+          label="What we've earned you"
+          value={
+            earnedLoading || earnedBondsWei === undefined
+              ? "—"
+              : earnedBondsWei === null
+                ? "not tracked yet"
+                : `${fmtFlrWei(earnedBondsWei, 2)} FLR`
+          }
+          sub={
+            earnedBondsWei == null
+              ? "distribution contract pending"
+              : "claimed plus claimable"
+          }
         />
         <BondStat
           label="At the current rate"
@@ -648,7 +749,9 @@ function RateTile({
 }) {
   return (
     <div className="glass-panel px-4 py-3">
-      <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">{label}</div>
+      <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+        {label}
+      </div>
       <div
         className={`mt-1 text-xl font-bold tabular-nums ${
           accent ? "text-emerald-400" : "text-[#FAFAFA]"
@@ -660,7 +763,10 @@ function RateTile({
   );
 }
 
-function totalStakedWithNode(stakes: DisplayStake[], nodeId: string | null): bigint {
+function totalStakedWithNode(
+  stakes: DisplayStake[],
+  nodeId: string | null,
+): bigint {
   if (!nodeId) return 0n;
   return stakes
     .filter((stake) => stake.nodeId === nodeId)

@@ -3,7 +3,7 @@ import { formatUnits } from "viem";
 import { Gift, Loader2 } from "lucide-react";
 import { Card, CardContent } from "./Card";
 import { Button } from "./Button";
-import { fmtPct, fmtFlrWei } from "../../lib/rewards";
+import { fmtUtcDate, fmtPct, fmtFlrWei } from "../../lib/rewards";
 
 const DASH = "—";
 
@@ -28,6 +28,10 @@ interface EarningsStripProps {
   onClaim?: () => void;
   claimBusy?: boolean;
   claimLabel?: string;
+  earnedTotalWei?: bigint | null;
+  earnedTrackingStartUnix?: number;
+  earnedLoading?: boolean;
+  earnedUnavailable?: boolean;
   /**
    * Optional row under the hero's claim line — for state that is one fact and
    * one action, like delegation's "100% to FlareForward · Undelegate". Lets a
@@ -44,7 +48,10 @@ interface EarningsStripProps {
  * beside it: the Staking row stood 28px taller than the Delegation row for no
  * reason but a line break.
  */
-function formatAnnualAtRate(amountWei: bigint, ratePct: number | null | undefined): string {
+function formatAnnualAtRate(
+  amountWei: bigint,
+  ratePct: number | null | undefined,
+): string {
   if (ratePct == null || !Number.isFinite(ratePct)) return DASH;
   const amount = Number(formatUnits(amountWei, 18));
   return `${((amount * ratePct) / 100).toLocaleString(undefined, {
@@ -103,85 +110,114 @@ export function EarningsStrip({
   onClaim,
   claimBusy,
   claimLabel = "Claim rewards",
+  earnedTotalWei,
+  earnedTrackingStartUnix,
+  earnedLoading,
+  earnedUnavailable,
   heroExtra,
 }: EarningsStripProps) {
   const hasPosition = positionAmount > 0n;
   const hasRate = ratePct != null && Number.isFinite(ratePct);
   const hero = onClaim != null;
+  const showEarnedLine =
+    hero && (earnedLoading || earnedUnavailable || earnedTotalWei != null);
 
   const body = (
     <>
-        {hasPosition ? (
-          <>
-            {hero && (
-              <div className="glass-panel p-4 sm:p-5">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                      Claimable now
-                    </div>
-                    <div
-                      className={`mt-1 text-3xl sm:text-4xl font-semibold ${
-                        claimableReward > 0n ? "text-emerald-400" : "text-[#FAFAFA]"
-                      }`}
-                    >
-                      {fmtFlrWei(claimableReward)}{" "}
-                      <span className="text-lg text-[#8FA0B8]">FLR</span>
-                    </div>
+      {hasPosition ? (
+        <>
+          {hero && (
+            <div className="glass-panel p-4 sm:p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <div className="text-xs uppercase tracking-wide text-[#8FA0B8]">
+                    Claimable now
                   </div>
-                  <Button
-                    variant="action"
-                    className="gap-2 w-full sm:w-auto sm:px-8"
-                    disabled={claimBusy || claimableReward <= 0n}
-                    onClick={onClaim}
+                  <div
+                    className={`mt-1 text-3xl sm:text-4xl font-semibold ${
+                      claimableReward > 0n
+                        ? "text-emerald-400"
+                        : "text-[#FAFAFA]"
+                    }`}
                   >
-                    {claimBusy ? (
-                      <Loader2 className="animate-spin" size={16} />
-                    ) : (
-                      <>
-                        <Gift size={16} /> {claimLabel}
-                      </>
-                    )}
-                  </Button>
+                    {fmtFlrWei(claimableReward)}{" "}
+                    <span className="text-lg text-[#8FA0B8]">FLR</span>
+                  </div>
                 </div>
-                {heroExtra && (
-                  <div className="mt-3 border-t border-white/8 pt-3">{heroExtra}</div>
-                )}
+                <Button
+                  variant="action"
+                  className="gap-2 w-full sm:w-auto sm:px-8"
+                  disabled={claimBusy || claimableReward <= 0n}
+                  onClick={onClaim}
+                >
+                  {claimBusy ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <>
+                      <Gift size={16} /> {claimLabel}
+                    </>
+                  )}
+                </Button>
               </div>
-            )}
-            <div
-              className={`grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch ${
-                hero ? "xl:grid-cols-3" : "xl:grid-cols-4"
-              }`}
-            >
-              <EarningsStat
-                label={rateLabel}
-                value={fmtPct(ratePct)}
-                sub="current rate"
-                accent={hasRate}
-              />
-              <EarningsStat
-                label={positionLabel}
-                value={`${fmtFlrWei(positionAmount)} ${positionUnit}`}
-                sub="your position"
-              />
-              {/* Absent when the hero carries it -- one figure, one place. */}
-              {!hero && (
-                <EarningsStat
-                  label="Claimable now"
-                  value={`${fmtFlrWei(claimableReward)} FLR`}
-                  sub={claimableReward > 0n ? "ready to claim" : "nothing waiting"}
-                  accent={claimableReward > 0n}
-                />
+              {heroExtra && (
+                <div className="mt-3 border-t border-white/8 pt-3">
+                  {heroExtra}
+                </div>
               )}
-              <EarningsStat
-                label="At the current rate"
-                value={formatAnnualAtRate(positionAmount, ratePct)}
-                sub="per year, projection"
-              />
             </div>
-          </>
-        ) : (
+          )}
+          {showEarnedLine && (
+            <EarnedLine
+              amountWei={earnedTotalWei}
+              startUnix={earnedTrackingStartUnix}
+              loading={earnedLoading}
+              unavailable={earnedUnavailable}
+            />
+          )}
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch ${
+              hero ? "xl:grid-cols-3" : "xl:grid-cols-4"
+            }`}
+          >
+            <EarningsStat
+              label={rateLabel}
+              value={fmtPct(ratePct)}
+              sub="current rate"
+              accent={hasRate}
+            />
+            <EarningsStat
+              label={positionLabel}
+              value={`${fmtFlrWei(positionAmount)} ${positionUnit}`}
+              sub="your position"
+            />
+            {/* Absent when the hero carries it -- one figure, one place. */}
+            {!hero && (
+              <EarningsStat
+                label="Claimable now"
+                value={`${fmtFlrWei(claimableReward)} FLR`}
+                sub={
+                  claimableReward > 0n ? "ready to claim" : "nothing waiting"
+                }
+                accent={claimableReward > 0n}
+              />
+            )}
+            <EarningsStat
+              label="At the current rate"
+              value={formatAnnualAtRate(positionAmount, ratePct)}
+              sub="per year, projection"
+            />
+          </div>
+        </>
+      ) : (
+        <div className="space-y-3">
+          {showEarnedLine && (
+            <EarnedLine
+              amountWei={earnedTotalWei}
+              startUnix={earnedTrackingStartUnix}
+              loading={earnedLoading}
+              unavailable={earnedUnavailable}
+            />
+          )}
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,220px)_1fr] gap-3 items-stretch">
             <EarningsStat
               label={rateLabel}
@@ -193,8 +229,13 @@ export function EarningsStrip({
               <p className="text-sm text-[#FAFAFA]">{emptyMessage}</p>
             </div>
           </div>
-        )}
-        {basis && <p className="text-[11px] leading-relaxed text-[#8FA0B8]">Rate basis: {basis}</p>}
+        </div>
+      )}
+      {basis && (
+        <p className="text-[11px] leading-relaxed text-[#8FA0B8]">
+          Rate basis: {basis}
+        </p>
+      )}
     </>
   );
 
@@ -212,5 +253,46 @@ export function EarningsStrip({
     <Card>
       <CardContent className="p-4 sm:p-5 space-y-3">{body}</CardContent>
     </Card>
+  );
+}
+
+function EarnedLine({
+  amountWei,
+  startUnix,
+  loading,
+  unavailable,
+}: {
+  amountWei: bigint | null | undefined;
+  startUnix?: number;
+  loading?: boolean;
+  unavailable?: boolean;
+}) {
+  const hasAmount = !loading && !unavailable && amountWei != null;
+
+  return (
+    <div className="glass-panel border-l-2 border-[#E85A95]/60 px-4 py-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+            What we&apos;ve earned you
+          </div>
+          <div className="mt-0.5 text-xs text-[#8FA0B8]">
+            {startUnix
+              ? `Since ${fmtUtcDate(startUnix)}`
+              : "Claimed plus currently claimable"}
+          </div>
+        </div>
+        <div className="text-xl font-bold tabular-nums text-[#FAFAFA]">
+          {hasAmount ? (
+            <>
+              {fmtFlrWei(amountWei, 2)}{" "}
+              <span className="text-sm font-semibold text-[#8FA0B8]">FLR</span>
+            </>
+          ) : (
+            "—"
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
