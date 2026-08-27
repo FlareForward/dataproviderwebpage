@@ -4,6 +4,19 @@ import { combineEarnedTotals, type EarnedClaim } from "../src/lib/earned.js";
 
 const NEGATIVE_OWNER = "0x4ebb057d0a2382959aa5b0a310a24c450f8c061f";
 const FLAREFORWARD_VOTER = "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
+/**
+ * Read on chain from EntityManager 2026-08-27. A member's rewards are credited
+ * to the ROLE address, never the identity — delegation to the delegation
+ * address, staking to the node id.
+ */
+const FLAREFORWARD_DELEGATION_ADDRESS =
+  "0xce2c92c54f7307894725e8ceb16424b7c9c18807";
+const FLAREFORWARD_NODE_ID = "0x3243c29a0658ce530b9e4fc610d2af2cbfbc5487";
+const FLAREFORWARD_VOTERS = [
+  FLAREFORWARD_VOTER,
+  FLAREFORWARD_DELEGATION_ADDRESS,
+  FLAREFORWARD_NODE_ID,
+].map((a) => a.toLowerCase());
 const REWARD_MANAGER =
   "0xC8f55c5aA2C752eE285Bd872855C749f4ee6239B".toLowerCase();
 const V2_CLAIM_TOPIC =
@@ -126,10 +139,17 @@ function isV2RewardQuery(url: URL): boolean {
   );
 }
 
+function voterOf(url: URL): string | null {
+  const t = url.searchParams.get("topic1");
+  if (!t) return null;
+  const addr = `0x${t.slice(-40)}`.toLowerCase();
+  return FLAREFORWARD_VOTERS.includes(addr) ? addr : null;
+}
+
 function hasAttributedTopics(url: URL, owner: string): boolean {
   const params = url.searchParams;
   return (
-    params.get("topic1") === topicFor(FLAREFORWARD_VOTER) &&
+    voterOf(url) !== null &&
     params.get("topic2") === topicFor(owner) &&
     params.get("topic0_1_opr") === "and" &&
     params.get("topic0_2_opr") === "and" &&
@@ -199,6 +219,7 @@ test("positive control returns FlareForward owner FEE claims", async () => {
     if (
       isV2RewardQuery(url) &&
       hasAttributedTopics(url, FLAREFORWARD_VOTER) &&
+      voterOf(url) === FLAREFORWARD_VOTER.toLowerCase() &&
       containsBlock(url, firstClaimBlock)
     ) {
       return json({ result: feeClaims });
@@ -295,6 +316,50 @@ test("a full 1000-row Blockscout page marks the scan partial", async () => {
   try {
     const { partial } = await loadEarnedClaims(FLAREFORWARD_VOTER, 67_561_043);
     assert.equal(partial, true);
+  } finally {
+    restore();
+  }
+});
+
+/**
+ * Regression for the 2026-08-27 under-count. A member's rewards are credited to
+ * FlareForward's ROLE addresses -- delegation to the delegation address, staking
+ * to the node id -- never to the identity. Filtering on the identity alone
+ * returned 0 FLR for a wallet that had actually been paid 2,915.44 FLR through
+ * us, and the emptiness read as "nobody has earned anything yet" instead of as a
+ * bug. Both role addresses must be queried.
+ */
+test("member rewards credited to the delegation address and node id are counted", async () => {
+  const block = 66_000_000;
+  const delegationClaims = [
+    makeV2Log(0, { amountWei: flr("661.79"), claimType: 2, block, unix: 1_786_000_000 }),
+  ];
+  const stakingClaims = [
+    makeV2Log(1, { amountWei: flr("2253.65"), claimType: 3, block: block + 1, unix: 1_786_000_100 }),
+  ];
+  const seen: string[] = [];
+  const restore = withMockFetch((url) => {
+    if (!isV2RewardQuery(url)) return json({ message: "No logs found" });
+    const voter = voterOf(url);
+    if (!voter || !containsBlock(url, block)) return json({ message: "No logs found" });
+    seen.push(voter);
+    if (voter === FLAREFORWARD_DELEGATION_ADDRESS) return json({ result: delegationClaims });
+    if (voter === FLAREFORWARD_NODE_ID) return json({ result: stakingClaims });
+    return json({ message: "No logs found" });
+  });
+
+  try {
+    const { claims, partial } = await loadEarnedClaims(NEGATIVE_OWNER, block + 10);
+    const total = claims.reduce((sum, c) => sum + BigInt(c.amount_wei), 0n);
+
+    assert.equal(partial, false);
+    assert.equal(claims.length, 2, "both role-address streams must be returned");
+    assert.equal(total, flr("2915.44"), "delegation + staking must both be counted");
+    assert.equal(claims.filter((c) => c.kind === "delegation").length, 1);
+    assert.equal(claims.filter((c) => c.kind === "staking").length, 1);
+    // The identity address must still be queried -- it carries our own FEE claims.
+    assert.ok(seen.includes(FLAREFORWARD_DELEGATION_ADDRESS));
+    assert.ok(seen.includes(FLAREFORWARD_NODE_ID));
   } finally {
     restore();
   }

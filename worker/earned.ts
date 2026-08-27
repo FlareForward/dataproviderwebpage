@@ -26,7 +26,31 @@ const TRACKING_START_UNIX = 1783900800;
 
 /** RewardManager (Flare Systems Protocol V2) pays delegation and staking claims. */
 const REWARD_MANAGER = "0xC8f55c5aA2C752eE285Bd872855C749f4ee6239B";
-const FLAREFORWARD_VOTER = "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
+
+/**
+ * The addresses that appear as `voter` on a reward FlareForward earned.
+ *
+ * ⚠️ The identity address is NOT one of them in practice. Each reward stream
+ * is credited to the ROLE address EntityManager holds for it, read on chain
+ * 2026-08-27 from EntityManager 0x134b3311c6bded895556807a30c7f047d99dfdc2:
+ *
+ *   getDelegationAddressOf(0x1FBB…) -> 0xce2c92c5…  delegation (WNAT) claims
+ *   getNodeIdsOf(0x1FBB…)           -> 0x3243c29a…  staking (MIRROR) claims
+ *
+ * Filtering on the identity alone matched only our own FEE claims and returned
+ * zero for every member — which then read as "no one has ever earned anything
+ * through us" rather than as the bug it was. Keep all three.
+ */
+const FLAREFORWARD_IDENTITY = "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
+const FLAREFORWARD_DELEGATION_ADDRESS =
+  "0xce2c92c54f7307894725e8ceb16424b7c9c18807";
+const FLAREFORWARD_NODE_IDS = ["0x3243c29a0658ce530b9e4fc610d2af2cbfbc5487"];
+
+const FLAREFORWARD_VOTERS = [
+  FLAREFORWARD_IDENTITY,
+  FLAREFORWARD_DELEGATION_ADDRESS,
+  ...FLAREFORWARD_NODE_IDS,
+];
 
 /**
  * RewardClaimed(address voter, address whoClaimed, address sentTo,
@@ -193,17 +217,22 @@ export async function loadEarnedClaims(
       ? Math.ceil((head - TRACKING_START_BLOCK + 1) / CHUNK_BLOCKS)
       : 0;
 
+  // One window per (range, voter). Blockscout cannot OR a topic, and querying
+  // owner-only then filtering locally would risk the 1000-row cap truncating a
+  // busy wallet's foreign claims before our own were ever seen.
   const batches = await Promise.all(
-    ranges.map(([from, to]) =>
-      fetchLogWindow(
-        REWARD_MANAGER,
-        V2_CLAIM_TOPIC,
-        {
-          1: topicFor(FLAREFORWARD_VOTER),
-          2: topicFor(owner),
-        },
-        from,
-        to,
+    ranges.flatMap(([from, to]) =>
+      FLAREFORWARD_VOTERS.map((voter) =>
+        fetchLogWindow(
+          REWARD_MANAGER,
+          V2_CLAIM_TOPIC,
+          {
+            1: topicFor(voter),
+            2: topicFor(owner),
+          },
+          from,
+          to,
+        ),
       ),
     ),
   );
