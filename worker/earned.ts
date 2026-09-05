@@ -19,6 +19,10 @@ const FLARE_RPC = "https://flare-api.flare.network/ext/C/rpc";
 
 const BLOCKSCOUT = "https://flare-explorer.flare.network/api";
 
+const EPOCHS_PER_YEAR = 104.2857;
+const RATE_HUNDREDTHS_NUMERATOR = 7_300_000n;
+const RATE_HUNDREDTHS_DENOMINATOR = 7n;
+
 /** RewardManager creation block: the true floor for attributed V2 rewards. */
 const TRACKING_START_BLOCK = 29549020;
 /** FlareForward's first attributable claim date, 2026-07-13 UTC. */
@@ -26,6 +30,27 @@ const TRACKING_START_UNIX = 1783900800;
 
 /** RewardManager (Flare Systems Protocol V2) pays delegation and staking claims. */
 const REWARD_MANAGER = "0xC8f55c5aA2C752eE285Bd872855C749f4ee6239B";
+const FLARE_CONTRACT_REGISTRY =
+  "0xaD67FE66660Fb8dFE9d6b1b4240d8650e30F6019";
+
+const EXPECTED_CONTRACTS = {
+  wNat: "0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d",
+  flareSystemsManager: "0x89e50DC0380e597ecE79c8494bAAFD84537AD0D4",
+  pChainStakeMirror: "0x7b61F9F27153a4F2F57Dc30bF08A8eb0cCB96C22",
+} as const;
+
+const CONTRACT_NAMES = {
+  wNat: "WNat",
+  flareSystemsManager: "FlareSystemsManager",
+  pChainStakeMirror: "PChainStakeMirror",
+} as const;
+
+const SEL = {
+  getContractAddressByName: "0x82760fca",
+  getVotePowerBlock: "0xc2632216",
+  wNatVotePowerFromToAt: "0xe64767aa",
+  pChainVotePowerFromToAt: "0x1f7ff2c7",
+} as const;
 
 /**
  * The addresses that appear as `voter` on a reward FlareForward earned.
@@ -85,6 +110,8 @@ export interface EarnedClaim {
   epoch: number | null;
   kind: EarnedKind;
   amount_wei: string;
+  principal_wei: string | null;
+  rate_annualized_pct: number | null;
 }
 
 interface RawLog {
@@ -99,8 +126,354 @@ interface LogBatch {
   partial: boolean;
 }
 
+interface RpcCall {
+  to: string;
+  data: string;
+}
+
+type RpcSettledResult =
+  | { ok: true; result: string }
+  | { ok: false; error: string };
+
+interface ContractAddresses {
+  wNat: string;
+  flareSystemsManager: string;
+  pChainStakeMirror: string;
+}
+
+interface RateDecoratedClaims {
+  claims: EarnedClaim[];
+  ratesPartial: boolean;
+}
+
+let contractAddressCache: ContractAddresses | null = null;
+let contractAddressPromise: Promise<ContractAddresses> | null = null;
+const votePowerBlockCache = new Map<number, bigint>();
+const principalCache = new Map<string, bigint>();
+
 function isAddress(value: string): boolean {
   return /^0x[0-9a-fA-F]{40}$/.test(value);
+}
+
+function strip0x(value: string): string {
+  return value.replace(/^0x/, "");
+}
+
+function padUint(value: number | bigint): string {
+  return BigInt(value).toString(16).padStart(64, "0");
+}
+
+function padAddress(address: string): string {
+  return strip0x(address).toLowerCase().padStart(64, "0");
+}
+
+function padBytes20(value: string): string {
+  return strip0x(value).toLowerCase().padEnd(64, "0");
+}
+
+function utf8Hex(value: string): string {
+  return Array.from(new TextEncoder().encode(value))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function padDynamicBytes(hex: string): string {
+  const remainder = hex.length % 64;
+  return remainder === 0 ? hex : hex + "0".repeat(64 - remainder);
+}
+
+function encodeStringCall(selector: string, value: string): string {
+  const bytes = utf8Hex(value);
+  return `0x${strip0x(selector)}${padUint(32)}${padUint(
+    bytes.length / 2,
+  )}${padDynamicBytes(bytes)}`;
+}
+
+function encodeGetVotePowerBlock(epoch: number): string {
+  return `${SEL.getVotePowerBlock}${padUint(epoch)}`;
+}
+
+function encodeDelegationPrincipal(
+  owner: string,
+  votePowerBlock: bigint,
+): string {
+  return `${SEL.wNatVotePowerFromToAt}${padAddress(owner)}${padAddress(
+    FLAREFORWARD_DELEGATION_ADDRESS,
+  )}${padUint(votePowerBlock)}`;
+}
+
+function encodeStakingPrincipal(
+  owner: string,
+  nodeId: string,
+  votePowerBlock: bigint,
+): string {
+  return `${SEL.pChainVotePowerFromToAt}${padAddress(owner)}${padBytes20(
+    nodeId,
+  )}${padUint(votePowerBlock)}`;
+}
+
+function decodeUint(raw: string): bigint {
+  const hex = strip0x(raw);
+  if (!hex) return 0n;
+  return BigInt(`0x${hex}`);
+}
+
+function decodeAddress(raw: string): string {
+  const address = `0x${strip0x(raw).slice(-40)}`;
+  if (!isAddress(address)) throw new Error(`Invalid address result: ${raw}`);
+  return address;
+}
+
+function sameAddress(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+function principalKey(owner: string, epoch: number, kind: EarnedKind): string {
+  return `${owner.toLowerCase()}:${epoch}:${kind}`;
+}
+
+function rateAnnualizedPct(
+  amountWei: bigint,
+  principalWei: bigint,
+): number | null {
+  if (principalWei <= 0n) return null;
+  const hundredths =
+    (amountWei * RATE_HUNDREDTHS_NUMERATOR) /
+    (principalWei * RATE_HUNDREDTHS_DENOMINATOR);
+  return Number(hundredths) / 100;
+}
+
+async function ethCallBatchSettled(
+  calls: RpcCall[],
+): Promise<RpcSettledResult[]> {
+  if (calls.length === 0) return [];
+  const body = calls.map((call, id) => ({
+    jsonrpc: "2.0",
+    id,
+    method: "eth_call",
+    params: [{ to: call.to, data: call.data }, "latest"],
+  }));
+  const res = await fetch(FLARE_RPC, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`RPC eth_call batch -> ${res.status}`);
+
+  const json = (await res.json()) as Array<{
+    id?: unknown;
+    result?: unknown;
+    error?: unknown;
+  }>;
+  if (!Array.isArray(json)) throw new Error("RPC batch returned no array");
+
+  const results: RpcSettledResult[] = calls.map(() => ({
+    ok: false,
+    error: "missing RPC response",
+  }));
+  for (const entry of json) {
+    if (typeof entry.id !== "number" || entry.id < 0 || entry.id >= calls.length) {
+      continue;
+    }
+    if (typeof entry.result === "string") {
+      results[entry.id] = { ok: true, result: entry.result };
+    } else {
+      results[entry.id] = {
+        ok: false,
+        error: JSON.stringify(entry.error ?? "missing result"),
+      };
+    }
+  }
+  return results;
+}
+
+async function resolveContractAddresses(): Promise<ContractAddresses> {
+  if (contractAddressCache) return contractAddressCache;
+  if (!contractAddressPromise) {
+    contractAddressPromise = (async () => {
+      const keys = [
+        "wNat",
+        "flareSystemsManager",
+        "pChainStakeMirror",
+      ] as const;
+      const results = await ethCallBatchSettled(
+        keys.map((key) => ({
+          to: FLARE_CONTRACT_REGISTRY,
+          data: encodeStringCall(
+            SEL.getContractAddressByName,
+            CONTRACT_NAMES[key],
+          ),
+        })),
+      );
+      const resolved = {} as ContractAddresses;
+      keys.forEach((key, index) => {
+        const result = results[index];
+        if (!result.ok) throw new Error(`Registry ${CONTRACT_NAMES[key]} failed`);
+        const address = decodeAddress(result.result);
+        if (!sameAddress(address, EXPECTED_CONTRACTS[key])) {
+          throw new Error(
+            `Registry ${CONTRACT_NAMES[key]} -> ${address}, expected ${EXPECTED_CONTRACTS[key]}`,
+          );
+        }
+        resolved[key] = address;
+      });
+      contractAddressCache = resolved;
+      return resolved;
+    })().catch((err) => {
+      contractAddressPromise = null;
+      throw err;
+    });
+  }
+  return contractAddressPromise;
+}
+
+async function decorateEarnedClaimRates(
+  owner: string,
+  claims: EarnedClaim[],
+): Promise<RateDecoratedClaims> {
+  const decorated = claims.map((claim) => ({
+    ...claim,
+    principal_wei: claim.principal_wei ?? null,
+    rate_annualized_pct: claim.rate_annualized_pct ?? null,
+  }));
+  const missing = new Map<
+    string,
+    { owner: string; epoch: number; kind: "delegation" | "staking" }
+  >();
+
+  for (const claim of decorated) {
+    if (
+      claim.epoch == null ||
+      (claim.kind !== "delegation" && claim.kind !== "staking")
+    ) {
+      continue;
+    }
+    const key = principalKey(owner, claim.epoch, claim.kind);
+    const cached = principalCache.get(key);
+    if (cached !== undefined) {
+      claim.principal_wei = cached.toString();
+      claim.rate_annualized_pct = rateAnnualizedPct(
+        BigInt(claim.amount_wei),
+        cached,
+      );
+    } else {
+      missing.set(key, { owner, epoch: claim.epoch, kind: claim.kind });
+    }
+  }
+
+  if (missing.size === 0) return { claims: decorated, ratesPartial: false };
+
+  let contracts: ContractAddresses;
+  try {
+    contracts = await resolveContractAddresses();
+  } catch {
+    return { claims: decorated, ratesPartial: true };
+  }
+
+  let ratesPartial = false;
+  const missingEpochs = Array.from(
+    new Set(
+      Array.from(missing.values())
+        .map((entry) => entry.epoch)
+        .filter((epoch) => !votePowerBlockCache.has(epoch)),
+    ),
+  );
+  try {
+    const votePowerResults = await ethCallBatchSettled(
+      missingEpochs.map((epoch) => ({
+        to: contracts.flareSystemsManager,
+        data: encodeGetVotePowerBlock(epoch),
+      })),
+    );
+    votePowerResults.forEach((result, index) => {
+      const epoch = missingEpochs[index];
+      if (result.ok) {
+        votePowerBlockCache.set(epoch, decodeUint(result.result));
+      } else {
+        ratesPartial = true;
+      }
+    });
+  } catch {
+    return { claims: decorated, ratesPartial: true };
+  }
+
+  const principalCalls: RpcCall[] = [];
+  const principalCallKeys: string[] = [];
+  for (const [key, entry] of missing) {
+    const votePowerBlock = votePowerBlockCache.get(entry.epoch);
+    if (votePowerBlock === undefined) continue;
+    if (entry.kind === "delegation") {
+      principalCalls.push({
+        to: contracts.wNat,
+        data: encodeDelegationPrincipal(entry.owner, votePowerBlock),
+      });
+      principalCallKeys.push(key);
+    } else {
+      for (const nodeId of FLAREFORWARD_NODE_IDS) {
+        principalCalls.push({
+          to: contracts.pChainStakeMirror,
+          data: encodeStakingPrincipal(entry.owner, nodeId, votePowerBlock),
+        });
+        principalCallKeys.push(key);
+      }
+    }
+  }
+
+  const principalSums = new Map<string, bigint>();
+  const failedPrincipalKeys = new Set<string>();
+  try {
+    const principalResults = await ethCallBatchSettled(principalCalls);
+    principalResults.forEach((result, index) => {
+      const key = principalCallKeys[index];
+      if (!result.ok) {
+        failedPrincipalKeys.add(key);
+        ratesPartial = true;
+        return;
+      }
+      try {
+        principalSums.set(
+          key,
+          (principalSums.get(key) ?? 0n) + decodeUint(result.result),
+        );
+      } catch {
+        failedPrincipalKeys.add(key);
+        ratesPartial = true;
+      }
+    });
+  } catch {
+    return { claims: decorated, ratesPartial: true };
+  }
+
+  for (const key of principalSums.keys()) {
+    if (!failedPrincipalKeys.has(key)) {
+      principalCache.set(key, principalSums.get(key) ?? 0n);
+    }
+  }
+
+  for (const claim of decorated) {
+    if (
+      claim.epoch == null ||
+      (claim.kind !== "delegation" && claim.kind !== "staking")
+    ) {
+      continue;
+    }
+    const principal = principalCache.get(principalKey(owner, claim.epoch, claim.kind));
+    if (principal === undefined) continue;
+    claim.principal_wei = principal.toString();
+    claim.rate_annualized_pct = rateAnnualizedPct(
+      BigInt(claim.amount_wei),
+      principal,
+    );
+  }
+
+  return { claims: decorated, ratesPartial };
+}
+
+export function __resetEarnedRateCachesForTest(): void {
+  contractAddressCache = null;
+  contractAddressPromise = null;
+  votePowerBlockCache.clear();
+  principalCache.clear();
 }
 
 /** Left-pad an address into the 32-byte form Blockscout matches topics on. */
@@ -204,6 +577,8 @@ function decodeV2(log: RawLog): EarnedClaim | null {
     epoch: Number(word(data, 0)),
     kind: STAKING_CLAIM_TYPES.has(claimType) ? "staking" : "delegation",
     amount_wei: word(data, 2).toString(),
+    principal_wei: null,
+    rate_annualized_pct: null,
   };
 }
 
@@ -251,18 +626,22 @@ export async function loadEarnedClaims(
   };
 }
 
-export async function handleEarned(request: Request): Promise<Response> {
-  const address = new URL(request.url).searchParams.get("address") ?? "";
+export async function loadEarnedResponse(
+  address: string,
+): Promise<{ body: unknown; status: number }> {
   if (!isAddress(address)) {
-    return jsonResponse({ error: "A 0x wallet address is required" }, 400);
+    return {
+      body: { error: "A 0x wallet address is required" },
+      status: 400,
+    };
   }
 
   try {
     const head = await currentBlock();
     const { claims, partial } = await loadEarnedClaims(address, head);
     if (partial) {
-      return jsonResponse(
-        {
+      return {
+        body: {
           error: "Claim history scan was incomplete",
           address,
           tracking_start_block: TRACKING_START_BLOCK,
@@ -270,9 +649,10 @@ export async function handleEarned(request: Request): Promise<Response> {
           to_block: head,
           partial: true,
         },
-        502,
-      );
+        status: 502,
+      };
     }
+    const rated = await decorateEarnedClaimRates(address, claims);
 
     let delegation = 0n;
     let staking = 0n;
@@ -294,33 +674,44 @@ export async function handleEarned(request: Request): Promise<Response> {
       0n,
     );
 
-    return jsonResponse({
-      generated_at_unix: Math.floor(Date.now() / 1000),
-      address,
-      tracking_start_block: TRACKING_START_BLOCK,
-      tracking_start_unix: TRACKING_START_UNIX,
-      to_block: head,
-      partial,
-      claimed: {
-        total_wei: (delegation + staking + bondClaimed).toString(),
-        delegation_wei: delegation.toString(),
-        staking_wei: staking.toString(),
-        bonds_wei: bondRewards.tracked ? bondClaimed.toString() : null,
+    return {
+      body: {
+        generated_at_unix: Math.floor(Date.now() / 1000),
+        address,
+        tracking_start_block: TRACKING_START_BLOCK,
+        tracking_start_unix: TRACKING_START_UNIX,
+        to_block: head,
+        partial,
+        epochs_per_year: EPOCHS_PER_YEAR,
+        rates_partial: rated.ratesPartial,
+        claimed: {
+          total_wei: (delegation + staking + bondClaimed).toString(),
+          delegation_wei: delegation.toString(),
+          staking_wei: staking.toString(),
+          bonds_wei: bondRewards.tracked ? bondClaimed.toString() : null,
+        },
+        claimable: {
+          bonds_tracked: bondRewards.tracked,
+          bonds_wei: bondRewards.tracked ? bondClaimable.toString() : null,
+        },
+        claims: rated.claims,
       },
-      claimable: {
-        bonds_tracked: bondRewards.tracked,
-        bonds_wei: bondRewards.tracked ? bondClaimable.toString() : null,
-      },
-      claims,
-    });
+      status: 200,
+    };
   } catch (err) {
     // Deliberately an error, not a zero: a member page that quietly reports
     // "0 FLR earned" because an indexer timed out is a trust bug.
-    return jsonResponse(
-      { error: "Failed to read claim history", detail: String(err) },
-      502,
-    );
+    return {
+      body: { error: "Failed to read claim history", detail: String(err) },
+      status: 502,
+    };
   }
+}
+
+export async function handleEarned(request: Request): Promise<Response> {
+  const address = new URL(request.url).searchParams.get("address") ?? "";
+  const { body, status } = await loadEarnedResponse(address);
+  return jsonResponse(body, status);
 }
 
 /** Local copy of the worker's JSON helper (kept out of index.ts's export list). */
