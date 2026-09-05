@@ -3,10 +3,10 @@ import { useQuery } from "@tanstack/react-query";
 import {
   combineEarnedTotals,
   type ClaimableEarnedInput,
-  type EarnedClaim,
+  type EarnedClaim as BaseEarnedClaim,
   type EarnedKind,
   type EarnedTotals,
-} from "../lib/earned";
+} from "../lib/earned.js";
 
 /**
  * What this wallet has earned through FlareForward, from the Worker's
@@ -15,15 +15,43 @@ import {
  * Paid logs and claimable balances are disjoint: claiming moves an epoch out
  * of claimable state in the same transaction that emits `RewardClaimed`.
  */
-const EARNED_URL = import.meta.env.VITE_EARNED_URL ?? "/api/earned";
+const EARNED_URL =
+  (import.meta as ImportMeta & { env?: { VITE_EARNED_URL?: string } }).env
+    ?.VITE_EARNED_URL ?? "/api/earned";
+const RATE_HUNDREDTHS_NUMERATOR = 7_300_000n;
+const RATE_HUNDREDTHS_DENOMINATOR = 7n;
 
-export type { ClaimableEarnedInput, EarnedClaim, EarnedKind, EarnedTotals };
-export { combineEarnedTotals, sumClaims } from "../lib/earned";
+export interface EarnedClaim extends BaseEarnedClaim {
+  principalWei: bigint | null;
+  rateAnnualizedPct: number | null;
+}
+
+export type { ClaimableEarnedInput, EarnedKind, EarnedTotals };
+export { combineEarnedTotals, sumClaims } from "../lib/earned.js";
+
+export function weightedRate(
+  claims: Array<Pick<EarnedClaim, "amountWei" | "principalWei">>,
+): number | null {
+  let amount = 0n;
+  let principal = 0n;
+  for (const claim of claims) {
+    if (claim.principalWei == null || claim.principalWei <= 0n) continue;
+    amount += claim.amountWei;
+    principal += claim.principalWei;
+  }
+  if (principal <= 0n) return null;
+  const hundredths =
+    (amount * RATE_HUNDREDTHS_NUMERATOR) /
+    (principal * RATE_HUNDREDTHS_DENOMINATOR);
+  return Number(hundredths) / 100;
+}
 
 export interface EarnedData {
   trackingStartUnix: number;
   /** True when the scan could not span the whole range — never show a total. */
   partial: boolean;
+  epochsPerYear: number;
+  ratesPartial: boolean;
   claimed: EarnedTotals;
   claimable: EarnedTotals;
   earned: EarnedTotals;
@@ -34,6 +62,8 @@ export interface EarnedData {
 interface EarnedBaseData {
   trackingStartUnix: number;
   partial: boolean;
+  epochsPerYear: number;
+  ratesPartial: boolean;
   claims: EarnedClaim[];
   workerBondsTracked: boolean;
   workerBondsClaimedWei: bigint | null;
@@ -43,12 +73,16 @@ interface EarnedBaseData {
 interface EarnedPayload {
   tracking_start_unix: number;
   partial: boolean;
+  epochs_per_year?: number;
+  rates_partial?: boolean;
   claims: Array<{
     block: number;
     unix: number;
     epoch: number | null;
     kind: EarnedKind;
     amount_wei: string;
+    principal_wei?: string | null;
+    rate_annualized_pct?: number | null;
   }>;
   claimable?: {
     bonds_tracked?: boolean;
@@ -83,12 +117,17 @@ export function useEarned(
       return {
         trackingStartUnix: data.tracking_start_unix,
         partial: data.partial,
+        epochsPerYear: data.epochs_per_year ?? 104.2857,
+        ratesPartial: data.rates_partial === true,
         claims: (data.claims ?? []).map((c) => ({
           block: c.block,
           unix: c.unix,
           epoch: c.epoch,
           kind: c.kind,
           amountWei: BigInt(c.amount_wei),
+          principalWei:
+            c.principal_wei != null ? BigInt(c.principal_wei) : null,
+          rateAnnualizedPct: c.rate_annualized_pct ?? null,
         })),
         workerBondsTracked: data.claimable?.bonds_tracked === true,
         workerBondsClaimedWei:
@@ -114,6 +153,8 @@ export function useEarned(
     return {
       trackingStartUnix: query.data.trackingStartUnix,
       partial: query.data.partial,
+      epochsPerYear: query.data.epochsPerYear,
+      ratesPartial: query.data.ratesPartial,
       claims: query.data.claims,
       ...composed,
     };
