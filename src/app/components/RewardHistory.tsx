@@ -1,12 +1,21 @@
 import { useMemo, useState } from "react";
 import { ChevronDown, History, Loader2 } from "lucide-react";
 import {
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   useEarned,
   sumClaims,
   weightedRate,
   type ClaimableEarnedInput,
   type EarnedClaim,
 } from "../../hooks/useEarned";
+import { useNetworkRates } from "../../hooks/useNetworkRates";
 import { fmtDate, fmtFlrWei, fmtUtcDate } from "../../lib/rewards";
 
 interface RangeOption {
@@ -26,6 +35,33 @@ const RANGES: RangeOption[] = [
 ];
 
 const DAY_SECONDS = 86_400;
+const SPARKLINE_COLORS = {
+  delegation: "#E85A95",
+  staking: "#46C9D6",
+} as const;
+
+type RateStreamKind = keyof typeof SPARKLINE_COLORS;
+
+interface RateComparison {
+  kind: RateStreamKind;
+  label: string;
+  walletPct: number;
+  networkPct: number;
+  providers: number;
+}
+
+interface SparklineRow {
+  epoch: number;
+  delegation?: number;
+  staking?: number;
+}
+
+interface RateSparklineData {
+  rows: SparklineRow[];
+  pointCount: number;
+  hasDelegation: boolean;
+  hasStaking: boolean;
+}
 
 export function RewardHistory({
   address,
@@ -39,6 +75,7 @@ export function RewardHistory({
   claimableError?: boolean;
 }) {
   const { data, isLoading, error } = useEarned(address, claimable);
+  const networkRates = useNetworkRates();
   const [open, setOpen] = useState(false);
   const [range, setRange] = useState<RangeSelection>({
     kind: "preset",
@@ -86,6 +123,40 @@ export function RewardHistory({
     [claims, sinceUnix, untilUnix],
   );
   const rangeRate = useMemo(() => weightedRate(rangeClaims), [rangeClaims]);
+  const rateComparisons = useMemo<RateComparison[]>(() => {
+    const data = networkRates.data;
+    if (networkRates.isLoading || networkRates.error || !data) {
+      return [];
+    }
+
+    return (["delegation", "staking"] as const).flatMap((kind) => {
+      const kindClaims = rangeClaims.filter((claim) => claim.kind === kind);
+      if (!kindClaims.length) return [];
+
+      const walletPct = weightedRate(kindClaims);
+      const network = data[kind].network_weighted_median_pct;
+      if (walletPct == null || !Number.isFinite(network)) return [];
+
+      return [
+        {
+          kind,
+          label: kind === "delegation" ? "Delegation" : "Staking",
+          walletPct,
+          networkPct: network,
+          providers: data[kind].n,
+        },
+      ];
+    });
+  }, [
+    networkRates.data,
+    networkRates.error,
+    networkRates.isLoading,
+    rangeClaims,
+  ]);
+  const rateSparkline = useMemo(
+    () => buildRateSparkline(rangeClaims),
+    [rangeClaims],
+  );
 
   // A partial scan can only understate the total, and a member page reporting
   // less money than was paid is a trust bug — say nothing rather than guess.
@@ -221,6 +292,21 @@ export function RewardHistory({
                   <span> · {rangeRate.toFixed(2)}% annualized</span>
                 )}
               </div>
+              {rateComparisons.length > 0 && (
+                <div className="mt-1 space-y-0.5 text-[11px] text-[#8FA0B8]">
+                  {rateComparisons.map((comparison) => (
+                    <div key={comparison.kind}>
+                      <span className="font-medium text-[#FAFAFA]">
+                        {comparison.label} {comparison.walletPct.toFixed(1)}%
+                      </span>{" "}
+                      · network {comparison.networkPct.toFixed(1)}% · latest
+                      epoch, weighted median across {comparison.providers}{" "}
+                      providers
+                    </div>
+                  ))}
+                </div>
+              )}
+              <RateSparkline sparkline={rateSparkline} />
               <div className="mt-1 text-xs text-[#8FA0B8]">
                 Realized on what you had staked or delegated each epoch,
                 annualized ×104. Not a promise.
@@ -285,6 +371,134 @@ function SourceTotal({ label, value }: { label: string; value: string }) {
       <div className="mt-0.5 text-sm font-semibold tabular-nums text-[#FAFAFA]">
         {value}
       </div>
+    </div>
+  );
+}
+
+function buildRateSparkline(claims: EarnedClaim[]): RateSparklineData {
+  const groups = new Map<string, EarnedClaim[]>();
+  for (const claim of claims) {
+    if (
+      (claim.kind !== "delegation" && claim.kind !== "staking") ||
+      claim.epoch == null
+    ) {
+      continue;
+    }
+    const key = `${claim.epoch}:${claim.kind}`;
+    groups.set(key, [...(groups.get(key) ?? []), claim]);
+  }
+
+  const byEpoch = new Map<number, SparklineRow>();
+  let pointCount = 0;
+  let hasDelegation = false;
+  let hasStaking = false;
+
+  for (const [key, group] of groups) {
+    const [epochText, kind] = key.split(":") as [string, RateStreamKind];
+    const epoch = Number(epochText);
+    const rate = groupRate(group);
+    if (!Number.isFinite(epoch) || rate == null) continue;
+
+    const row = byEpoch.get(epoch) ?? { epoch };
+    row[kind] = rate;
+    byEpoch.set(epoch, row);
+    pointCount += 1;
+    hasDelegation ||= kind === "delegation";
+    hasStaking ||= kind === "staking";
+  }
+
+  return {
+    rows: [...byEpoch.values()].sort((a, b) => a.epoch - b.epoch),
+    pointCount,
+    hasDelegation,
+    hasStaking,
+  };
+}
+
+function groupRate(claims: EarnedClaim[]): number | null {
+  const weighted = weightedRate(claims);
+  if (weighted != null) return weighted;
+  const rates = claims
+    .map((claim) => claim.rateAnnualizedPct)
+    .filter((rate): rate is number => typeof rate === "number");
+  if (!rates.length) return null;
+  return rates.reduce((sum, rate) => sum + rate, 0) / rates.length;
+}
+
+function RateSparkline({ sparkline }: { sparkline: RateSparklineData }) {
+  if (sparkline.pointCount < 3) return null;
+
+  return (
+    <div className="mt-2 h-12 w-full min-w-[12rem]">
+      <ResponsiveContainer width="100%" height={48} minWidth={0}>
+        <LineChart
+          data={sparkline.rows}
+          margin={{ top: 4, right: 4, bottom: 4, left: 4 }}
+        >
+          <XAxis dataKey="epoch" hide />
+          <YAxis hide domain={["auto", "auto"]} />
+          <RechartsTooltip
+            cursor={false}
+            content={<SparklineTooltip />}
+            filterNull
+          />
+          {sparkline.hasDelegation && (
+            <Line
+              type="monotone"
+              dataKey="delegation"
+              name="Delegation"
+              stroke={SPARKLINE_COLORS.delegation}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 3 }}
+              isAnimationActive={false}
+              connectNulls={false}
+            />
+          )}
+          {sparkline.hasStaking && (
+            <Line
+              type="monotone"
+              dataKey="staking"
+              name="Staking"
+              stroke={SPARKLINE_COLORS.staking}
+              strokeWidth={2}
+              dot={false}
+              activeDot={{ r: 3 }}
+              isAnimationActive={false}
+              connectNulls={false}
+            />
+          )}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function SparklineTooltip({
+  active,
+  label,
+  payload,
+}: {
+  active?: boolean;
+  label?: number | string;
+  payload?: Array<{ value?: number | string; color?: string; dataKey?: string }>;
+}) {
+  const values = (payload ?? []).filter(
+    (point) => typeof point.value === "number",
+  );
+  if (!active || !values.length) return null;
+
+  return (
+    <div className="rounded-lg border border-[#2E3F56] bg-[#1C2D47] px-2 py-1 text-[11px] text-[#FAFAFA] shadow-lg">
+      {values.map((point) => (
+        <div
+          key={point.dataKey}
+          className="tabular-nums"
+          style={{ color: point.color }}
+        >
+          epoch {label} · {Number(point.value).toFixed(2)}%
+        </div>
+      ))}
     </div>
   );
 }

@@ -13,7 +13,9 @@
   "include": [
     "src/lib/earned.ts",
     "worker/earned.ts",
+    "worker/networkRates.ts",
     "worker/nftRewards.ts",
-    "worker/earned.test.ts"
+    "worker/earned.test.ts",
+    "worker/networkRates.test.ts"
   ]
 }

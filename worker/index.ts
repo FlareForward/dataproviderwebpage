@@ -17,6 +17,7 @@
 import { handleNftRewards } from "./nftRewards";
 import { handleBondYield, loadLastMeasuredEpoch } from "./bondYield";
 import { handleEarned } from "./earned";
+import { handleNetworkRates } from "./networkRates";
 
 /** Flare Forward identity (pinned) — mirrors PINNED_PROVIDER_ADDRESS in the app. */
 const IDENTITY_ADDRESS = "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
@@ -644,6 +645,9 @@ export default {
     }
     if (pathname === "/api/bond-yield" || pathname === "/api/bond-yield/") {
       return handleBondYield();
+    }
+    if (pathname === "/api/network-rates" || pathname === "/api/network-rates/") {
+      return handleNetworkRates();
     }
     if (pathname === "/api/earned" || pathname === "/api/earned/") {
       return withSecurityHeaders(await handleEarned(request));
