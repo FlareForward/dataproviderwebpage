@@ -131,7 +131,7 @@ export const CURRENT_LOT: BondLotConfig = {
       // its own distributor. Address lands here the moment it is deployed.
       key: "lot2-10k",
       name: "Lot 2 · 10,000 FLR",
-      address: null,
+      address: "0xd7b8d7f436b4b30b94a12457615f872dc4d5895a",
       blurb: "Second run of the larger position — 250 available.",
       imageCid: "bafkreigm7v2lvlfy7dt44sfgt6b4lygrm3dqo4oc2varpb6uadnjvi6vfm",
     },

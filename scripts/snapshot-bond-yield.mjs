@@ -86,6 +86,7 @@ const DELEGATION_ADDRESS = "0xce2c92c54f7307894725e8ceb16424b7c9c18807";
 const LOT_ADDRESSES = [
   "0x697e2ece036253afb08ee35cb1bcb83fec361736", // Lot 1 Tier A
   "0xbfa14e5949eae2180af20bb30511d9023c67daf9", // Lot 1 Tier B
+  "0xd7b8d7f436b4b30b94a12457615f872dc4d5895a", // Lot 2 (10,000 FLR)
 ];
 // Selectors generated with `cast sig`, never recalled.
 const SEL_BALANCE_OF = "0x70a08231";
