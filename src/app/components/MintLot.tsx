@@ -202,7 +202,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
           <h3 className="font-semibold">{tier.name}</h3>
           <p className="mt-2 text-sm text-[#8FA0B8]">{tier.blurb}</p>
           <span className="mt-4 inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-300">
-            OPENS WITH LOT 1
+            OPENING SOON
           </span>
         </div>
       </div>
