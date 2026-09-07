@@ -109,21 +109,31 @@ export interface BondLotConfig {
  * launch time, not before.
  */
 export const CURRENT_LOT: BondLotConfig = {
-  label: "Lot 1",
+  label: "Lots 1 & 2",
   tiers: [
     {
       key: "tier-a",
-      name: "10,000 FLR",
+      name: "Lot 1 · 10,000 FLR",
       address: "0x697e2ece036253afb08ee35cb1bcb83fec361736",
-      blurb: "The larger position.",
+      blurb: "The larger position. Sold out.",
       imageCid: "bafkreigm7v2lvlfy7dt44sfgt6b4lygrm3dqo4oc2varpb6uadnjvi6vfm",
     },
     {
       key: "tier-b",
-      name: "2,500 FLR",
+      name: "Lot 1 · 2,500 FLR",
       address: "0xbfa14e5949eae2180af20bb30511d9023c67daf9",
       blurb: "The accessible entry.",
       imageCid: "bafkreidvawf44wunnoabyz3kr2q4llv34ayekmz4vj3o3ygjihlstni37a",
+    },
+    {
+      // Lot 2: a second run of the 10,000 FLR position after Lot 1's sold out.
+      // Same contract code and terms shape; its own collection and, after close,
+      // its own distributor. Address lands here the moment it is deployed.
+      key: "lot2-10k",
+      name: "Lot 2 · 10,000 FLR",
+      address: null,
+      blurb: "Second run of the larger position — 250 available.",
+      imageCid: "bafkreigm7v2lvlfy7dt44sfgt6b4lygrm3dqo4oc2varpb6uadnjvi6vfm",
     },
   ],
 };
