@@ -127,15 +127,15 @@ export function YourPosition({
                 accent={position.claimableFlr > 0}
               />
               <Stat
-                label="At the current rate"
+                label="If this rate held"
                 value={
                   delegationApy != null && position.ffDelegatedWflr > 0
-                    ? `${fmtFlr((position.ffDelegatedWflr * delegationApy) / 100, 1)} FLR per year`
+                    ? `${fmtFlr((position.ffDelegatedWflr * delegationApy) / 100, 1)} FLR a year`
                     : "—"
                 }
                 sub={
                   delegationApy != null
-                    ? `${fmtPct(delegationApy)} current rate`
+                    ? `${fmtPct(delegationApy)} now — not a forecast`
                     : undefined
                 }
               />
@@ -198,15 +198,15 @@ export function YourPosition({
                     accent
                   />
                   <Stat
-                    label="At the current rate"
+                    label="If this rate held"
                     value={
                       stakingApy != null && position.stake.stake_flr != null
-                        ? `${fmtFlr((position.stake.stake_flr * stakingApy) / 100, 0)} FLR per year`
+                        ? `${fmtFlr((position.stake.stake_flr * stakingApy) / 100, 0)} FLR a year`
                         : "—"
                     }
                     sub={
                       stakingApy != null
-                        ? `${fmtPct(stakingApy)} current rate`
+                        ? `${fmtPct(stakingApy)} now — not a forecast`
                         : undefined
                     }
                   />

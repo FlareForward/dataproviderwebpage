@@ -686,15 +686,10 @@ function BondsSection({
     stagedWei += balance * price;
   });
 
-  const annualWei =
-    stagedRatePct != null && Number.isFinite(stagedRatePct)
-      ? (stagedWei * BigInt(Math.round(stagedRatePct * 100))) / 10_000n
-      : null;
-
   return (
     <RewardSection
       title="Bonds"
-      description="Your FlareForward Bonds and what they earn while the capital is staged."
+      description="Your FlareForward Bonds and what the staged capital is earning."
       action={
         <Link to="/bonds">
           <Button variant="outline" size="sm" className="gap-2">
@@ -703,7 +698,9 @@ function BondsSection({
         </Link>
       }
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-stretch">
+      {/* No per-year projection here: the /nft terms say we do not publish
+          projections, and this section briefly did. Rate and earned only. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 items-stretch">
         <BondStat
           label="Bond rate"
           value={fmtPct(stagedRatePct)}
@@ -725,11 +722,6 @@ function BondsSection({
               ? "distribution contract pending"
               : "claimed plus claimable"
           }
-        />
-        <BondStat
-          label="At the current rate"
-          value={annualWei != null ? `${fmtFlrWei(annualWei)} FLR` : "—"}
-          sub="per year, projection"
         />
       </div>
     </RewardSection>

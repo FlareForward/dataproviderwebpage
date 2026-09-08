@@ -292,9 +292,9 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
 
               <ol className="mt-4 space-y-2 text-sm leading-relaxed text-[#8FA0B8]">
                 <li>
-                  <span className="font-medium text-[#FAFAFA]">Today.</span> Your FLR goes
-                  straight to work — delegated to our FTSO provider, earning from now rather than
-                  from the day the bond opens.
+                  <span className="font-medium text-[#FAFAFA]">Today.</span> Your FLR is
+                  delegated to our FTSO provider while the lot is open, so the capital is in use
+                  from now rather than from the day the bond opens.
                 </li>
                 <li>
                   <span className="font-medium text-[#FAFAFA]">At our next P-chain window.</span>{" "}
@@ -302,8 +302,9 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                   validator self-bond.
                 </li>
                 <li>
-                  <span className="font-medium text-[#FAFAFA]">From there, monthly.</span> You
-                  share what the infrastructure earns, claimed per token, for as long as you hold.
+                  <span className="font-medium text-[#FAFAFA]">From there.</span> Distributions
+                  from what the validator earns, split equally per token and claimable by whoever
+                  holds it — measured after the fact, never promised in advance.
                 </li>
               </ol>
 

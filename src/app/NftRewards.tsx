@@ -242,7 +242,7 @@ function MeasuredPerformance() {
     <section className="mt-10">
       <div className="flex items-center gap-3">
         <Activity size={20} className="text-[#E85A95]" />
-        <h2 className="text-xl font-semibold">The current bond APY</h2>
+        <h2 className="text-xl font-semibold">What the validator bond is earning now</h2>
       </div>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
         This is what our validator bond earns right now. We are not guaranteeing it will be the
@@ -261,7 +261,7 @@ function MeasuredPerformance() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="glass-panel border border-[#E85A95]/30 p-5">
               <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                Bond APY — what our validator bond earns
+                Bond rate — what our validator bond earned, annualized
               </p>
               <p className="mt-1 text-3xl font-semibold text-[#FAFAFA]">
                 {pct(cur.bond_rate_annualized_pct)}
@@ -272,7 +272,7 @@ function MeasuredPerformance() {
             </div>
             <div className="glass-panel p-5">
               <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                P-chain staking APY — what a delegator earns
+                Staking rate — what a delegator earned, annualized
               </p>
               {/* The bond-yield fallback bucket nulls the delegator rate, which
                   left this tile a dash for 3.5 days at a stretch — on the page
@@ -288,12 +288,11 @@ function MeasuredPerformance() {
 
           <div className="glass-panel mt-3 border-l-2 border-[#E85A95]/50 p-4">
             <p className="text-sm leading-relaxed text-[#8FA0B8]">
-              <span className="font-semibold text-[#FAFAFA]">Why the bond earns more.</span> Two
-              reasons, both structural. The staking APY a delegator sees is already{" "}
+              <span className="font-semibold text-[#FAFAFA]">Why the two numbers differ.</span> The
+              staking rate a delegator sees is already{" "}
               <em>net of the {cur.delegation_fee_pct ?? 20}% provider fee</em> — the bond is our own
-              stake, so no delegation fee comes off it. And the bond earns a second component on top
-              of the staking rate that delegated stake does not. That gap is the whole reason these
-              NFTs exist.
+              stake, so no delegation fee comes off it. The bond also earns a second component that
+              delegated stake does not. Both are measured after the fact, not promised.
             </p>
           </div>
 
@@ -578,8 +577,8 @@ export default function NftRewards() {
         <Step
           n={4}
           icon={<Tag size={18} />}
-          title="Sell anytime"
-          body="Your exit is the open market. Unclaimed rewards travel with the NFT, so a token that has not claimed carries its balance to the buyer."
+          title="Selling"
+          body="There is no redemption. A holder's only exit is selling the NFT to someone else, at whatever price a buyer will pay. Unclaimed rewards travel with the NFT."
         />
       </div>
 
@@ -625,8 +624,8 @@ export default function NftRewards() {
             </p>
             <p className="text-sm leading-relaxed text-[#8FA0B8]">
               <span className="font-medium text-[#FAFAFA]">One thing already works today:</span> a
-              bond is a gift that keeps giving. Mint one and send it to an organization you care
-              about — whoever holds a bond holds its share of the lot&apos;s distributions, for as
+              bond can be given away. Mint one and send it to an organization you care about —
+              whoever holds a bond holds its equal share of any distributions the lot makes, for as
               long as they hold it. Make sure it goes to an address they control, and as always:
               sell or send, never burn.
             </p>
@@ -657,7 +656,7 @@ export default function NftRewards() {
           </div>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
             Buy a bond from another holder instead of minting a new one. A listed bond can carry
-            unclaimed rewards, so both sides can see what it&apos;s actually worth. Holders will be
+            unclaimed rewards, so both sides can see any unclaimed balance it holds. Holders will be
             able to list at whatever price they choose. In build now.
           </p>
         </div>
@@ -673,7 +672,7 @@ export default function NftRewards() {
               claiming anything about one we haven't decided on. */}
           <li>• Funds bond at lot close. After that, your exit is selling the NFT.</li>
           <li>
-            • Distributions will be equal per NFT within a lot, enforced on-chain by that
+            • Any distribution is split equally per NFT within a lot, enforced on-chain by that
             lot&apos;s distribution contract once it is deployed.
           </li>
           <li>
@@ -683,6 +682,10 @@ export default function NftRewards() {
           <li>
             • Reward amounts follow what the infrastructure actually earns. Once distributions
             begin we will publish the real numbers; we do not publish projections.
+          </li>
+          <li>
+            • Distributions are not guaranteed in amount or timing. A bond is a way to back the
+            validator, not an investment product, and nothing on this page is financial advice.
           </li>
         </ul>
       </div>

@@ -215,9 +215,9 @@ export function EarningsStrip({
               />
             )}
             <EarningsStat
-              label={hasActual ? "At your actual rate" : "At the current rate"}
+              label="If this rate held"
               value={formatAnnualAtRate(positionAmount, shownRatePct)}
-              sub="per year, projection"
+              sub="over a year — not a forecast"
             />
           </div>
         </>

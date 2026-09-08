@@ -942,7 +942,7 @@ function PendingImportNotice({
         <div className="text-[#FAFAFA]">
           <span className="font-semibold">{formatFlr(amount)} FLR</span> is
           part-way to {target}. The export step confirmed, but the import step
-          hasn't. Your FLR is safe — it just needs one more confirmation to
+          hasn't. Your FLR hasn't gone anywhere — it just needs one more confirmation to
           land.
         </div>
       </div>

@@ -231,7 +231,7 @@ export function Delegation() {
                 Delegate Vote Power
               </CardTitle>
               <CardDescription className="text-[#8FA0B8]">
-                Delegate WFLR to FlareForward and earn FTSO rewards
+                Point your WFLR vote power at FlareForward. Flare pays delegation rewards each epoch.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-5 space-y-6">

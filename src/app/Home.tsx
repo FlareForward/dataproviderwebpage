@@ -50,7 +50,7 @@ export default function Home() {
           <p className="mt-5 text-base lg:text-lg text-[#8FA0B8] leading-relaxed">
             FlareForward is an education platform and a builder collective on the
             Flare network. Delegating your vote power to us backs people who ship
-            for this ecosystem every day — and your funds never leave your wallet.
+            for this ecosystem every day — and your FLR stays under your own keys.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link to="/delegation">
@@ -100,9 +100,9 @@ export default function Home() {
                     than a delegator does, and that difference is what the Bonds
                     series sells. */}
                 <ProofStat
-                  label="Bond APY"
+                  label="Bond rate"
                   value={fmtPct(settledRate(rewards.rates.bond_annual_pct))}
-                  sub="What the validator bond earns"
+                  sub="What the validator bond earned, annualized"
                   emphasize
                 />
               </div>
@@ -150,7 +150,7 @@ export default function Home() {
             <WhyCard
               icon={<Flame size={20} />}
               title="We give value back"
-              body="We've engineered burn protocols around our systems so the things we build return value to the network — and we keep working on bonding structures designed to push more of what we earn back to you."
+              body="We've engineered burn protocols around our systems so the things we build return value to the network, and we publish what our infrastructure actually earns rather than what we hope it will."
               cta={{
                 label: "See the FLR burn in Apex's fee split",
                 href: LINKS.apexDocsFees,
@@ -192,7 +192,7 @@ export default function Home() {
               to="/nft"
               icon={<Flame size={18} />}
               title="FlareForward Bonds"
-              body="Mint a bond NFT and fund the validator self-bond directly. Lot 1 is open now."
+              body="Mint a bond NFT and fund the validator self-bond directly. Lot 2 is open now."
             />
             {/* The odd one out: the first three are ways to back us, this one
                 is where you go once you have. It keeps its slot in the row, but
@@ -274,7 +274,7 @@ export default function Home() {
             </h2>
             <p className="mt-3 text-sm lg:text-base text-[#8FA0B8] max-w-xl mx-auto">
               Two minutes to set up. Non-custodial from start to finish. And it
-              funds a team that gives back to the network you're betting on.
+              funds a team that gives back to the network you're part of.
             </p>
             <p className="mt-4 text-xs text-[#8FA0B8]">
               Pick a way to support us above, or{" "}
