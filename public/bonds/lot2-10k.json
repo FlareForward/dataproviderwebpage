@@ -1,12 +1,21 @@
 {
   "name": "FlareForward Bond — Lot 2 (10,000 FLR)",
   "description": "Backs the FlareForward validator bond on Flare. Holders share provider rewards monthly, paid on-chain through a distribution contract anyone can verify. Funds bond at lot close; unclaimed rewards travel with the NFT. Measured performance published at ftso.flareforward.com/nft.",
-  "image": "https://gateway.pinata.cloud/ipfs/bafkreigm7v2lvlfy7dt44sfgt6b4lygrm3dqo4oc2varpb6uadnjvi6vfm",
-  "image_ipfs": "ipfs://bafkreigm7v2lvlfy7dt44sfgt6b4lygrm3dqo4oc2varpb6uadnjvi6vfm",
+  "image": "https://amethyst-selective-bovid-293.mypinata.cloud/ipfs/bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
+  "image_ipfs": "ipfs://bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
   "external_url": "https://ftso.flareforward.com/nft",
   "attributes": [
-    { "trait_type": "Series", "value": "FlareForward Bonds" },
-    { "trait_type": "Lot", "value": "2" },
-    { "trait_type": "Tier", "value": "10,000 FLR" }
+    {
+      "trait_type": "Series",
+      "value": "FlareForward Bonds"
+    },
+    {
+      "trait_type": "Lot",
+      "value": "2"
+    },
+    {
+      "trait_type": "Tier",
+      "value": "10,000 FLR"
+    }
   ]
 }
