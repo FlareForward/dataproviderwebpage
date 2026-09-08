@@ -248,6 +248,13 @@ function MeasuredPerformance() {
         This is what our validator bond earns right now. We are not guaranteeing it will be the
         rate when you bond with us — it moves epoch to epoch. We publish what we measure.
       </p>
+      <p className="mt-3 max-w-3xl rounded-lg border border-amber-400/30 bg-amber-400/[0.06] px-4 py-3 text-sm leading-relaxed text-[#8FA0B8]">
+        <span className="font-medium text-amber-300">To be clear about where this stands:</span>{" "}
+        no bond holder has been paid a distribution yet. This series is new, no lot&apos;s
+        distribution contract has been deployed, and nothing has been distributed to anyone to
+        date. The rate above is what the validator earns — not a record of holder payouts,
+        because there is not one yet.
+      </p>
 
       {isLoading && (
         <div className="glass-panel mt-4 p-6 text-sm text-[#8FA0B8]">Reading the chain…</div>
@@ -732,9 +739,9 @@ export default function NftRewards() {
             and what it earns.
           </li>
           <li>
-            • <span className="font-medium text-[#FAFAFA]">Nothing has been distributed yet for an
-            open lot.</span> A lot&apos;s distribution contract is deployed after the lot closes.
-            Until then there is no on-chain claim to anything.
+            • <span className="font-medium text-[#FAFAFA]">No distribution has ever been made,
+            for any lot.</span> No lot&apos;s distribution contract is deployed yet, including for
+            a lot that has already closed. Until one is, there is no on-chain claim to anything.
           </li>
           <li>
             • <span className="font-medium text-[#FAFAFA]">You are relying on us.</span>{" "}
