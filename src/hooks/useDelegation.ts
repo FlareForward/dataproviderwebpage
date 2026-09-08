@@ -8,6 +8,7 @@ import { EIP1193WalletController } from "@flarenetwork/flare-tx-sdk";
 import { resolveLiveConnector, wNatAbi, wrapWalletProvider } from "../lib/flare";
 import { formatFlr } from "../lib/staking";
 import { useWNatAddress } from "./useProviders";
+import { useFspClaimable } from "./useFspClaimable";
 
 const network = Network.FLARE;
 
@@ -59,12 +60,10 @@ export function useDelegation() {
     },
   });
 
-  const claimableReward = useQuery({
-    queryKey: ["claimableFtsoReward", address],
-    enabled: !!address,
-    refetchInterval: 30_000,
-    queryFn: async (): Promise<bigint> => network.getClaimableFtsoReward(address!),
-  });
+  // Delegation share only. The RewardManager pays delegation AND staking from
+  // one contract; the SDK's getClaimableFtsoReward() sums both, which is how
+  // staking rewards were showing up here as "delegation". See lib/fspRewards.
+  const claimableReward = useFspClaimable(address);
 
   const getWallet = useCallback(async () => {
     if (!connector) throw new Error("No wallet connector available");
@@ -201,7 +200,7 @@ export function useDelegation() {
 
   const flr = balances.data?.flr ?? 0n;
   const wflr = balances.data?.wflr ?? 0n;
-  const reward = claimableReward.data ?? 0n;
+  const reward = claimableReward.data?.delegationWei ?? 0n;
 
   return {
     isConnected,

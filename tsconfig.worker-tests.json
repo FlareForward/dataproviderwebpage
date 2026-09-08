@@ -12,6 +12,8 @@
   },
   "include": [
     "src/lib/earned.ts",
+    "src/lib/fspRewards.ts",
+    "worker/fspRewards.test.ts",
     "worker/earned.ts",
     "worker/nftRewards.ts",
     "worker/earned.test.ts"

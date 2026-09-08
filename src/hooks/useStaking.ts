@@ -37,6 +37,7 @@ import {
   resolveLiveConnector,
   wrapWalletProvider,
 } from "../lib/flare";
+import { useFspClaimable } from "./useFspClaimable";
 
 const network = Network.FLARE;
 const API_ORIGIN = deriveApiOrigin(FLARE_RPC_URL);
@@ -320,17 +321,29 @@ export function useStaking() {
     return mergeStakes(onchainStakes.data ?? [], loadTrackedStakes(address));
   }, [onchainStakes.data, address, trackedVersion]);
 
-  const claimableReward = useQuery({
+  // Staking rewards arrive from two contracts:
+  //  - the FSP RewardManager (MIRROR claim type) — where every current epoch's
+  //    staking reward lands, shared with the delegation hook because one claim
+  //    pays both kinds; see lib/fspRewards.
+  //  - the legacy ValidatorRewardManager — pre-FSP staking rewards still
+  //    unclaimed by older stakers. The SDK's getClaimableStakingReward() reads
+  //    ONLY this one, which is why the staking card used to show a stale tail
+  //    while the real staking rewards sat under "Delegation".
+  const fspClaimable = useFspClaimable(address);
+  const legacyClaimable = useQuery({
     queryKey: ["claimableStakingReward", address],
     enabled: !!address,
     refetchInterval: 30_000,
     queryFn: async (): Promise<bigint> => network.getClaimableStakingReward(address!),
   });
+  const claimableFspWei = fspClaimable.data?.stakingWei ?? 0n;
+  const claimableLegacyWei = legacyClaimable.data ?? 0n;
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["pchain-balance"] });
     queryClient.invalidateQueries({ queryKey: ["validatorsOnP"] });
     queryClient.invalidateQueries({ queryKey: ["claimableStakingReward"] });
+    queryClient.invalidateQueries({ queryKey: ["claimableFtsoReward"] });
     queryClient.invalidateQueries({ queryKey: ["stakesOnP"] });
   }, [queryClient]);
 
@@ -488,7 +501,13 @@ export function useStaking() {
     [getWallet, refresh, address, limits.data]
   );
 
-  const claimRewards = useCallback(async () => {
+  /**
+   * Claim only the legacy ValidatorRewardManager tail. Separate from
+   * claimRewards so a caller that has just claimed the RewardManager (which
+   * pays the current staking share together with delegation) doesn't send a
+   * second, empty RewardManager claim.
+   */
+  const claimLegacyRewards = useCallback(async () => {
     setBusy("claim");
     const t = toast.loading("Claiming staking rewards...");
     try {
@@ -503,6 +522,29 @@ export function useStaking() {
       setBusy(null);
     }
   }, [getWallet, refresh]);
+
+  /**
+   * Claim everything staking can pay: the RewardManager first (one
+   * transaction, which also collects any delegation share owed to the same
+   * wallet — the contract does not split a claim by kind), then the legacy
+   * contract if it still holds anything.
+   */
+  const claimRewards = useCallback(async () => {
+    setBusy("claim");
+    const t = toast.loading("Claiming staking rewards...");
+    try {
+      const wallet = await getWallet();
+      if (claimableFspWei > 0n) await network.claimFtsoReward(wallet);
+      if (claimableLegacyWei > 0n) await network.claimStakingReward(wallet);
+      toast.success("Staking rewards claimed", { id: t });
+      refresh();
+    } catch (e: any) {
+      toast.error(e?.shortMessage ?? e?.message ?? "Claim failed", { id: t });
+      throw e;
+    } finally {
+      setBusy(null);
+    }
+  }, [getWallet, refresh, claimableFspWei, claimableLegacyWei]);
 
   const withdrawToC = useCallback(
     async (amountFlr?: string) => {
@@ -556,10 +598,12 @@ export function useStaking() {
     stakes,
     stakesFetching: onchainStakes.isFetching,
     stakesOnchainFailed: onchainStakes.isError,
-    claimableReward: claimableReward.data ?? 0n,
-    claimableRewardReady: claimableReward.isSuccess,
-    claimableRewardLoading: claimableReward.isLoading,
-    claimableRewardError: claimableReward.isError,
+    claimableReward: claimableFspWei + claimableLegacyWei,
+    claimableFspWei,
+    claimableLegacyWei,
+    claimableRewardReady: fspClaimable.isSuccess && legacyClaimable.isSuccess,
+    claimableRewardLoading: fspClaimable.isLoading || legacyClaimable.isLoading,
+    claimableRewardError: fspClaimable.isError || legacyClaimable.isError,
     busy,
     enableP,
     moveToP,
@@ -567,6 +611,7 @@ export function useStaking() {
     importToC,
     stake,
     claimRewards,
+    claimLegacyRewards,
     withdrawToC,
     getValidatorCapacity,
     refetchStakes,
