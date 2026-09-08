@@ -112,10 +112,35 @@ export default function Rewards() {
     }
   }
 
+  async function runClaim(sources: ClaimSource[], claim: () => Promise<void>) {
+    for (const source of sources) setSourceState(source, "claiming");
+    try {
+      await claim();
+      for (const source of sources) setSourceState(source, "claimed");
+      return true;
+    } catch {
+      for (const source of sources) setSourceState(source, "failed");
+      return false;
+    }
+  }
+
   async function claimBoth() {
     if (claimBusy) return;
-    if (delegation.claimableReward > 0n) await claimSource("delegation");
-    if (staking.claimableReward > 0n) await claimSource("staking");
+    // The RewardManager pays the delegation share and the current staking
+    // share in ONE transaction — it cannot split a claim by kind — so that
+    // claim runs once and settles both cards. Only the legacy staking tail
+    // (pre-FSP ValidatorRewardManager) is a second confirmation.
+    const rewardManagerWei = delegation.claimableReward + staking.claimableFspWei;
+    if (rewardManagerWei > 0n) {
+      const sources: ClaimSource[] = [];
+      if (delegation.claimableReward > 0n) sources.push("delegation");
+      if (staking.claimableFspWei > 0n) sources.push("staking");
+      const ok = await runClaim(sources, () => delegation.claimRewards());
+      if (!ok) return;
+    }
+    if (staking.claimableLegacyWei > 0n) {
+      await runClaim(["staking"], () => staking.claimLegacyRewards());
+    }
   }
 
   return (
@@ -404,8 +429,8 @@ function ClaimPanel({
               <CardTitle className="text-[#FAFAFA]">Claimable now</CardTitle>
             </div>
             <CardDescription className="text-[#8FA0B8]">
-              Delegation and staking pay from separate contracts, so claiming
-              both is two confirmations.
+              Delegation and staking rewards pay from the same Flare contract,
+              so one confirmation usually collects both.
             </CardDescription>
           </div>
           <div className="flex items-center gap-4 shrink-0">
