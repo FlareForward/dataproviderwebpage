@@ -30,7 +30,7 @@ import { EarningsStrip } from "./components/EarningsStrip";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useProviders, type ProviderRow } from "../hooks/useProviders";
 import { useDelegation } from "../hooks/useDelegation";
-import { useEarned } from "../hooks/useEarned";
+import { actualRatePct, useEarned } from "../hooks/useEarned";
 import { useRewards } from "../hooks/useRewards";
 import { EXPLORER_URL } from "../lib/flare";
 import logoImage from "../imports/flareforward_logo.png";
@@ -159,6 +159,7 @@ export function Delegation() {
         <EarningsStrip
           rateLabel="Delegation APY"
           ratePct={settledRate(rewards?.rates.delegation_annual_pct)}
+          actualRatePct={actualRatePct(earned.data, "delegation")}
           positionLabel="Delegated to FlareForward"
           positionAmount={delegatedWflr}
           positionUnit="WFLR"

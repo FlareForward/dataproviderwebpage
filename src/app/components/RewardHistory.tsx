@@ -222,8 +222,8 @@ export function RewardHistory({
                 )}
               </div>
               <div className="mt-1 text-xs text-[#8FA0B8]">
-                Realized on what you had staked or delegated each epoch,
-                annualized ×104. Not a promise.
+                What you actually earned on what you had in each epoch,
+                as a yearly rate. Past payments, not a promise.
               </div>
             </div>
           </div>

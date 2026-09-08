@@ -46,6 +46,25 @@ export function weightedRate(
   return Number(hundredths) / 100;
 }
 
+/**
+ * The rate a wallet has ACTUALLY earned on one stream, pooled over every
+ * payment we have a principal for — or null when it cannot be stated for sure:
+ * no payments yet, a partial scan, or any principal read that failed. The
+ * pages show this in place of the provider-wide expected rate whenever it
+ * exists; a projection from someone else's average is not what this wallet
+ * is getting.
+ */
+export function actualRatePct(
+  data: Pick<EarnedData, "claims" | "partial" | "ratesPartial"> | null | undefined,
+  kind: EarnedKind,
+): number | null {
+  if (!data || data.partial || data.ratesPartial) return null;
+  const claims = data.claims.filter((c) => c.kind === kind);
+  if (claims.length === 0) return null;
+  if (claims.some((c) => c.principalWei == null)) return null;
+  return weightedRate(claims);
+}
+
 export interface EarnedData {
   trackingStartUnix: number;
   /** True when the scan could not span the whole range — never show a total. */
