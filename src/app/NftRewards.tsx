@@ -7,7 +7,7 @@ import { settledRate } from "../lib/rewards";
 import { MintLot } from "./components/MintLot";
 import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
-import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, HeartHandshake } from "lucide-react";
+import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, HeartHandshake, AlertTriangle } from "lucide-react";
 
 /**
  * Measured bond performance, served by /api/bond-yield (worker/bondYield.ts).
@@ -546,7 +546,8 @@ export default function NftRewards() {
         <p className="mt-3 text-lg leading-relaxed text-[#FAFAFA]/90">
           Minting a FlareForward Bond NFT adds FLR to the self-bond behind our FTSO validator. That
           capital grows the validator, and the validator&apos;s measured earnings are what back
-          holder rewards paid through on-chain contracts.
+          holder rewards paid through on-chain contracts. Your FLR funds the bond and is not
+          returned to you — the NFT is what you hold, and selling it is the only exit.
         </p>
         <LeadStatus statuses={statuses} statusLoading={statusLoading} />
       </div>
@@ -609,7 +610,7 @@ export default function NftRewards() {
         <div className="glass-panel p-5">
           <div className="flex flex-wrap items-center gap-3">
             <HeartHandshake size={18} className="text-[#E85A95]" />
-            <h3 className="font-semibold">Your working money, working for a cause</h3>
+            <h3 className="font-semibold">A bond you can give away</h3>
             <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
               In the works
             </span>
@@ -684,8 +685,71 @@ export default function NftRewards() {
             begin we will publish the real numbers; we do not publish projections.
           </li>
           <li>
-            • Distributions are not guaranteed in amount or timing. A bond is a way to back the
-            validator, not an investment product, and nothing on this page is financial advice.
+            • Distributions are not guaranteed in amount or timing, and depend on FlareForward
+            continuing to run the validator, measure its earnings, and deposit them.
+          </li>
+          <li>
+            • FlareForward is not a bank, broker, or fund. A bond is not a deposit, a loan, or a
+            share in a company, and nothing here is financial advice or a recommendation to buy.
+          </li>
+        </ul>
+      </div>
+
+      {/* Risk disclosure. Added 2026-09-08 at operator request. The page spent
+          its whole length on what a bond earns and said nothing about what can
+          go wrong -- and "no redemption" sat in step 4 and the terms, nowhere
+          near the mint button. Everything here is a real, specific failure
+          mode, in the same plain English as the rest of the page. Do NOT trim
+          this to make the page read better. */}
+      <div className="mt-10 rounded-xl border border-amber-400/30 bg-amber-400/[0.04] p-5">
+        <div className="flex items-center gap-2">
+          <AlertTriangle size={18} className="text-amber-300" />
+          <h3 className="font-semibold text-[#FAFAFA]">What you&apos;re taking on</h3>
+        </div>
+        <p className="mt-2 text-sm text-[#8FA0B8]">
+          Read this before you mint. Every line is a real way you could end up with less than you
+          put in.
+        </p>
+        <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
+          <li>
+            • <span className="font-medium text-[#FAFAFA]">Your FLR does not come back.</span> It
+            funds the validator self-bond at lot close. There is no redemption and no maturity
+            date. You hold an NFT, not a claim on the capital.
+          </li>
+          <li>
+            • <span className="font-medium text-[#FAFAFA]">You may not be able to sell.</span>{" "}
+            Reselling needs a buyer who wants it at a price you accept. There may be none, and
+            there is no floor price and no buyback.
+          </li>
+          <li>
+            • <span className="font-medium text-[#FAFAFA]">Rewards vary and can reach zero.</span>{" "}
+            What the validator earns moves every epoch with Flare&apos;s reward mechanics, our
+            measured accuracy, and total network stake.
+          </li>
+          <li>
+            • <span className="font-medium text-[#FAFAFA]">Validators can be penalised.</span>{" "}
+            Downtime or misbehaviour can cost a validator rewards or stake, which reduces the bond
+            and what it earns.
+          </li>
+          <li>
+            • <span className="font-medium text-[#FAFAFA]">Nothing has been distributed yet for an
+            open lot.</span> A lot&apos;s distribution contract is deployed after the lot closes.
+            Until then there is no on-chain claim to anything.
+          </li>
+          <li>
+            • <span className="font-medium text-[#FAFAFA]">You are relying on us.</span>{" "}
+            Distributions depend on FlareForward continuing to operate the validator and to deposit
+            what it measures. We are a small team, not an institution.
+          </li>
+          <li>
+            • <span className="font-medium text-[#FAFAFA]">Flare governance can change the
+            economics.</span> FIP.16 already rebalanced how providers earn, network-wide. Future
+            changes can do it again, and we do not control them.
+          </li>
+          <li>
+            • <span className="font-medium text-[#FAFAFA]">Smart contracts carry risk.</span> The
+            lot and distribution contracts are code. Bugs, key loss, or chain-level failures can
+            cost you everything you put in.
           </li>
         </ul>
       </div>
