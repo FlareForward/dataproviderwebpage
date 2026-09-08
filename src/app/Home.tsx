@@ -172,7 +172,9 @@ export default function Home() {
               Support us in any of these ways
             </h2>
             <p className="mt-2 text-sm text-[#8FA0B8]">
-              Pick whichever suits you. Your tokens stay in your wallet throughout.
+              Pick whichever suits you. Delegating and staking are non-custodial — your FLR
+              stays yours. Minting a bond is a purchase: that FLR funds the validator bond and
+              is not returned.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -192,7 +194,7 @@ export default function Home() {
               to="/nft"
               icon={<Flame size={18} />}
               title="FlareForward Bonds"
-              body="Mint a bond NFT and fund the validator self-bond directly. Lot 2 is open now."
+              body="Buy an NFT that funds the validator self-bond. The FLR is not returned; the NFT is yours to hold or sell. Lot 2 is open now."
             />
             {/* The odd one out: the first three are ways to back us, this one
                 is where you go once you have. It keeps its slot in the row, but
@@ -273,8 +275,8 @@ export default function Home() {
               </span>
             </h2>
             <p className="mt-3 text-sm lg:text-base text-[#8FA0B8] max-w-xl mx-auto">
-              Two minutes to set up. Non-custodial from start to finish. And it
-              funds a team that gives back to the network you're part of.
+              Two minutes to set up. Delegating is non-custodial from start to finish. And
+              it funds a team that gives back to the network you're part of.
             </p>
             <p className="mt-4 text-xs text-[#8FA0B8]">
               Pick a way to support us above, or{" "}

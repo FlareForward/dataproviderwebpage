@@ -428,6 +428,15 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                 </p>
               )}
 
+              {/* The one fact a buyer must have BEFORE clicking, not 600px
+                  further down the page in the terms: the FLR does not come
+                  back. Placed at the button on purpose -- disclosure nobody
+                  reaches is not disclosure. */}
+              <p className="mt-3 text-xs leading-relaxed text-amber-300/90">
+                Your FLR funds the validator bond and is not returned. The NFT is what you hold,
+                and selling it to another buyer is the only exit. Rewards are not guaranteed.
+              </p>
+
               <Button
                 className="mt-3 w-full"
                 onClick={onMint}
