@@ -85,13 +85,13 @@ export default function Bonds() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
             <div>
               <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
-                Current bond APY
+                Current bond rate
               </div>
               <div className="mt-1 text-2xl font-bold tabular-nums text-emerald-400">
                 {fmtPct(rate)}
               </div>
               <div className="mt-1 text-xs text-[#8FA0B8]">
-                what our bond earns now
+                what our validator bond earns now — measured
               </div>
             </div>
             <div>

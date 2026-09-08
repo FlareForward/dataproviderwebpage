@@ -146,6 +146,13 @@ export function Root() {
         {/* Dynamic Content */}
         <div className="flex-1 overflow-y-auto">
           <Outlet />
+          {/* One line, every page: rates on this site are measured past rewards,
+              not offers. Kept short so it is read, not skipped. */}
+          <p className="px-4 pb-6 pt-2 text-center text-[11px] leading-relaxed text-[#8FA0B8]/80 lg:px-8">
+            Rates shown are measured past rewards and move every epoch; nothing here is a
+            guarantee, financial advice, or an offer of securities. Your FLR stays under your own
+            keys.
+          </p>
         </div>
       </main>
     </div>
