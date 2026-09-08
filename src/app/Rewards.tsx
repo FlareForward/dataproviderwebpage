@@ -24,7 +24,7 @@ import { EarningsStrip } from "./components/EarningsStrip";
 import { RewardHistory } from "./components/RewardHistory";
 import { bondLotAbi, CURRENT_LOT, type BondTier } from "../lib/bondLot";
 import { useDelegation } from "../hooks/useDelegation";
-import { useEarned } from "../hooks/useEarned";
+import { actualRatePct, useEarned } from "../hooks/useEarned";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
 import { settledRate, fmtPct, fmtFlrWei } from "../lib/rewards";
@@ -228,6 +228,7 @@ export default function Rewards() {
                   <EarningsStrip
                     rateLabel="Delegation APY"
                     ratePct={settledRate(rewards.rates.delegation_annual_pct)}
+                    actualRatePct={actualRatePct(earned.data, "delegation")}
                     positionLabel="Delegated to FlareForward"
                     positionAmount={delegatedWflr}
                     positionUnit="WFLR"
@@ -253,6 +254,7 @@ export default function Rewards() {
                       <EarningsStrip
                         rateLabel="Staking APY"
                         ratePct={settledRate(rewards.rates.staking_annual_pct)}
+                        actualRatePct={actualRatePct(earned.data, "staking")}
                         positionLabel="Staked with FlareForward"
                         positionAmount={stakedWithUs}
                         positionUnit="FLR"

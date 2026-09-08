@@ -3,6 +3,7 @@ import { ChevronDown, History, Loader2 } from "lucide-react";
 import {
   useEarned,
   sumClaims,
+  weightedRate,
   type ClaimableEarnedInput,
   type EarnedClaim,
 } from "../../hooks/useEarned";
@@ -84,6 +85,7 @@ export function RewardHistory({
     () => claims.filter((c) => c.unix >= sinceUnix && c.unix <= untilUnix),
     [claims, sinceUnix, untilUnix],
   );
+  const rangeRate = useMemo(() => weightedRate(rangeClaims), [rangeClaims]);
 
   // A partial scan can only understate the total, and a member page reporting
   // less money than was paid is a trust bug — say nothing rather than guess.
@@ -208,12 +210,21 @@ export function RewardHistory({
               </div>
             </div>
             <div className="text-sm text-[#8FA0B8]">
-              <span className="font-semibold tabular-nums text-emerald-400">
-                {fmtFlrWei(rangeTotal, 2)} FLR
-              </span>{" "}
-              claimed from {fmtDate(sinceUnix)} to {fmtDate(untilUnix)} over{" "}
-              {rangeClaims.length}{" "}
-              {rangeClaims.length === 1 ? "payment" : "payments"}
+              <div>
+                <span className="font-semibold tabular-nums text-emerald-400">
+                  {fmtFlrWei(rangeTotal, 2)} FLR
+                </span>{" "}
+                claimed from {fmtDate(sinceUnix)} to {fmtDate(untilUnix)} over{" "}
+                {rangeClaims.length}{" "}
+                {rangeClaims.length === 1 ? "payment" : "payments"}
+                {rangeRate != null && (
+                  <span> · {rangeRate.toFixed(2)}% annualized</span>
+                )}
+              </div>
+              <div className="mt-1 text-xs text-[#8FA0B8]">
+                What you actually earned on what you had in each epoch,
+                as a yearly rate. Past payments, not a promise.
+              </div>
             </div>
           </div>
 
@@ -294,9 +305,16 @@ function ClaimRow({ claim }: { claim: EarnedClaim }) {
           {claim.epoch != null && ` · epoch ${claim.epoch}`}
         </div>
       </div>
-      <div className="shrink-0 text-sm font-semibold tabular-nums text-[#FAFAFA]">
-        {fmtFlrWei(claim.amountWei, 2)}{" "}
-        <span className="text-xs font-normal text-[#8FA0B8]">FLR</span>
+      <div className="shrink-0 text-right">
+        <div className="text-sm font-semibold tabular-nums text-[#FAFAFA]">
+          {fmtFlrWei(claim.amountWei, 2)}{" "}
+          <span className="text-xs font-normal text-[#8FA0B8]">FLR</span>
+        </div>
+        {claim.rateAnnualizedPct != null && (
+          <div className="mt-0.5 text-[11px] text-[#8FA0B8]">
+            {claim.rateAnnualizedPct.toFixed(2)}% annualized
+          </div>
+        )}
       </div>
     </li>
   );

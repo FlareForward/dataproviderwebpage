@@ -27,7 +27,7 @@ import { EarningsStrip } from "./components/EarningsStrip";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useStaking } from "../hooks/useStaking";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
-import { useEarned } from "../hooks/useEarned";
+import { actualRatePct, useEarned } from "../hooks/useEarned";
 import { useRewards } from "../hooks/useRewards";
 import logoImage from "../imports/flareforward_logo.png";
 import {
@@ -257,6 +257,7 @@ export function Staking() {
         <EarningsStrip
           rateLabel="Staking APY"
           ratePct={settledRate(rewards?.rates.staking_annual_pct)}
+          actualRatePct={actualRatePct(earned.data, "staking")}
           positionLabel="Staked with FlareForward"
           positionAmount={stakedWithUs}
           positionUnit="FLR"

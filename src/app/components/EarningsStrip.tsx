@@ -9,7 +9,15 @@ const DASH = "—";
 
 interface EarningsStripProps {
   rateLabel: "Delegation APY" | "Staking APY";
+  /** Provider-wide expected rate — shown only until the wallet has its own. */
   ratePct: number | null | undefined;
+  /**
+   * What this wallet has actually earned on this stream, annualized from its
+   * own payments and the principal it had in each epoch. When present it
+   * replaces the expected rate and the projection: a member who has been paid
+   * should see their number, not the network's average.
+   */
+  actualRatePct?: number | null;
   positionLabel: string;
   positionAmount: bigint;
   positionUnit: "WFLR" | "FLR";
@@ -105,6 +113,7 @@ export function EarningsStrip({
   positionAmount,
   positionUnit,
   claimableReward,
+  actualRatePct,
   basis,
   emptyMessage,
   onClaim,
@@ -117,7 +126,11 @@ export function EarningsStrip({
   heroExtra,
 }: EarningsStripProps) {
   const hasPosition = positionAmount > 0n;
-  const hasRate = ratePct != null && Number.isFinite(ratePct);
+  const hasActual = actualRatePct != null && Number.isFinite(actualRatePct);
+  const shownRatePct = hasActual ? actualRatePct : ratePct;
+  const hasRate = shownRatePct != null && Number.isFinite(shownRatePct);
+  const shownRateLabel = hasActual ? "Your actual rate" : rateLabel;
+  const shownRateSub = hasActual ? "what you've earned, annualized" : "current rate";
   const hero = onClaim != null;
   const showEarnedLine =
     hero && (earnedLoading || earnedUnavailable || earnedTotalWei != null);
@@ -180,9 +193,9 @@ export function EarningsStrip({
             }`}
           >
             <EarningsStat
-              label={rateLabel}
-              value={fmtPct(ratePct)}
-              sub="current rate"
+              label={shownRateLabel}
+              value={fmtPct(shownRatePct)}
+              sub={shownRateSub}
               accent={hasRate}
             />
             <EarningsStat
@@ -202,8 +215,8 @@ export function EarningsStrip({
               />
             )}
             <EarningsStat
-              label="At the current rate"
-              value={formatAnnualAtRate(positionAmount, ratePct)}
+              label={hasActual ? "At your actual rate" : "At the current rate"}
+              value={formatAnnualAtRate(positionAmount, shownRatePct)}
               sub="per year, projection"
             />
           </div>
