@@ -50,8 +50,27 @@ export function CustodySection() {
                 <>
                   Bond proceeds are held by the Bond Treasury Safe, a 2-of-3
                   multisig of the three FlareForward principals. Nothing leaves
-                  it without two of the three of us signing. The mint contracts
-                  for every lot are owned by that Safe.
+                  it without two of the three of us signing.{" "}
+                  {CUSTODY.bondTreasurySafeControlTx ? (
+                    <>The mint contracts for every lot are owned by that Safe.</>
+                  ) : (
+                    <>
+                      The mint contracts for every lot are still owned by a single
+                      hardware key (
+                      <a
+                        href={addr(CUSTODY.treasuryKey)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="break-all text-[#E85A95] hover:underline"
+                      >
+                        {CUSTODY.treasuryKey}
+                      </a>
+                      ). New mint proceeds are paid to that key when swept and are
+                      then moved to the Safe by hand, and that key can close a lot
+                      on its own. Ownership moves to the Safe once we have
+                      rehearsed the transfer; the transaction will be linked here.
+                    </>
+                  )}
                 </>
               ) : (
                 <>
