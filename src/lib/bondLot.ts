@@ -161,7 +161,7 @@ export const CUSTODY = {
    * 2-of-3 Safe for buyer capital. `null` until deployed; then the address and
    * the tx hash of the first transfer of lot ownership into it go here.
    */
-  bondTreasurySafe: null as `0x${string}` | null,
+  bondTreasurySafe: "0x5Be87714FFc21F26945AA60e9ab6B7A3B023B70c" as `0x${string}` | null,
   bondTreasurySafeControlTx: null as `0x${string}` | null,
   /** The first lot to close, and the date it closed — the "nothing paid yet" anchor. */
   firstClosedLot: { name: "Lot 1 · 10,000 FLR", closedOn: "2026-09-07" },
