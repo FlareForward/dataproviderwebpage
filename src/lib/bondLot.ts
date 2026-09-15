@@ -144,3 +144,25 @@ export const CURRENT_LOT: BondLotConfig = {
  * Read-only public chain data, and the UI labels it clearly.
  */
 export const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+/**
+ * Custody facts the /nft page discloses, verbatim from chain. These are the
+ * addresses that actually control buyer capital today; the page renders the
+ * single-key state until `bondTreasurySafe` is filled in, and then publishes
+ * the address plus the transaction that moved control. Keep this honest —
+ * the whole point of the section is that a reader can check every line.
+ */
+export const CUSTODY = {
+  /** Trezor EOA: owns every lot contract and holds swept proceeds (wrapped, delegated). */
+  treasuryKey: "0xc166B192F8e1F16cE4998De6d6893b3970781B1b" as `0x${string}`,
+  /** 2-of-3 Safe, FTSO fee revenue only. Never holds bond capital. */
+  operatingSafe: "0x619E7ed806838B36053Deb7089B7ECd4016C06dc" as `0x${string}`,
+  /**
+   * 2-of-3 Safe for buyer capital. `null` until deployed; then the address and
+   * the tx hash of the first transfer of lot ownership into it go here.
+   */
+  bondTreasurySafe: null as `0x${string}` | null,
+  bondTreasurySafeControlTx: null as `0x${string}` | null,
+  /** The first lot to close, and the date it closed — the "nothing paid yet" anchor. */
+  firstClosedLot: { name: "Lot 1 · 10,000 FLR", closedOn: "2026-09-07" },
+} as const;

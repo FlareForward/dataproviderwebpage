@@ -5,6 +5,7 @@ import { useReadContracts } from "wagmi";
 import { useRewards } from "../hooks/useRewards";
 import { settledRate } from "../lib/rewards";
 import { MintLot } from "./components/MintLot";
+import { CustodySection } from "./components/CustodySection";
 import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, HeartHandshake, AlertTriangle } from "lucide-react";
@@ -586,9 +587,13 @@ export default function NftRewards() {
           n={4}
           icon={<Tag size={18} />}
           title="Selling"
-          body="There is no redemption. A holder's only exit is selling the NFT to someone else, at whatever price a buyer will pay. Unclaimed rewards travel with the NFT."
+          body="No redemption window is open and none is scheduled. A holder's exit is selling the NFT to someone else, at whatever price a buyer will pay. Unclaimed rewards travel with the NFT."
         />
       </div>
+
+      {/* Custody disclosure sits at the decision point, directly above the
+          mint, not in a footer. Shipped 2026-09-15 from the 09-12 draft v2. */}
+      <CustodySection />
 
       <CurrentLot
         tiers={tiers}
@@ -678,7 +683,11 @@ export default function NftRewards() {
               one -- the rails exist, only the decision to use them doesn't.
               Stating the exit we DO offer says everything a buyer needs without
               claiming anything about one we haven't decided on. */}
-          <li>• Funds bond at lot close. After that, your exit is selling the NFT.</li>
+          <li>
+            • Funds bond at lot close. After that, your exit is selling the NFT. Who holds the
+            money in between is spelled out under{" "}
+            <a href="#custody" className="text-[#E85A95] hover:underline">who holds your money</a>.
+          </li>
           <li>
             • Any distribution is split equally per NFT within a lot, enforced on-chain by that
             lot&apos;s distribution contract once it is deployed.
@@ -720,8 +729,8 @@ export default function NftRewards() {
         <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
           <li>
             • <span className="font-medium text-[#FAFAFA]">Your FLR does not come back.</span> It
-            funds the validator self-bond at lot close. There is no redemption and no maturity
-            date. You hold an NFT, not a claim on the capital.
+            funds the validator self-bond at lot close. No redemption window is open, none is
+            scheduled, and there is no maturity date. You hold an NFT, not a claim on the capital.
           </li>
           <li>
             • <span className="font-medium text-[#FAFAFA]">You may not be able to sell.</span>{" "}

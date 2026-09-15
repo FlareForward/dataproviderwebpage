@@ -317,7 +317,8 @@ export function ConnectWallet({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
             </div>
 
             <div className="px-4 py-2.5 border-t border-white/8 text-[11px] text-[#8FA0B8]">
-              Your keys stay in your wallet. FlareForward never has custody of your funds.
+              Delegation and staking are non-custodial: your FLR stays under your own keys.
+              FlareForward Bonds are not. Minting a bond transfers your FLR to FlareForward.
             </div>
           </div>,
           document.body,
