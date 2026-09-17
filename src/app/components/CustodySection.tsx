@@ -103,8 +103,19 @@ export function CustodySection() {
                 The deposit is a decision we make, not something a contract
                 compels.
               </strong>{" "}
-              The distribution contract is also controlled by the FlareForward
-              key described above, and that key can withdraw funds out of it.
+              {CUSTODY.bondTreasurySafeControlTx ? (
+                <>
+                  When a lot&apos;s distribution contract is deployed it will be
+                  owned by that same 2-of-3 Safe, which can also withdraw funds
+                  out of it — that takes two of the three of us, not one.
+                </>
+              ) : (
+                <>
+                  The distribution contract is also controlled by the
+                  FlareForward key described above, and that key can withdraw
+                  funds out of it.
+                </>
+              )}
             </p>
 
             <p>

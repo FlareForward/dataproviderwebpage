@@ -162,7 +162,17 @@ export const CUSTODY = {
    * the tx hash of the first transfer of lot ownership into it go here.
    */
   bondTreasurySafe: "0x5Be87714FFc21F26945AA60e9ab6B7A3B023B70c" as `0x${string}` | null,
-  bondTreasurySafeControlTx: null as `0x${string}` | null,
+  /**
+   * Tier A's `transferOwnership` — the first real lot handed to the Safe, on
+   * 2026-09-17. Tier B (0xac1a1536…) and Lot 2 (0xb815332c…) followed in the
+   * same sitting, so "every lot is owned by that Safe" is true as written.
+   * Verified after: `owner()` reads the Safe on all three, and `closeMint()`
+   * and `withdraw()` both revert `OwnableUnauthorizedAccount` for the old key.
+   */
+  bondTreasurySafeControlTx:
+    "0x668f92bb43838a036cc8d151af4d54d5319677376bc02337d9ec86e05ba389a8" as
+      | `0x${string}`
+      | null,
   /** The first lot to close, and the date it closed — the "nothing paid yet" anchor. */
   firstClosedLot: { name: "Lot 1 · 10,000 FLR", closedOn: "2026-09-07" },
 } as const;
