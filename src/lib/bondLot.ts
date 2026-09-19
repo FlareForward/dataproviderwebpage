@@ -109,7 +109,7 @@ export interface BondLotConfig {
  * launch time, not before.
  */
 export const CURRENT_LOT: BondLotConfig = {
-  label: "Lots 1 & 2",
+  label: "Lots 1–3",
   tiers: [
     {
       key: "tier-a",
@@ -133,6 +133,18 @@ export const CURRENT_LOT: BondLotConfig = {
       name: "Lot 2 · 10,000 FLR",
       address: "0xd7b8d7f436b4b30b94a12457615f872dc4d5895a",
       blurb: "Second run of the larger position — 250 available.",
+      imageCid: "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
+    },
+    {
+      // Lot 3: a third denomination, not a re-run. Ten positions at 1,000,000
+      // FLR. Its own collection and, after close, its own distributor, so its
+      // payouts never mix with the 10,000 and 2,500 tiers. Deployed OWNED BY
+      // THE BOND TREASURY SAFE FROM ITS FIRST BLOCK — unlike Lots 1 and 2,
+      // there was never a window in which a single key controlled it.
+      key: "lot3-1m",
+      name: "Lot 3 · 1,000,000 FLR",
+      address: "0xf963b3d02d5b17f87a2caac6f6a388841cd58da6",
+      blurb: "The largest position — 10 available.",
       imageCid: "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
     },
   ],
