@@ -12,7 +12,7 @@ import {
   Landmark,
   ExternalLink,
 } from "lucide-react";
-import { LINKS } from "../lib/links";
+import { LINKS, NETWORK } from "../lib/links";
 import { Button } from "./components/Button";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
@@ -48,6 +48,7 @@ export function Root() {
           <NavItem to="/nft" icon={<Coins size={20} />} label="Mint a Bond" />
           <NavItem to="/rewards" icon={<Gift size={20} />} label="My Rewards" />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
+          <NetworkLinks />
         </nav>
         <div className="p-4 border-t border-white/8 space-y-3">
           <SocialLinks />
@@ -136,6 +137,7 @@ export function Root() {
               label="Analytics"
               onClick={() => setMobileMenuOpen(false)}
             />
+            <NetworkLinks />
             <div className="pt-2">
               <SocialLinks />
             </div>
@@ -157,16 +159,50 @@ export function Root() {
   );
 }
 
-/** Community + cross-property links — the FTSO portal is one FlareForward
-    surface; these keep X and the main site one click away. */
+/** Every other FlareForward project, one click away. Items without a link
+    yet show "Soon" instead of a dead link. */
+function NetworkLinks() {
+  return (
+    <div className="mt-4 border-t border-white/8 pt-4">
+      <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8FA0B8]/70">
+        FlareForward network
+      </p>
+      <div className="space-y-0.5">
+        {NETWORK.map((item) =>
+          item.href ? (
+            <a
+              key={item.name}
+              href={item.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-sm text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5 transition-all"
+            >
+              {item.name}
+              <ExternalLink size={12} className="shrink-0 opacity-60" />
+            </a>
+          ) : (
+            <div
+              key={item.name}
+              className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm text-[#8FA0B8]/60"
+            >
+              {item.name}
+              <span className="shrink-0 rounded-full border border-white/10 px-1.5 py-px text-[10px]">
+                Soon
+              </span>
+            </div>
+          ),
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Community links. The main site now lives in NetworkLinks above. */
 function SocialLinks() {
   const linkClass =
     "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5 transition-all";
   return (
     <div className="space-y-0.5">
-      <a href={LINKS.site} target="_blank" rel="noopener noreferrer" className={linkClass}>
-        <ExternalLink size={14} /> flareforward.com
-      </a>
       <a href={LINKS.x} target="_blank" rel="noopener noreferrer" className={linkClass}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
