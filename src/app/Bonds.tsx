@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { ArrowRight, Gem, Gift } from "lucide-react";
+import { ArrowRight, ExternalLink, Gem, Gift, Loader2 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { Button } from "./components/Button";
 import { MyBonds } from "./components/MyBonds";
 import { useEarned } from "../hooks/useEarned";
+import { useBondClaims } from "../hooks/useBondClaims";
 import { settledRate, fmtPct, fmtFlrWei } from "../lib/rewards";
 
 const BOND_YIELD_URL = import.meta.env.VITE_BOND_YIELD_URL ?? "/api/bond-yield";
@@ -16,14 +17,31 @@ const BOND_YIELD_URL = import.meta.env.VITE_BOND_YIELD_URL ?? "/api/bond-yield";
  * choosing between minting and buying) and no address lookup (this page already
  * knows whose wallet it is).
  *
- * Claim is shown but cannot do anything yet: the lot contracts expose no claim
- * function and no distribution contract exists. Rather than hide the row, it
- * states the real position — a claim control that silently isn't there is worse
- * than one that tells you when it opens.
+ * Claim works for every lot that has a payout contract (a lot gets one after it
+ * closes). It pokes the distributor's lazy accounting, then claims, so a holder
+ * never has to know the distributor needs a nudge. For a wallet holding only
+ * bonds in still-open lots the button stays shut and says why.
  */
 export default function Bonds() {
   const { address } = useAccount();
   const earned = useEarned(address);
+  const claims = useBondClaims();
+  const busy = claims.phase === "processing" || claims.phase === "claiming";
+  const claimLabel =
+    claims.phase === "processing"
+      ? "Updating payouts…"
+      : claims.phase === "claiming"
+        ? "Claiming…"
+        : "Claim all";
+  const claimCaption = !claims.isConnected
+    ? "Connect your wallet to claim"
+    : claims.heldPaid === 0
+      ? "Opens when your lot closes"
+      : claims.mayClaim
+        ? `${fmtFlrWei(claims.claimableWei, 4)} WFLR ready${
+            claims.unprocessedWei > 0n ? ", plus a new release to process" : ""
+          } · two wallet confirmations`
+        : "Nothing to claim yet";
   const { data } = useQuery<{
     current?: { bond_rate_annualized_pct: number | null } | null;
     last_measured?: { bond_rate_annualized_pct: number | null } | null;
@@ -107,20 +125,32 @@ export default function Bonds() {
               <Button
                 variant="action"
                 className="gap-2 w-full sm:w-auto"
-                disabled
+                disabled={!claims.mayClaim || busy}
+                onClick={() => void claims.claimAll()}
               >
-                <Gift size={16} /> Claim all
+                {busy ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}{" "}
+                {claimLabel}
               </Button>
-              <p className="mt-2 text-xs text-[#8FA0B8]">
-                Opens when the lot closes · claim single bonds from a stack
-              </p>
+              <p className="mt-2 text-xs text-[#8FA0B8]">{claimCaption}</p>
+              {claims.lastTx && (
+                <a
+                  href={`https://flare-explorer.flare.network/tx/${claims.lastTx}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400 hover:underline"
+                >
+                  Claimed · view transaction <ExternalLink size={12} />
+                </a>
+              )}
             </div>
           </div>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-            Payout tracking starts once the lot closes and its distribution
-            contract is deployed, split equally per bond. The rate above is what
-            our validator bond is earning; it moves epoch to epoch and is not a
-            promise.
+            Rewards are released to bond holders every reward epoch, about
+            every 3.5 days, after the epoch closes. Your share is equal per
+            bond. Click Claim to receive it as WFLR; a 0.3% processing fee is
+            taken by the payout contract's operator. Unclaimed rewards wait for
+            you; they do not expire. The rate above is what our validator bond
+            is earning; it moves epoch to epoch and is not a promise.
           </p>
         </div>
 

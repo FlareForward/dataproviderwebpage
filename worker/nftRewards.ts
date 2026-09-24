@@ -49,8 +49,16 @@ interface Lot {
 }
 
 export const LOTS: Lot[] = [
-  // Lot 1 ("Bond Series Q3-2026") lands here once its mint closes and its
-  // distributor is deployed.
+  {
+    // Lot 1 Tier A. Closed 2026-09-07 at 250/250. Distributor deployed from the
+    // Bond Treasury Safe on 2026-09-24 (Safe nonce 8) with totalTokenSupply 250,
+    // registered with the VeriGuard registry, royalty receiver set to it.
+    slug: "lot1-tier-a",
+    name: "Lot 1 Tier A (10,000 FLR)",
+    distributor: "0x283CB0179c827d87f15927540098e5815697d21a",
+    live: true,
+  },
+  // Tier B, Lot 2 and Lot 3 land here one at a time, each after its own close.
 ];
 
 /**

@@ -73,12 +73,82 @@ export const bondLotAbi = [
 /** Contract-enforced cap on a single mint call. */
 export const MAX_BATCH_MINT = 25;
 
+/** Holder payouts from a distributor are always in WFLR. */
+export const WFLR_ADDRESS = "0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d" as const;
+
+/**
+ * The slice of Jon's RoyaltyDistributor ABI a holder needs. Selectors were
+ * validated against the deployed bytecode (see worker/nftRewards.ts) and the
+ * claim path was run end to end on mainnet dust lots on 2026-08-12 and 09-15.
+ *
+ *   claimable(id, token) = (cumulativeRewardPerToken(token)
+ *                           - lastClaimedCumulativeReward(id, token)) / PRECISION
+ *
+ * Accounting is lazy: funds that arrive at the distributor are not reflected in
+ * cumulativeRewardPerToken until someone calls processAccumulatedERC20Payments.
+ * claimRewards reverts (0xbaf3f0f7) when nothing is owed, so never send it
+ * with a computed claimable of zero.
+ */
+export const distributorAbi = [
+  {
+    type: "function",
+    name: "PRECISION",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "paused",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "cumulativeRewardPerToken",
+    stateMutability: "view",
+    inputs: [{ type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "lastClaimedCumulativeReward",
+    stateMutability: "view",
+    inputs: [{ type: "uint256" }, { type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "processAccumulatedERC20Payments",
+    stateMutability: "nonpayable",
+    inputs: [{ type: "address[]", name: "erc20Tokens" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "claimRewards",
+    stateMutability: "nonpayable",
+    inputs: [
+      { type: "uint256[]", name: "tokenIds" },
+      { type: "address[]", name: "paymentTokens" },
+    ],
+    outputs: [],
+  },
+] as const;
+
 export interface BondTier {
   key: string;
   /** Display name for the tier. */
   name: string;
   /** Deployed BondSeriesLot address, or null until the lot is deployed. */
   address: `0x${string}` | null;
+  /**
+   * The lot's RoyaltyDistributor (VeriGuard rails), deployed only AFTER the lot
+   * closes with totalTokenSupply = the final minted count. Null while the lot
+   * is open: an open lot has no payout contract and its Claim stays shut.
+   */
+  distributor?: `0x${string}` | null;
   /** One line on who this tier is for. */
   blurb: string;
   /**
@@ -115,6 +185,9 @@ export const CURRENT_LOT: BondLotConfig = {
       key: "tier-a",
       name: "Lot 1 · 10,000 FLR",
       address: "0x697e2ece036253afb08ee35cb1bcb83fec361736",
+      // Wired 2026-09-24 from the Bond Treasury Safe (Safe nonce 8): supply 250,
+      // registered with the VeriGuard registry, royalty receiver set to it.
+      distributor: "0x283CB0179c827d87f15927540098e5815697d21a",
       blurb: "The larger position. Sold out.",
       imageCid: "bafkreigm7v2lvlfy7dt44sfgt6b4lygrm3dqo4oc2varpb6uadnjvi6vfm",
     },

@@ -23,6 +23,8 @@ const REWARD_MANAGER =
   "0xC8f55c5aA2C752eE285Bd872855C749f4ee6239B".toLowerCase();
 const FLARE_RPC = "https://flare-api.flare.network/ext/C/rpc";
 const EXPECTED_WNAT = "0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d";
+const TIER_A_DISTRIBUTOR = "0x283cb0179c827d87f15927540098e5815697d21a";
+const TIER_A_COLLECTION = "0x697e2ece036253afb08ee35cb1bcb83fec361736";
 const EXPECTED_FLARE_SYSTEMS_MANAGER =
   "0x89e50DC0380e597ecE79c8494bAAFD84537AD0D4";
 const EXPECTED_P_CHAIN_STAKE_MIRROR =
@@ -226,13 +228,14 @@ interface RpcBatchRequest {
 
 interface RpcMockState {
   registryNames: string[];
+  bondBalanceReads: number;
   batches: RpcBatchRequest[][];
 }
 
 function withEarnedEndpointMock(
   options: EarnedEndpointMockOptions,
 ): { restore: () => void; state: RpcMockState } {
-  const state: RpcMockState = { registryNames: [], batches: [] };
+  const state: RpcMockState = { registryNames: [], batches: [], bondBalanceReads: 0 };
   const votePowerBlockToEpoch = new Map(
     Object.entries(options.votePowerBlocks).map(([epoch, block]) => [
       block.toString(),
@@ -258,6 +261,34 @@ function withEarnedEndpointMock(
           assert.equal(entry.method, "eth_call");
           const call = entry.params[0];
           const selector = call.data.slice(0, 10);
+          // Bond distributor reads (Tier A is live in LOTS). The wallets in
+          // these tests hold no bonds, so the collection reports balance 0 and
+          // the loader stops after its first two batches.
+          const to = call.to.toLowerCase();
+          if (to === TIER_A_DISTRIBUTOR) {
+            if (selector === "0x5f2d6bcd") {
+              return { jsonrpc: "2.0", id: entry.id, result: addressResult(TIER_A_COLLECTION) };
+            }
+            if (selector === "0x0c76a4f3") {
+              return {
+                jsonrpc: "2.0",
+                id: entry.id,
+                result:
+                  "0x" +
+                  uintResult(32).slice(2) +
+                  uintResult(2).slice(2) +
+                  addressResult("0x0000000000000000000000000000000000000000").slice(2) +
+                  addressResult(EXPECTED_WNAT).slice(2),
+              };
+            }
+            if (selector === "0xaaf5eb68") {
+              return { jsonrpc: "2.0", id: entry.id, result: uintResult(10n ** 18n) };
+            }
+          }
+          if (to === TIER_A_COLLECTION && selector === "0x70a08231") {
+            state.bondBalanceReads += 1;
+            return { jsonrpc: "2.0", id: entry.id, result: uintResult(0) };
+          }
           if (selector === RATE_SELECTORS.registry) {
             const name = decodeStringArg(call.data);
             state.registryNames.push(name);
@@ -349,6 +380,7 @@ async function readEarned(address: string): Promise<{
       principal_wei: string | null;
       rate_annualized_pct: number | null;
     }>;
+    claimable?: { bonds_tracked?: boolean; bonds_wei?: string | null };
   };
 }> {
   const res = await loadEarnedResponse(address);
@@ -441,6 +473,11 @@ test("delegation claims include realized annualized rate from vote-power princip
     assert.equal(body.claimed?.total_wei, amountWei.toString());
     assert.equal(body.claims?.[0]?.principal_wei, principalWei.toString());
     assert.equal(body.claims?.[0]?.rate_annualized_pct, 3.34);
+    // Tier A's distributor is live, so bonds are tracked (not "pending") and
+    // the holder's balance was actually read from the collection.
+    assert.equal(body.claimable?.bonds_tracked, true);
+    assert.equal(body.claimable?.bonds_wei, "0");
+    assert.equal(state.bondBalanceReads, 1);
   } finally {
     restore();
   }
