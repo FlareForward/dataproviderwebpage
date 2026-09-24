@@ -10,7 +10,6 @@ import {
   Coins,
   Wallet,
   Landmark,
-  Youtube,
   ExternalLink,
 } from "lucide-react";
 import { LINKS } from "../lib/links";
@@ -159,7 +158,7 @@ export function Root() {
 }
 
 /** Community + cross-property links — the FTSO portal is one FlareForward
-    surface; these keep YouTube, X, and the main site one click away. */
+    surface; these keep X and the main site one click away. */
 function SocialLinks() {
   const linkClass =
     "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5 transition-all";
@@ -167,9 +166,6 @@ function SocialLinks() {
     <div className="space-y-0.5">
       <a href={LINKS.site} target="_blank" rel="noopener noreferrer" className={linkClass}>
         <ExternalLink size={14} /> flareforward.com
-      </a>
-      <a href={LINKS.youtube} target="_blank" rel="noopener noreferrer" className={linkClass}>
-        <Youtube size={14} /> YouTube
       </a>
       <a href={LINKS.x} target="_blank" rel="noopener noreferrer" className={linkClass}>
         <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
