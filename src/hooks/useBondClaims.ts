@@ -13,6 +13,8 @@ import {
 
 /** Enumerating more than this per tier is a wall nobody claims in one go. */
 const MAX_ENUMERATE = 100;
+/** balanceOf, cumulative, PRECISION, distributor WFLR, lastKnownBalance. */
+const READS_PER_TIER = 5;
 
 type PaidTier = BondTier & { address: `0x${string}`; distributor: `0x${string}` };
 
@@ -74,19 +76,33 @@ export function useBondClaims() {
         args: [t.distributor] as const,
         chainId: chain.id,
       },
+      {
+        address: t.distributor,
+        abi: distributorAbi,
+        functionName: "lastKnownBalance" as const,
+        args: [WFLR_ADDRESS] as const,
+        chainId: chain.id,
+      },
     ]),
     query: { enabled: !!address && PAID_TIERS.length > 0, refetchInterval: 30_000 },
   });
 
   const tierBase = useMemo(
     () =>
-      PAID_TIERS.map((t, i) => ({
-        tier: t,
-        held: Number((base?.[i * 4]?.result as bigint | undefined) ?? 0n),
-        cumulative: (base?.[i * 4 + 1]?.result as bigint | undefined) ?? 0n,
-        precision: (base?.[i * 4 + 2]?.result as bigint | undefined) ?? 0n,
-        unprocessedWei: (base?.[i * 4 + 3]?.result as bigint | undefined) ?? 0n,
-      })),
+      PAID_TIERS.map((t, i) => {
+        const r = (k: number) => base?.[i * READS_PER_TIER + k]?.result as bigint | undefined;
+        const balance = r(3) ?? 0n;
+        const known = r(4) ?? 0n;
+        return {
+          tier: t,
+          held: Number(r(0) ?? 0n),
+          cumulative: r(1) ?? 0n,
+          precision: r(2) ?? 0n,
+          // Only the part of the balance not yet credited. The rest is already
+          // owed to specific bonds (often other people's) and is not "new".
+          unprocessedWei: balance > known ? balance - known : 0n,
+        };
+      }),
     [base],
   );
 

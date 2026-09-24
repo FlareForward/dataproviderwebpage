@@ -119,6 +119,17 @@ export const distributorAbi = [
     outputs: [{ type: "uint256" }],
   },
   {
+    // Balance the distributor has already credited to holders. Anything above
+    // it is a release that arrived and has not been processed yet (verified on
+    // a mainnet fork 2026-09-24: 0 after poke, 0 after claim, +release after a
+    // new send).
+    type: "function",
+    name: "lastKnownBalance",
+    stateMutability: "view",
+    inputs: [{ type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
     type: "function",
     name: "processAccumulatedERC20Payments",
     stateMutability: "nonpayable",
