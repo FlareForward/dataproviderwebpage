@@ -20,3 +20,20 @@ export const LINKS = {
    */
   apexDocsFees: "https://apexhammer.app/docs#fees-heading",
 } as const;
+
+/**
+ * Everything else FlareForward runs, in the order the flareforward.com network
+ * map shows it. Listed in the sidebar and the phone menu so visitors can jump
+ * between our projects. href null = announced, not open yet ("Soon").
+ * Keep in step with NODES in the flareforward-site repo (lib/content.ts).
+ */
+export const NETWORK: { name: string; href: string | null }[] = [
+  { name: "flareforward.com", href: "https://flareforward.com" },
+  { name: "Apex", href: "https://apexhammer.app" },
+  { name: "Orca Pay", href: null },
+  { name: "DeFi Tracker", href: null },
+  { name: "The Reef", href: "https://reef-app-production.up.railway.app" },
+  { name: "Arcade", href: "https://arcade.flareforward.com" },
+  { name: "DeFi Education", href: null },
+  { name: "YouTube: Ace", href: "https://youtube.com/@afhdmedia" },
+];
