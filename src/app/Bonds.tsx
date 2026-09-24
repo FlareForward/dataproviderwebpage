@@ -70,8 +70,9 @@ export default function Bonds() {
       : earnedBondsWei === null
         ? "not tracked yet"
         : `${fmtFlrWei(earnedBondsWei, 2)} FLR`;
-  const earnedSubline =
-    earnedBondsWei == null
+  const earnedSubline = !address
+    ? "connect your wallet to see yours"
+    : earnedBondsWei === null
       ? "distribution contract pending"
       : "claimed plus currently claimable";
 
