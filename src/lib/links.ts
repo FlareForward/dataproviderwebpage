@@ -35,5 +35,5 @@ export const NETWORK: { name: string; href: string | null }[] = [
   { name: "The Reef", href: "https://reef-app-production.up.railway.app" },
   { name: "Arcade", href: "https://arcade.flareforward.com" },
   { name: "DeFi Education", href: null },
-  { name: "YouTube: Ace", href: "https://youtube.com/@afhdmedia" },
+  { name: "YouTube", href: "https://youtube.com/@afhdmedia" },
 ];

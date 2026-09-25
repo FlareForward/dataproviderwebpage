@@ -11,6 +11,7 @@ import {
   Wallet,
   Landmark,
   ExternalLink,
+  ChevronDown,
 } from "lucide-react";
 import { LINKS, NETWORK } from "../lib/links";
 import { Button } from "./components/Button";
@@ -159,15 +160,28 @@ export function Root() {
   );
 }
 
-/** Every other FlareForward project, one click away. Items without a link
-    yet show "Soon" instead of a dead link. */
+/** Every other FlareForward project, one click away. Collapsed by default so
+    the site's own pages lead; the header opens it. Items without a link yet
+    show "Soon" instead of a dead link. */
 function NetworkLinks() {
+  const [open, setOpen] = useState(false);
   return (
     <div className="mt-4 border-t border-white/8 pt-4">
-      <p className="px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8FA0B8]/70">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="ff-network-links"
+        className="w-full flex items-center justify-between px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8FA0B8]/70 hover:text-[#FAFAFA] transition-colors"
+      >
         FlareForward network
-      </p>
-      <div className="space-y-0.5">
+        <ChevronDown
+          size={14}
+          className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+      <div id="ff-network-links" hidden={!open} className="space-y-0.5">
         {NETWORK.map((item) =>
           item.href ? (
             <a
