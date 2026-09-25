@@ -227,6 +227,28 @@ export default function Home() {
                     where Flare is heading. Follow along and you'll know exactly
                     who your vote power is backing.
                   </p>
+                  <p className="mt-4 text-sm text-[#8FA0B8]">
+                    <span className="font-semibold text-[#FAFAFA]">Powered by FlareForward.</span>{" "}
+                    Learn who we are at{" "}
+                    <a
+                      href={LINKS.site}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#EE1A58] hover:underline"
+                    >
+                      flareforward.com
+                    </a>{" "}
+                    or follow{" "}
+                    <a
+                      href={LINKS.x}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#EE1A58] hover:underline"
+                    >
+                      @flareforward
+                    </a>{" "}
+                    on X.
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
                   <a href={LINKS.youtubeAce} target="_blank" rel="noopener noreferrer">
