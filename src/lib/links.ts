@@ -1,3 +1,5 @@
+import networkBaked from "./network.json";
+
 /**
  * Canonical FlareForward property + community links — single source for the
  * nav, footer, and CTAs so a handle change is a one-line edit.
@@ -22,18 +24,16 @@ export const LINKS = {
 } as const;
 
 /**
- * Everything else FlareForward runs, in the order the flareforward.com network
- * map shows it. Listed in the sidebar and the phone menu so visitors can jump
- * between our projects. href null = announced, not open yet ("Soon").
- * Keep in step with NODES in the flareforward-site repo (lib/content.ts).
+ * The FlareForward network list, shared by every FlareForward site
+ * (standard: ~/codex-coord/flareforward-network/STANDARD.md, operator decision
+ * 2026-09-26). This is the baked copy; the sidebar refreshes it from
+ * NETWORK_URL on load when that answers, so a new project shows up here
+ * without a redeploy. url null = announced, not open yet ("Soon").
  */
-export const NETWORK: { name: string; href: string | null }[] = [
-  { name: "flareforward.com", href: "https://flareforward.com" },
-  { name: "Apex", href: "https://apexhammer.app" },
-  { name: "Orca Pay", href: null },
-  { name: "DeFi Tracker", href: null },
-  { name: "The Reef", href: "https://reef-app-production.up.railway.app" },
-  { name: "Arcade", href: "https://arcade.flareforward.com" },
-  { name: "DeFi Education", href: null },
-  { name: "YouTube", href: "https://youtube.com/@afhdmedia" },
-];
+
+export type NetworkItem = { id: string; name: string; note: string; url: string | null; soon?: boolean };
+export type NetworkList = { version: number; network: NetworkItem[] };
+export const NETWORK: NetworkList = networkBaked as NetworkList;
+export const NETWORK_URL = "https://flareforward.com/network.json";
+/** This site's own entry: shown as the current site, never linked to itself. */
+export const NETWORK_HERE = "ftso";
