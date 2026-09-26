@@ -6,10 +6,8 @@ import {
   ArrowRight,
   Hammer,
   Flame,
-  Users,
   Scale,
   GraduationCap,
-  Youtube,
   ExternalLink,
   Loader2,
 } from "lucide-react";
@@ -215,20 +213,10 @@ export default function Home() {
             <CardContent className="p-6 lg:p-8">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
                 <div className="max-w-xl">
-                  <div className="flex items-center gap-2 text-[#EE1A58]">
-                    <Users size={18} />
-                    <span className="text-xs font-bold uppercase tracking-wider">Community</span>
-                  </div>
-                  <h2 id="community-heading" className="mt-2 text-xl lg:text-2xl font-bold tracking-tight">
-                    Built in the open by Steven &amp; Ace
+                  <h2 id="community-heading" className="text-xl lg:text-2xl font-bold tracking-tight">
+                    Powered by FlareForward
                   </h2>
                   <p className="mt-2 text-sm text-[#8FA0B8] leading-relaxed">
-                    We show our work — breakdowns, tutorials, and honest takes on
-                    where Flare is heading. Follow along and you'll know exactly
-                    who your vote power is backing.
-                  </p>
-                  <p className="mt-4 text-sm text-[#8FA0B8]">
-                    <span className="font-semibold text-[#FAFAFA]">Powered by FlareForward.</span>{" "}
                     Learn who we are at{" "}
                     <a
                       href={LINKS.site}
@@ -251,19 +239,9 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
-                  <a href={LINKS.youtubeAce} target="_blank" rel="noopener noreferrer">
+                  <a href={LINKS.site} target="_blank" rel="noopener noreferrer">
                     <Button variant="outline" className="gap-2">
-                      <Youtube size={16} /> Ace
-                    </Button>
-                  </a>
-                  <a href={LINKS.xSteven} target="_blank" rel="noopener noreferrer">
-                    <Button variant="ghost" className="gap-2 text-[#8FA0B8] hover:text-[#FAFAFA]">
-                      <XGlyph /> Steven
-                    </Button>
-                  </a>
-                  <a href={LINKS.xAce} target="_blank" rel="noopener noreferrer">
-                    <Button variant="ghost" className="gap-2 text-[#8FA0B8] hover:text-[#FAFAFA]">
-                      <XGlyph /> Ace
+                      <ExternalLink size={16} /> flareforward.com
                     </Button>
                   </a>
                   <a href={LINKS.x} target="_blank" rel="noopener noreferrer">
