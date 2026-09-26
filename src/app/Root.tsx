@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router";
 import {
   LayoutDashboard,
@@ -13,7 +13,7 @@ import {
   ExternalLink,
   ChevronDown,
 } from "lucide-react";
-import { LINKS, NETWORK } from "../lib/links";
+import { LINKS, NETWORK, NETWORK_HERE, NETWORK_URL, type NetworkList } from "../lib/links";
 import { Button } from "./components/Button";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
@@ -160,11 +160,26 @@ export function Root() {
   );
 }
 
-/** Every other FlareForward project, one click away. Collapsed by default so
-    the site's own pages lead; the header opens it. Items without a link yet
-    show "Soon" instead of a dead link. */
+/** Every FlareForward project, one click away, in the shared network order.
+    Collapsed by default so the site's own pages lead; the header opens it.
+    Starts from the baked list and swaps in the live one from flareforward.com
+    when it answers. Items without a link yet show "Soon"; this site shows as
+    the one you are on. */
 function NetworkLinks() {
   const [open, setOpen] = useState(false);
+  const [list, setList] = useState<NetworkList>(NETWORK);
+  useEffect(() => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 2500);
+    fetch(NETWORK_URL, { signal: ctl.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((live: NetworkList | null) => {
+        if (live && Array.isArray(live.network) && live.version >= NETWORK.version) setList(live);
+      })
+      .catch(() => {})
+      .finally(() => clearTimeout(timer));
+    return () => { clearTimeout(timer); ctl.abort(); };
+  }, []);
   return (
     <div className="mt-4 border-t border-white/8 pt-4">
       <button
@@ -182,11 +197,11 @@ function NetworkLinks() {
         />
       </button>
       <div id="ff-network-links" hidden={!open} className="space-y-0.5">
-        {NETWORK.map((item) =>
-          item.href ? (
+        {list.network.map((item) =>
+          item.url && !item.soon && item.id !== NETWORK_HERE ? (
             <a
-              key={item.name}
-              href={item.href}
+              key={item.id}
+              href={item.url}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-sm text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5 transition-all"
@@ -196,12 +211,13 @@ function NetworkLinks() {
             </a>
           ) : (
             <div
-              key={item.name}
+              key={item.id}
+              aria-current={item.id === NETWORK_HERE ? "page" : undefined}
               className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm text-[#8FA0B8]/60"
             >
               {item.name}
               <span className="shrink-0 rounded-full border border-white/10 px-1.5 py-px text-[10px]">
-                Soon
+                {item.id === NETWORK_HERE ? "You are here" : "Soon"}
               </span>
             </div>
           ),
