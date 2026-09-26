@@ -242,14 +242,13 @@ export const CURRENT_LOT: BondLotConfig = {
 export const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 /**
- * Custody facts the /nft page discloses, verbatim from chain. These are the
- * addresses that actually control buyer capital today; the page renders the
- * single-key state until `bondTreasurySafe` is filled in, and then publishes
- * the address plus the transaction that moved control. Keep this honest —
- * the whole point of the section is that a reader can check every line.
+ * Custody facts /nft/disclosures publishes, verbatim from chain. These are
+ * the addresses that control buyer capital; the page publishes the Safe
+ * address plus the transaction that moved control. Keep this checkable —
+ * the whole point of the section is that a reader can verify every line.
  */
 export const CUSTODY = {
-  /** Trezor EOA: owns every lot contract and holds swept proceeds (wrapped, delegated). */
+  /** Trezor EOA that ran Lots 1 and 2 until 2026-09-17. Owns no lot today; gas and script signer only. */
   treasuryKey: "0xc166B192F8e1F16cE4998De6d6893b3970781B1b" as `0x${string}`,
   /** 2-of-3 Safe, FTSO fee revenue only. Never holds bond capital. */
   operatingSafe: "0x619E7ed806838B36053Deb7089B7ECd4016C06dc" as `0x${string}`,
