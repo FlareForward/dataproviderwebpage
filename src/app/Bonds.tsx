@@ -93,7 +93,7 @@ export default function Bonds() {
           </div>
           <Link to="/nft">
             <Button variant="action" className="gap-2">
-              <Gem size={16} /> Mint a bond <ArrowRight size={15} />
+              <Gem size={16} /> Bond lots <ArrowRight size={15} />
             </Button>
           </Link>
         </div>

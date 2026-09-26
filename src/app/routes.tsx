@@ -6,6 +6,7 @@ import Analytics from "./Analytics";
 import Rewards from "./Rewards";
 import NftRewards from "./NftRewards";
 import Bonds from "./Bonds";
+import Disclosures from "./Disclosures";
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
       { path: "staking", Component: DataProviders },
       { path: "rewards", Component: Rewards },
       { path: "nft", Component: NftRewards },
+      { path: "nft/disclosures", Component: Disclosures },
       { path: "bonds", Component: Bonds },
       { path: "analytics", Component: Analytics },
     ],

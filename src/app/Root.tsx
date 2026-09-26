@@ -46,7 +46,7 @@ export function Root() {
           <NavItem to="/delegation" icon={<Wallet size={20} />} label="Delegate" />
           <NavItem to="/staking" icon={<Landmark size={20} />} label="Stake" />
           <NavItem to="/bonds" icon={<Gem size={20} />} label="Bonds" />
-          <NavItem to="/nft" icon={<Coins size={20} />} label="Mint a Bond" />
+          <NavItem to="/nft" icon={<Coins size={20} />} label="Bond Lots" />
           <NavItem to="/rewards" icon={<Gift size={20} />} label="My Rewards" />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
           <NetworkLinks />
@@ -123,7 +123,7 @@ export function Root() {
             <NavItem
               to="/nft"
               icon={<Coins size={20} />}
-              label="Mint a Bond"
+              label="Bond Lots"
               onClick={() => setMobileMenuOpen(false)}
             />
             <NavItem

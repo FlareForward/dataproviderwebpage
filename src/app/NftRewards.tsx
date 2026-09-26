@@ -5,10 +5,10 @@ import { useReadContracts } from "wagmi";
 import { useRewards } from "../hooks/useRewards";
 import { settledRate } from "../lib/rewards";
 import { MintLot } from "./components/MintLot";
-import { CustodySection } from "./components/CustodySection";
-import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, type BondTier } from "../lib/bondLot";
+import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, IPFS_GATEWAY, type BondTier } from "../lib/bondLot";
+import { EXPLORER_URL } from "../lib/flare";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
-import { Gem, Coins, TrendingUp, Landmark, Tag, Wallet, Store, Activity, HeartHandshake, AlertTriangle } from "lucide-react";
+import { Gem, Coins, TrendingUp, Landmark, Tag, Store, Activity, HeartHandshake, FileText, ExternalLink } from "lucide-react";
 
 /**
  * Measured bond performance, served by /api/bond-yield (worker/bondYield.ts).
@@ -75,11 +75,16 @@ function remainingFor(status: TierStatus): bigint | null {
   return remaining > 0n ? remaining : 0n;
 }
 
+/** A tier is on sale only when the contract says open AND something is left. */
+function isOpen(status: TierStatus): boolean {
+  return status.mintOpen === true && remainingFor(status) !== 0n;
+}
+
 function mintStateLabel(status: TierStatus, loading: boolean): string {
   if (!status.address) return "Mint not open";
   const remaining = remainingFor(status);
   if (remaining === 0n) return "Sold out";
-  if (status.mintOpen === false) return "Mint closed";
+  if (status.mintOpen === false) return "Closed";
   if (status.mintOpen === true) return "Mint open";
   return loading ? "Reading mint state" : "Mint state unavailable";
 }
@@ -163,6 +168,11 @@ function useTierStatuses(tiers: BondTier[]) {
   return { statuses, statusLoading: isLoading };
 }
 
+/**
+ * One line under the title, read from the contracts. When every lot is closed
+ * it says so and counts what was issued; "remaining" only means something
+ * while a lot is open.
+ */
 function LeadStatus({
   statuses,
   statusLoading,
@@ -174,10 +184,7 @@ function LeadStatus({
 
   if (liveStatuses.length === 0) {
     return (
-      <p className="mt-4 max-w-3xl rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-300">
-        Live status: mint not open yet. Contract-read minted/total, remaining supply, and open
-        state will appear here when the lot is deployed.
-      </p>
+      <p className="mt-4 text-sm text-amber-300">No lot is open. The next one is announced here first.</p>
     );
   }
 
@@ -186,26 +193,26 @@ function LeadStatus({
   );
 
   if (statusLoading && !allRead) {
+    return <p className="mt-4 text-sm text-[#8FA0B8]">Reading the lot contracts…</p>;
+  }
+
+  const minted = liveStatuses.reduce((sum, s) => sum + (s.sold ?? 0n), 0n);
+  const openStatuses = liveStatuses.filter(isOpen);
+
+  if (openStatuses.length === 0) {
     return (
-      <p className="mt-4 max-w-3xl rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm font-medium text-amber-300">
-        Live status: reading minted/total, remaining supply, and open state from the tier
-        contracts.
+      <p className="mt-4 text-sm text-[#8FA0B8]">
+        Every lot is closed. <span className="text-[#FAFAFA]">{fmtCount(minted)} bonds</span> issued
+        across {liveStatuses.length} lots. The next lot is announced here first.
       </p>
     );
   }
 
-  const totalSupply = liveStatuses.reduce((sum, s) => sum + (s.maxSupply ?? 0n), 0n);
-  const minted = liveStatuses.reduce((sum, s) => sum + (s.sold ?? 0n), 0n);
-  const remaining = liveStatuses.reduce((sum, s) => sum + (remainingFor(s) ?? 0n), 0n);
-  const anyOpen = liveStatuses.some((s) => s.mintOpen === true && remainingFor(s) !== 0n);
-  const allSoldOut = liveStatuses.every((s) => remainingFor(s) === 0n);
-  const allClosed = liveStatuses.every((s) => s.mintOpen === false);
-  const state = allSoldOut ? "sold out" : anyOpen ? "mint open" : allClosed ? "mint closed" : "status unavailable";
-
+  const remaining = openStatuses.reduce((sum, s) => sum + (remainingFor(s) ?? 0n), 0n);
   return (
     <p className="mt-4 max-w-3xl rounded-xl border border-[#E85A95]/30 bg-[#E85A95]/10 px-4 py-3 text-sm font-medium text-[#FAFAFA]">
-      Live status: {state}. {fmtCount(minted)} / {fmtCount(totalSupply)} minted;{" "}
-      {fmtCount(remaining)} remaining.
+      Mint open. {fmtCount(remaining)} remaining across {openStatuses.length}{" "}
+      {openStatuses.length === 1 ? "lot" : "lots"}.
     </p>
   );
 }
@@ -243,18 +250,11 @@ function MeasuredPerformance() {
     <section className="mt-10">
       <div className="flex items-center gap-3">
         <Activity size={20} className="text-[#E85A95]" />
-        <h2 className="text-xl font-semibold">What the validator bond is earning now</h2>
+        <h2 className="text-xl font-semibold">What the validator bond is earning</h2>
       </div>
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        This is what our validator bond earns right now. We are not guaranteeing it will be the
-        rate when you bond with us — it moves epoch to epoch. We publish what we measure.
-      </p>
-      <p className="mt-3 max-w-3xl rounded-lg border border-amber-400/30 bg-amber-400/[0.06] px-4 py-3 text-sm leading-relaxed text-[#8FA0B8]">
-        <span className="font-medium text-amber-300">To be clear about where this stands:</span>{" "}
-        no bond holder has been paid a distribution yet. This series is new, no lot&apos;s
-        distribution contract has been deployed, and nothing has been distributed to anyone to
-        date. The rate above is what the validator earns — not a record of holder payouts,
-        because there is not one yet.
+        Measured from closed epochs, restated annually. It moves epoch to epoch and is not a
+        promised rate. No holder distribution has been paid yet; this is what the validator earns.
       </p>
 
       {isLoading && (
@@ -269,7 +269,7 @@ function MeasuredPerformance() {
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <div className="glass-panel border border-[#E85A95]/30 p-5">
               <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                Bond rate — what our validator bond earned, annualized
+                Bond rate, annualized
               </p>
               <p className="mt-1 text-3xl font-semibold text-[#FAFAFA]">
                 {pct(cur.bond_rate_annualized_pct)}
@@ -280,7 +280,7 @@ function MeasuredPerformance() {
             </div>
             <div className="glass-panel p-5">
               <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                Staking rate — what a delegator earned, annualized
+                Delegator staking rate, annualized
               </p>
               {/* The bond-yield fallback bucket nulls the delegator rate, which
                   left this tile a dash for 3.5 days at a stretch — on the page
@@ -294,23 +294,9 @@ function MeasuredPerformance() {
             </div>
           </div>
 
-          <div className="glass-panel mt-3 border-l-2 border-[#E85A95]/50 p-4">
-            <p className="text-sm leading-relaxed text-[#8FA0B8]">
-              <span className="font-semibold text-[#FAFAFA]">Why the two numbers differ.</span> The
-              staking rate a delegator sees is already{" "}
-              <em>net of the {cur.delegation_fee_pct ?? 20}% provider fee</em> — the bond is our own
-              stake, so no delegation fee comes off it. The bond also earns a second component that
-              delegated stake does not. Both are measured after the fact, not promised.
-            </p>
-          </div>
-
-          {/* The provider-income tile, epoch counter, and the week-by-week
-              table came off this page by operator call: this is the mint page,
-              and epoch bookkeeping is analytics' job. What stays is the one
-              honest sentence the numbers above need. */}
           <p className="mt-3 max-w-3xl text-xs leading-relaxed text-[#8FA0B8]/80">
-            These are measured rates, not promises — past performance does not guarantee future
-            rates. The full epoch-by-epoch record lives on{" "}
+            The bond is our own stake, so no delegation fee comes off it, and it earns a second
+            component delegated stake does not. Epoch-by-epoch record on{" "}
             <Link to="/analytics" className="text-[#E85A95] hover:underline">
               Analytics
             </Link>
@@ -323,27 +309,44 @@ function MeasuredPerformance() {
 }
 
 /**
- * NFT Bond Series hub — the sales-journey landing for FlareForward's
- * quarterly bond-raise NFT lots. Three product surfaces hang off this page as
- * they come online:
- *
- *   1. Mint       — buy into the current lot (goes live with Lot 1's window)
- *   2. Track/claim — YOUR tokens + claimable, wallet-connected, in My Rewards
- *   3. Marketplace — buy/sell series NFTs; listings show unclaimed value
- *
- * Per-token reward data is served by /api/nft-rewards (worker/nftRewards.ts);
- * this page deliberately shows no global token table — reward tracking is a
- * personal view, not a public wall of token IDs.
+ * When an open lot closes, tied to the thing that actually decides it: the
+ * current bond period on FlareForward's validator. Only rendered while a lot
+ * is open. Says nothing about when the NEXT lot opens — do not reintroduce a
+ * "next lot opens then" claim here without confirming it first.
  */
+function LotCloseLine() {
+  const { data: validator } = useValidatorStaking();
+  const endUnix = validator?.active_end_unix ?? null;
 
+  if (!endUnix) {
+    return (
+      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
+        The open lot closes as the current bond period ends, when the raised capital is bonded.
+      </p>
+    );
+  }
+
+  const end = new Date(endUnix * 1000);
+  const daysLeft = Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86_400_000));
+
+  return (
+    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
+      The open lot closes as the current bond period ends,{" "}
+      <span className="text-[#FAFAFA] font-medium">
+        {end.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
+      </span>
+      {daysLeft > 0 && <> ({daysLeft} {daysLeft === 1 ? "day" : "days"} away)</>}. The mint
+      contract itself has no deadline.
+    </p>
+  );
+}
 
 /**
- * The current lot's storefront. Renders one card per tier; each is a
- * "coming soon" placeholder until that tier's contract address is set in
- * lib/bondLot.ts (addresses land at launch, because deploying opens the mint).
- * `?lot=0x...` points the storefront at a deployed contract for verification.
+ * The lots. Closed lots collapse to one row each; only a lot that is actually
+ * on sale gets the full storefront card. Every figure is read from the tier
+ * contract, so when the next lot deploys its card appears on its own.
  */
-function CurrentLot({
+function Lots({
   tiers,
   statuses,
   statusLoading,
@@ -354,102 +357,90 @@ function CurrentLot({
   statusLoading: boolean;
   preview: boolean;
 }) {
-  const anyLive = tiers.some((t) => t.address);
+  const statusFor = (tier: BondTier): TierStatus =>
+    statuses.find((s) => s.key === tier.key) ?? { key: tier.key, address: tier.address };
+
+  const openTiers = tiers.filter((t) => t.address && isOpen(statusFor(t)));
+  const closedTiers = tiers.filter((t) => t.address && !isOpen(statusFor(t)));
+  const anyOpen = openTiers.length > 0;
 
   return (
-    <section className="mt-8" aria-labelledby="current-lot-title">
-      <div className="flex flex-wrap items-center gap-3">
-        <h2 id="current-lot-title" className="text-xl font-semibold">
-          {CURRENT_LOT.label}: mint the current lot
-        </h2>
-        {!anyLive && (
-          <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-medium text-amber-300">
-            MINT NOT YET OPEN
-          </span>
-        )}
-      </div>
-      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        {anyLive
-          ? "Price, supply, sold count, remaining supply, and mint state are read live from each tier contract."
-          : "Price, supply, sold count, remaining supply, and mint state will be read from each tier contract once deployed."}
-      </p>
-      <LotCloseLine />
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        {tiers.map((tier) => (
-          <TierOffer
-            key={tier.key}
-            tier={tier}
-            status={statuses.find((s) => s.key === tier.key) ?? { key: tier.key, address: tier.address }}
-            statusLoading={statusLoading}
-            preview={preview}
-          />
-        ))}
-      </div>
+    <section className="mt-10" aria-labelledby="lots-title">
+      <h2 id="lots-title" className="text-xl font-semibold">
+        {anyOpen ? "Mint the open lot" : "The lots"}
+      </h2>
+      {anyOpen && <LotCloseLine />}
+
+      {anyOpen && (
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {openTiers.map((tier) => (
+            <TierOffer
+              key={tier.key}
+              tier={tier}
+              status={statusFor(tier)}
+              statusLoading={statusLoading}
+              preview={preview}
+            />
+          ))}
+        </div>
+      )}
+
+      {closedTiers.length > 0 && (
+        <div className={`glass-panel ${anyOpen ? "mt-6" : "mt-4"} p-0`}>
+          {anyOpen && (
+            <p className="border-b border-white/8 px-4 py-2 text-xs uppercase tracking-wide text-[#8FA0B8]">
+              Closed lots
+            </p>
+          )}
+          <ul className="divide-y divide-white/8">
+            {closedTiers.map((tier) => {
+              const status = statusFor(tier);
+              return (
+                <li key={tier.key} className="flex items-center gap-4 px-4 py-3">
+                  {tier.imageCid && (
+                    <img
+                      src={`${IPFS_GATEWAY}/${tier.imageCid}`}
+                      alt=""
+                      loading="lazy"
+                      className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                    />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-[#FAFAFA]">{tier.name}</p>
+                    <p className="text-xs text-[#8FA0B8]">
+                      {fmtCount(status.sold)} / {fmtCount(status.maxSupply)} minted
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${mintStateTone(status, statusLoading)}`}
+                  >
+                    {mintStateLabel(status, statusLoading)}
+                  </span>
+                  {tier.address && (
+                    <a
+                      href={`${EXPLORER_URL}/address/${tier.address}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#8FA0B8] hover:text-[#FAFAFA]"
+                      aria-label={`${tier.name} contract on the explorer`}
+                    >
+                      <ExternalLink size={14} />
+                    </a>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {!anyOpen && (
+        <p className="mt-3 text-sm text-[#8FA0B8]">
+          Closed lots are capped at what sold and their capital is bonded. Bonds trade on the
+          secondary market.
+        </p>
+      )}
     </section>
-  );
-}
-
-/**
- * Rabby does not pull this collection's artwork in on its own yet, so a freshly
- * minted bond can land in the wallet's hidden section looking like nothing
- * happened. Sits outside `MintLot` so it stays on screen after a mint, which is
- * exactly when someone goes looking for the token and does not find it.
- */
-function RabbyArtworkNote() {
-  return (
-    <div className="mt-3 flex max-w-3xl gap-3 rounded-lg border border-amber-400/25 bg-amber-400/10 p-3">
-      <Wallet size={16} className="mt-0.5 shrink-0 text-amber-300" />
-      <p className="text-sm leading-relaxed text-[#FAFAFA]/90">
-        <span className="font-medium">Using Rabby?</span> Rabby doesn&apos;t pull this
-        collection&apos;s artwork in automatically yet, so your bond may show up under the
-        wallet&apos;s hidden section rather than with the rest of your NFTs. It is still yours and
-        still on-chain — check the hidden section to see it. We&apos;ve submitted the collection
-        details to Rabby; until they pick them up, the artwork may not render there.
-      </p>
-    </div>
-  );
-}
-
-/**
- * When the lot closes, tied to the thing that actually decides it: the current
- * bond period on FlareForward's validator. The mint closes as that period ends,
- * because that is when the raised capital is bonded.
- *
- * Deliberately says nothing about when the NEXT lot opens — it does not follow
- * straight on from this one, and the timing is not settled. Do not reintroduce
- * a "next lot opens then" claim here without confirming it first.
- *
- * `active_end_unix` is the validator's live registration end from the Explorer,
- * so this date maintains itself — re-bonding moves it forward with no config to
- * update here. The bond contract itself carries no deadline, so the wording must
- * not read as a contractual cutoff.
- */
-function LotCloseLine() {
-  const { data: validator } = useValidatorStaking();
-  const endUnix = validator?.active_end_unix ?? null;
-
-  if (!endUnix) {
-    return (
-      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        This lot closes as the current bond period ends, when the raised capital is bonded to the
-        validator.
-      </p>
-    );
-  }
-
-  const end = new Date(endUnix * 1000);
-  const daysLeft = Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86_400_000));
-
-  return (
-    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-      This lot closes as the current bond period ends —{" "}
-      <span className="text-[#FAFAFA] font-medium">
-        {end.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
-      </span>
-      {daysLeft > 0 && <> ({daysLeft} {daysLeft === 1 ? "day" : "days"} away)</>} — when the raised
-      capital is bonded to the validator. The date tracks the validator's current bond period
-      on-chain; the mint contract itself has no deadline.
-    </p>
   );
 }
 
@@ -471,11 +462,9 @@ function TierOffer({
   return (
     <div>
       <div className="rounded-t-xl border border-white/10 bg-white/[0.045] px-4 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${tone}`}>
-            {state}
-          </span>
-        </div>
+        <span className={`inline-flex rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wide ${tone}`}>
+          {state}
+        </span>
         <p className="mt-2 text-sm font-medium text-[#FAFAFA]">
           {fmtCount(status.sold)} / {fmtCount(status.maxSupply)} minted ·{" "}
           {fmtCount(remaining)} remaining
@@ -513,31 +502,11 @@ function Step({
   );
 }
 
-function SurfaceCard({
-  icon,
-  title,
-  body,
-  status,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-  status: string;
-}) {
-  return (
-    <div className="glass-panel flex flex-col p-5">
-      <div className="flex items-center gap-3">
-        <span className="text-[#E85A95]">{icon}</span>
-        <h3 className="font-semibold">{title}</h3>
-      </div>
-      <p className="mt-3 flex-1 text-sm leading-relaxed text-[#8FA0B8]">{body}</p>
-      <span className="mt-4 inline-flex w-fit rounded-full border border-white/12 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-[#8FA0B8]">
-        {status}
-      </span>
-    </div>
-  );
-}
-
+/**
+ * /nft — FlareForward Bonds. Short by operator call (2026-09-26): the lots,
+ * what the bond earns, how a lot works, and a pointer to the disclosures.
+ * Custody, risks, terms and wallet footnotes live at /nft/disclosures.
+ */
 export default function NftRewards() {
   const { tiers, preview } = useDisplayedLot();
   const { statuses, statusLoading } = useTierStatuses(tiers);
@@ -547,19 +516,30 @@ export default function NftRewards() {
       <div className="max-w-3xl">
         <div className="flex items-center gap-3">
           <Gem size={24} className="text-[#E85A95]" />
-          <h1 className="text-2xl font-bold tracking-tight">
-            Fund FlareForward&apos;s validator self-bond
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight">FlareForward Bonds</h1>
         </div>
         <p className="mt-3 text-lg leading-relaxed text-[#FAFAFA]/90">
-          Minting a FlareForward Bond NFT adds FLR to the self-bond behind our FTSO validator. That
-          capital grows the validator, and the validator&apos;s measured earnings are what back
-          holder rewards paid through on-chain contracts. Your FLR funds the bond and is not
-          returned to you — the NFT is what you hold, and selling it is the only exit.
+          A bond NFT adds FLR to the self-bond behind our FTSO validator. The FLR is not
+          returned. You hold the NFT, holders share what the validator earns, and selling the NFT
+          is the exit.
         </p>
         <LeadStatus statuses={statuses} statusLoading={statusLoading} />
       </div>
 
+      <Lots tiers={tiers} statuses={statuses} statusLoading={statusLoading} preview={preview} />
+
+      {/* The one link a buyer needs before they buy, kept next to the lots
+          rather than in a footer. Disclosure nobody reaches is not disclosure. */}
+      <Link
+        to="/nft/disclosures"
+        className="glass-panel mt-4 flex items-center gap-3 p-4 text-sm transition hover:bg-white/[0.06]"
+      >
+        <FileText size={18} className="shrink-0 text-[#E85A95]" />
+        <span className="text-[#FAFAFA]">
+          Read the disclosures before you buy:{" "}
+          <span className="text-[#8FA0B8]">who holds your money, what you are taking on, and the terms.</span>
+        </span>
+      </Link>
 
       <MeasuredPerformance />
 
@@ -569,214 +549,66 @@ export default function NftRewards() {
           n={1}
           icon={<Coins size={18} />}
           title="Mint"
-          body="Buy while the lot is open. Price, minted count, and remaining supply all come straight from the tier contract, so what you see is what the chain says."
+          body="Buy while a lot is open. Price, minted count, and remaining supply are read from the contract."
         />
         <Step
           n={2}
           icon={<Landmark size={18} />}
           title="Bond"
-          body="As the current bond period ends, minting closes and the raised FLR moves into FlareForward's validator self-bond."
+          body="As the bond period ends, the lot closes and the raised FLR moves into the validator self-bond."
         />
         <Step
           n={3}
           icon={<TrendingUp size={18} />}
           title="Measure"
-          body="After closed epochs, we measure provider earnings and deposit holder rewards into the lot's distribution contract. Every NFT in a lot has an equal claim."
+          body="After closed epochs, we measure what the validator earned and deposit holder rewards into the lot's distribution contract. Equal share per NFT."
         />
         <Step
           n={4}
           icon={<Tag size={18} />}
-          title="Selling"
-          body="No redemption window is open and none is scheduled. A holder's exit is selling the NFT to someone else, at whatever price a buyer will pay. Unclaimed rewards travel with the NFT."
+          title="Sell"
+          body="The exit is selling the NFT to another buyer. Unclaimed rewards travel with it. No redemption window is open or scheduled."
         />
       </div>
 
-      {/* Custody disclosure sits at the decision point, directly above the
-          mint, not in a footer. Shipped 2026-09-15 from the 09-12 draft v2. */}
-      <CustodySection />
-
-      <CurrentLot
-        tiers={tiers}
-        statuses={statuses}
-        statusLoading={statusLoading}
-        preview={preview}
-      />
-
-      {/* Giving, deliberately loose. The operator's call: signal the intent
-          long before the details exist -- another reason to back us -- while
-          promising nothing. No cause is named, no percentage stated, no date
-          given; the only concrete thing here is the one that already works
-          today, gifting a bond, which is a plain NFT transfer. When the
-          partner and the split are settled they get published here in the
-          same plain English, transactions and all. */}
-      <section className="mt-10 space-y-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
-          Giving back
-        </h3>
-        {/* Full width, with the two paragraphs in a matched pair of columns.
-            These sections were pinned to max-w-3xl while everything above them
-            ran the full page, so the bottom half of /nft was a narrow stack down
-            the left with dead space beside it. Splitting the prose keeps the
-            line length readable at full width rather than running one very long
-            measure across the page. */}
+      {/* Giving, deliberately loose. Signal the intent before the details
+          exist while promising nothing: no cause named, no percentage, no
+          date. When the partner and the split are settled they get published
+          here, transactions and all. */}
+      <section className="mt-10">
         <div className="glass-panel p-5">
           <div className="flex flex-wrap items-center gap-3">
             <HeartHandshake size={18} className="text-[#E85A95]" />
-            <h3 className="font-semibold">A bond you can give away</h3>
+            <h3 className="font-semibold">Giving back</h3>
             <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
               In the works
             </span>
           </div>
-          <div className="mt-3 grid gap-x-8 gap-y-3 lg:grid-cols-2">
-            <p className="text-sm leading-relaxed text-[#8FA0B8]">
-              We&apos;re shaping a way for this project to give — part of what the infrastructure
-              earns going to a cause worth backing. Choosing who, and settling how much, is going to
-              take time, and we&apos;d rather get it right than get it named. Nothing is promised
-              yet; when it&apos;s settled, the details go here in plain English, transactions and
-              all. More ways to give alongside the bonds are on the drawing board too.
-            </p>
-            <p className="text-sm leading-relaxed text-[#8FA0B8]">
-              <span className="font-medium text-[#FAFAFA]">One thing already works today:</span> a
-              bond can be given away. Mint one and send it to an organization you care about —
-              whoever holds a bond holds its equal share of any distributions the lot makes, for as
-              long as they hold it. Make sure it goes to an address they control, and as always:
-              sell or send, never burn.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* One exit on the page, by operator call 2026-08-17: the marketplace.
-          The "Redeem your bond" card was pulled entirely rather than reworded.
-          Redemption is genuinely buildable — two routes exist (deposit into the
-          distributor and split pro-rata, or Jon's escrow that swaps one token
-          for a set amount of FLR) — but whether we ever open either window is
-          undecided, and an "under review" card invites people to plan around a
-          thing that may not ship. Say nothing until it is decided. Do NOT
-          reinstate a redemption card without an operator decision on terms. */}
-      <section className="mt-10 space-y-4">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
-          When you want out
-        </h3>
-
-        <div className="glass-panel p-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <Store size={18} className="text-[#E85A95]" />
-            <h3 className="font-semibold">Sell on the marketplace</h3>
-            <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
-              Coming soon
-            </span>
-          </div>
-          <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-            Buy a bond from another holder instead of minting a new one. A listed bond can carry
-            unclaimed rewards, so both sides can see any unclaimed balance it holds. Holders will be
-            able to list at whatever price they choose. In build now.
+          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
+            We are shaping a way for part of what the infrastructure earns to go to a cause worth
+            backing. Nothing is promised yet; when it is settled, the details go here, transactions
+            and all. One thing works today: a bond can be given away. Send it to an address the
+            recipient controls, and never burn it.
           </p>
         </div>
       </section>
 
-      <div className="glass-panel mt-10 p-5">
-        <h3 className="font-semibold">The plain-English terms</h3>
-        <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
-          {/* The "there is no redeem-for-principal" clause came off with the
-              redemption card. It was a promise in the negative, and an untrue
-              one -- the rails exist, only the decision to use them doesn't.
-              Stating the exit we DO offer says everything a buyer needs without
-              claiming anything about one we haven't decided on. */}
-          <li>
-            • Funds bond at lot close. After that, your exit is selling the NFT. Who holds the
-            money in between is spelled out under{" "}
-            <a href="#custody" className="text-[#E85A95] hover:underline">who holds your money</a>.
-          </li>
-          <li>
-            • Any distribution is split equally per NFT within a lot, enforced on-chain by that
-            lot&apos;s distribution contract once it is deployed.
-          </li>
-          <li>
-            • Never burn a series NFT — a burned token&apos;s share of future distributions is gone
-            for good. Sell it instead.
-          </li>
-          <li>
-            • Reward amounts follow what the infrastructure actually earns. Once distributions
-            begin we will publish the real numbers; we do not publish projections.
-          </li>
-          <li>
-            • Distributions are not guaranteed in amount or timing, and depend on FlareForward
-            continuing to run the validator, measure its earnings, and deposit them.
-          </li>
-          <li>
-            • FlareForward is not a bank, broker, or fund. A bond is not a deposit, a loan, or a
-            share in a company, and nothing here is financial advice or a recommendation to buy.
-          </li>
-        </ul>
-      </div>
-
-      {/* Risk disclosure. Added 2026-09-08 at operator request. The page spent
-          its whole length on what a bond earns and said nothing about what can
-          go wrong -- and "no redemption" sat in step 4 and the terms, nowhere
-          near the mint button. Everything here is a real, specific failure
-          mode, in the same plain English as the rest of the page. Do NOT trim
-          this to make the page read better. */}
-      <div className="mt-10 rounded-xl border border-amber-400/30 bg-amber-400/[0.04] p-5">
-        <div className="flex items-center gap-2">
-          <AlertTriangle size={18} className="text-amber-300" />
-          <h3 className="font-semibold text-[#FAFAFA]">What you&apos;re taking on</h3>
+      {/* One exit on the page, by operator call 2026-08-17: the marketplace.
+          Do NOT reinstate a redemption card without an operator decision. */}
+      <section className="mt-6">
+        <div className="glass-panel p-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <Store size={18} className="text-[#E85A95]" />
+            <h3 className="font-semibold">Marketplace</h3>
+            <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+              Coming soon
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
+            Buy a bond from another holder, or list yours at whatever price you choose. Listings
+            will show any unclaimed rewards a bond carries. In build now.
+          </p>
         </div>
-        <p className="mt-2 text-sm text-[#8FA0B8]">
-          Read this before you mint. Every line is a real way you could end up with less than you
-          put in.
-        </p>
-        <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
-          <li>
-            • <span className="font-medium text-[#FAFAFA]">Your FLR does not come back.</span> It
-            funds the validator self-bond at lot close. No redemption window is open, none is
-            scheduled, and there is no maturity date. You hold an NFT, not a claim on the capital.
-          </li>
-          <li>
-            • <span className="font-medium text-[#FAFAFA]">You may not be able to sell.</span>{" "}
-            Reselling needs a buyer who wants it at a price you accept. There may be none, and
-            there is no floor price and no buyback.
-          </li>
-          <li>
-            • <span className="font-medium text-[#FAFAFA]">Rewards vary and can reach zero.</span>{" "}
-            What the validator earns moves every epoch with Flare&apos;s reward mechanics, our
-            measured accuracy, and total network stake.
-          </li>
-          <li>
-            • <span className="font-medium text-[#FAFAFA]">Validators can be penalised.</span>{" "}
-            Downtime or misbehaviour can cost a validator rewards or stake, which reduces the bond
-            and what it earns.
-          </li>
-          <li>
-            • <span className="font-medium text-[#FAFAFA]">No distribution has ever been made,
-            for any lot.</span> No lot&apos;s distribution contract is deployed yet, including for
-            a lot that has already closed. Until one is, there is no on-chain claim to anything.
-          </li>
-          <li>
-            • <span className="font-medium text-[#FAFAFA]">You are relying on us.</span>{" "}
-            Distributions depend on FlareForward continuing to operate the validator and to deposit
-            what it measures. We are a small team, not an institution.
-          </li>
-          <li>
-            • <span className="font-medium text-[#FAFAFA]">Flare governance can change the
-            economics.</span> FIP.16 already rebalanced how providers earn, network-wide. Future
-            changes can do it again, and we do not control them.
-          </li>
-          <li>
-            • <span className="font-medium text-[#FAFAFA]">Smart contracts carry risk.</span> The
-            lot and distribution contracts are code. Bugs, key loss, or chain-level failures can
-            cost you everything you put in.
-          </li>
-        </ul>
-      </div>
-
-      {/* Wallet quirks and other footnotes live at the bottom by operator call
-          — useful the moment you need them, noise the rest of the time. */}
-      <section className="mt-10">
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8FA0B8]">
-          Good to know
-        </h3>
-        <RabbyArtworkNote />
       </section>
     </div>
   );
