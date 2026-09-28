@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated": "2026-09-26",
+  "updated": "2026-09-28",
   "labels": {
     "networkGroup": "FlareForward network",
     "supportGroup": "Support us",
@@ -74,8 +74,7 @@
       "id": "education",
       "name": "DeFi Education",
       "note": "Free",
-      "url": null,
-      "soon": true
+      "url": "https://defi.flareforward.com"
     },
     {
       "id": "youtube",
