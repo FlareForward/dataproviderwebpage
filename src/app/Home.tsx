@@ -134,8 +134,8 @@ export default function Home() {
             <WhyCard
               icon={<GraduationCap size={20} />}
               title="We teach this network"
-              body="FlareForward runs DeFi University — free, plain-English education that turns curious FLR holders into confident ones. Your delegation funds people bringing the next wave of users into Flare."
-              cta={{ label: "Visit DeFi University", href: LINKS.university, external: true }}
+              body="FlareForward gives away its DeFi courses: free, plain-English education that turns curious FLR holders into confident ones. Your delegation funds people bringing the next wave of users into Flare."
+              cta={{ label: "Take the free DeFi courses", href: LINKS.university, external: true }}
             />
             <WhyCard
               icon={<Hammer size={20} />}

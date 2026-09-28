@@ -11,7 +11,7 @@ import networkBaked from "./network.json";
  */
 export const LINKS = {
   site: "https://flareforward.com",
-  university: "https://defiuniversitypro.com",
+  university: "https://defi.flareforward.com",
   x: "https://x.com/flareforward",
   youtubeAce: "https://youtube.com/@afhdmedia",
   xSteven: "https://x.com/hudspeth589",
