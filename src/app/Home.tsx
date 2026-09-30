@@ -14,7 +14,7 @@ import {
 import { useReadContracts } from "wagmi";
 import { formatEther } from "viem";
 import { Card, CardContent } from "./components/Card";
-import { RewardEpochClock, useCountdown, fmtCountdown } from "./components/RewardEpochClock";
+import { RewardEpochLine, useCountdown, fmtCountdown } from "./components/RewardEpochClock";
 import { Button } from "./components/Button";
 import { useRewards } from "../hooks/useRewards";
 import { settledRate, fmtFlrCompact, fmtPct } from "../lib/rewards";
@@ -117,7 +117,6 @@ export default function Home() {
                   />
                 )}
               <Starship2Strip />
-              <RewardEpochClock className="mt-3" />
               <p className="mt-2 text-[11px] text-[#8FA0B8] text-center">
                 Sourced live from the Flare Systems Explorer and Flare RPC. Rates
                 vary epoch to epoch and are not a guarantee of future rewards.
@@ -345,6 +344,7 @@ function StakingCapacityStrip({
           {fmtFlrCompact(open)} FLR open of {fmtFlrCompact(capacity)} FLR total
         </span>
       </div>
+      <RewardEpochLine />
     </div>
   );
 }
@@ -423,17 +423,6 @@ function Starship2Strip() {
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
         <span className="text-[#FAFAFA] font-medium tabular-nums">
           {fmtFlrCompact(raised)} FLR raised of {fmtFlrCompact(cap)} FLR
-          {toMaturity != null && maturity != null && (
-            <span className="ml-3 text-[#8FA0B8] font-normal">
-              Redeemable in {fmtCountdown(toMaturity)} (
-              {new Date(maturity * 1000).toLocaleDateString(undefined, {
-                month: "short",
-                day: "numeric",
-                year: "numeric",
-              })}
-              )
-            </span>
-          )}
         </span>
         <Link
           to="/nft"
@@ -442,6 +431,18 @@ function Starship2Strip() {
           {anyOpen ? "Mint a Starship 2 bond" : "See Starship 2"} <ArrowRight size={14} />
         </Link>
       </div>
+      {toMaturity != null && maturity != null && (
+        <p className="text-[11px] leading-relaxed text-[#8FA0B8]">
+          No payouts during the term. Redeem once at maturity, in{" "}
+          <span className="tabular-nums text-[#FAFAFA]">{fmtCountdown(toMaturity)}</span> (
+          {new Date(maturity * 1000).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+          ).
+        </p>
+      )}
     </div>
   );
 }

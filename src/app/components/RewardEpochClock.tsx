@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePublicClient } from "wagmi";
-import { Timer } from "lucide-react";
 import { useContractAddress } from "../../hooks/useProviders";
 
 /**
@@ -101,36 +100,20 @@ function fmtWhen(ts: number): string {
   });
 }
 
-export function RewardEpochClock({ className = "" }: { className?: string }) {
+/**
+ * Small-print claim line for Starship 1. Starship 2 has its own line (redeem at maturity),
+ * because the two claim on different terms.
+ */
+export function RewardEpochLine({ className = "" }: { className?: string }) {
   const { data } = useRewardEpochState();
   const left = useCountdown(data?.endTs);
   if (!data || left == null) return null;
-  const endedAwaiting = data.latestClaimable < data.epoch - 1;
-
   return (
-    <div className={`glass-panel p-4 ${className}`}>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex items-center gap-2">
-          <Timer size={16} className="text-[#E85A95]" aria-hidden="true" />
-          <span className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
-            Reward epoch {data.epoch} ends in
-          </span>
-          <span className="text-lg font-bold tabular-nums text-[#FAFAFA]">
-            {left > 0 ? fmtCountdown(left) : "ending now"}
-          </span>
-        </div>
-        <span className="text-xs text-[#8FA0B8]">{fmtWhen(data.endTs)}</span>
-      </div>
-      <p className="mt-2 text-xs leading-relaxed text-[#8FA0B8]">
-        One clock for both delegation (WFLR) and staking (P-chain) rewards: both are paid per
-        reward epoch, every 3.5 days, in the same claim. An epoch's rewards become claimable
-        once Flare finalizes them, usually within a day of it ending.{" "}
-        <span className="text-[#FAFAFA]">
-          {endedAwaiting
-            ? `Epoch ${data.epoch - 1} has ended and is being finalized. Epoch ${data.latestClaimable} is the latest you can claim.`
-            : `Claimable now: rewards through epoch ${data.latestClaimable}.`}
-        </span>
-      </p>
-    </div>
+    <p className={`text-[11px] leading-relaxed text-[#8FA0B8] ${className}`}>
+      Rewards claim every 3.5 days. Epoch {data.epoch} ends in{" "}
+      <span className="tabular-nums text-[#FAFAFA]">{left > 0 ? fmtCountdown(left) : "moments"}</span>{" "}
+      ({fmtWhen(data.endTs)}), claimable once Flare finalizes it. Claimable now: through epoch{" "}
+      {data.latestClaimable}.
+    </p>
   );
 }
