@@ -14,7 +14,7 @@ import {
 import { useReadContracts } from "wagmi";
 import { formatEther } from "viem";
 import { Card, CardContent } from "./components/Card";
-import { RewardEpochLine, useCountdown, fmtCountdown } from "./components/RewardEpochClock";
+import { RewardEpochLine, useCountdown, fmtCountdown, ProgressBar } from "./components/RewardEpochClock";
 import { Button } from "./components/Button";
 import { useRewards } from "../hooks/useRewards";
 import { settledRate, fmtFlrCompact, fmtPct } from "../lib/rewards";
@@ -349,6 +349,12 @@ function StakingCapacityStrip({
   );
 }
 
+/**
+ * When the Starship 2 sales opened: Bond Treasury Safe nonce 13, tx 0x41f64b13…,
+ * block 70998062, 2026-09-30 16:41:56Z. The term bar runs from here to maturity.
+ */
+const STARSHIP2_OPENED_AT = 1790786516;
+
 const STARSHIP2_TIERS = CURRENT_LOT.tiers.filter(
   (t): t is typeof t & { kind: "term"; address: `0x${string}` } => isTermTier(t) && !!t.address,
 );
@@ -432,16 +438,23 @@ function Starship2Strip() {
         </Link>
       </div>
       {toMaturity != null && maturity != null && (
-        <p className="text-[11px] leading-relaxed text-[#8FA0B8]">
-          No payouts during the term. Redeem once at maturity, in{" "}
-          <span className="tabular-nums text-[#FAFAFA]">{fmtCountdown(toMaturity)}</span> (
-          {new Date(maturity * 1000).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
-          ).
-        </p>
+        <div>
+          <p className="text-[11px] leading-relaxed text-[#8FA0B8]">
+            No payouts during the term. Redeem once at maturity, in{" "}
+            <span className="tabular-nums text-[#FAFAFA]">{fmtCountdown(toMaturity)}</span> (
+            {new Date(maturity * 1000).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}
+            ).
+          </p>
+          <ProgressBar
+            pct={((maturity - toMaturity - STARSHIP2_OPENED_AT) / (maturity - STARSHIP2_OPENED_AT)) * 100}
+            tone="green"
+            label="Starship 2 term progress"
+          />
+        </div>
       )}
     </div>
   );
