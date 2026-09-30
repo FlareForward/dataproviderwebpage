@@ -1,5 +1,3 @@
-import networkBaked from "./network.json";
-
 /**
  * Canonical FlareForward property + community links — single source for the
  * nav, footer, and CTAs so a handle change is a one-line edit.
@@ -22,18 +20,3 @@ export const LINKS = {
    */
   apexDocsFees: "https://apexhammer.app/docs#fees-heading",
 } as const;
-
-/**
- * The FlareForward network list, shared by every FlareForward site
- * (standard: ~/codex-coord/flareforward-network/STANDARD.md, operator decision
- * 2026-09-26). This is the baked copy; the sidebar refreshes it from
- * NETWORK_URL on load when that answers, so a new project shows up here
- * without a redeploy. url null = announced, not open yet ("Soon").
- */
-
-export type NetworkItem = { id: string; name: string; note: string; url: string | null; soon?: boolean };
-export type NetworkList = { version: number; network: NetworkItem[] };
-export const NETWORK: NetworkList = networkBaked as NetworkList;
-export const NETWORK_URL = "https://flareforward.com/network.json";
-/** This site's own entry: shown as the current site, never linked to itself. */
-export const NETWORK_HERE = "ftso";

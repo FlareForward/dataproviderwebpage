@@ -18,3 +18,13 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+declare namespace JSX {
+  interface IntrinsicElements {
+    "ff-network-menu": React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement> & {
+      site?: string;
+      "site-label"?: string;
+      live?: string;
+    };
+  }
+}
