@@ -7,6 +7,7 @@ import {
   bondLotAbi,
   CURRENT_LOT,
   distributorAbi,
+  isShareTier,
   WFLR_ADDRESS,
   type BondTier,
 } from "../lib/bondLot";
@@ -20,7 +21,7 @@ type PaidTier = BondTier & { address: `0x${string}`; distributor: `0x${string}` 
 
 /** Tiers that have a payout contract. An open lot has none and stays out. */
 export const PAID_TIERS: PaidTier[] = CURRENT_LOT.tiers.filter(
-  (t): t is PaidTier => !!t.address && !!t.distributor,
+  (t): t is PaidTier => isShareTier(t) && !!t.address && !!t.distributor,
 );
 
 export type ClaimPhase = "idle" | "processing" | "claiming" | "claimed" | "failed";

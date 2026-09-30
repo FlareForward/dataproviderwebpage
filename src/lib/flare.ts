@@ -1,6 +1,8 @@
 import { flare as flareChain } from "viem/chains";
+import { defineChain, type Chain } from "viem";
 import { flare as flareAbis } from "@flarenetwork/flare-wagmi-periphery-package";
 import type { Config, Connector } from "wagmi";
+import { TERM_PREVIEW } from "./termPreview";
 
 /**
  * The FlareContractRegistry has the same address on every Flare network and is
@@ -59,6 +61,28 @@ export const ftsoV2ReadAbi = [
 ] as const;
 
 export const EXPLORER_URL = "https://flare-explorer.flare.network";
+
+export const TERM_CHAIN: Chain =
+  TERM_PREVIEW == null
+    ? chain
+    : defineChain({
+        id: TERM_PREVIEW.chainId,
+        name: TERM_PREVIEW.chainId === 114 ? "Coston2" : "Term preview",
+        nativeCurrency: { name: "Flare", symbol: "FLR", decimals: 18 },
+        rpcUrls: { default: { http: [TERM_PREVIEW.rpc] } },
+        blockExplorers: {
+          default: {
+            name: TERM_PREVIEW.chainId === 114 ? "Coston2 Explorer" : "Flare Explorer",
+            url:
+              TERM_PREVIEW.chainId === 114
+                ? "https://coston2-explorer.flare.network"
+                : EXPLORER_URL,
+          },
+        },
+      });
+
+export const TERM_EXPLORER_URL =
+  TERM_PREVIEW?.chainId === 114 ? "https://coston2-explorer.flare.network" : EXPLORER_URL;
 
 export function shortAddress(address?: string, chars = 4): string {
   if (!address) return "";

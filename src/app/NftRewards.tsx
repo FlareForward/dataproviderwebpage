@@ -5,8 +5,19 @@ import { useReadContracts } from "wagmi";
 import { useRewards } from "../hooks/useRewards";
 import { settledRate } from "../lib/rewards";
 import { MintLot } from "./components/MintLot";
-import { bondLotAbi, CURRENT_LOT, ADDRESS_RE, IPFS_GATEWAY, type BondTier } from "../lib/bondLot";
+import { MintTermLot } from "./components/MintTermLot";
+import {
+  bondLotAbi,
+  CURRENT_LOT,
+  ADDRESS_RE,
+  IPFS_GATEWAY,
+  isShareTier,
+  isTermTier,
+  type BondTier,
+} from "../lib/bondLot";
 import { EXPLORER_URL } from "../lib/flare";
+import { TERM_PREVIEW } from "../lib/termPreview";
+import { STARSHIP2_INTRO } from "../lib/starship2Copy";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Store, Activity, HeartHandshake, FileText, ExternalLink } from "lucide-react";
 
@@ -106,17 +117,19 @@ function useDisplayedLot() {
   const preview = previewAddr && ADDRESS_RE.test(previewAddr) ? (previewAddr as `0x${string}`) : null;
 
   const tiers: BondTier[] = useMemo(
-    () =>
-      preview
-        ? [
-            {
-              ...CURRENT_LOT.tiers[0],
-              address: preview,
-              name: "Preview lot",
-              blurb: "Verification against a deployed contract, not a FlareForward offering.",
-            },
-          ]
-        : CURRENT_LOT.tiers,
+    () => {
+      if (!preview) return CURRENT_LOT.tiers;
+      const firstShareTier = CURRENT_LOT.tiers.find(isShareTier) ?? CURRENT_LOT.tiers[0];
+      return [
+        {
+          ...firstShareTier,
+          address: preview,
+          name: "Preview lot",
+          blurb: "Verification against a deployed contract, not a FlareForward offering.",
+        },
+        ...CURRENT_LOT.tiers.filter(isTermTier),
+      ];
+    },
     [preview],
   );
 
@@ -184,7 +197,9 @@ function LeadStatus({
 
   if (liveStatuses.length === 0) {
     return (
-      <p className="mt-4 text-sm text-amber-300">No lot is open. The next one is announced here first.</p>
+      <p className="mt-4 text-sm text-amber-300">
+        No Starship 1 lot is open. The next one is announced here first.
+      </p>
     );
   }
 
@@ -202,8 +217,9 @@ function LeadStatus({
   if (openStatuses.length === 0) {
     return (
       <p className="mt-4 text-sm text-[#8FA0B8]">
-        Every lot is closed. <span className="text-[#FAFAFA]">{fmtCount(minted)} bonds</span> issued
-        across {liveStatuses.length} lots. The next lot is announced here first.
+        Every Starship 1 lot is closed.{" "}
+        <span className="text-[#FAFAFA]">{fmtCount(minted)} bonds</span> issued across{" "}
+        {liveStatuses.length} lots. The next Starship 1 lot is announced here first.
       </p>
     );
   }
@@ -211,7 +227,7 @@ function LeadStatus({
   const remaining = openStatuses.reduce((sum, s) => sum + (remainingFor(s) ?? 0n), 0n);
   return (
     <p className="mt-4 max-w-3xl rounded-xl border border-[#E85A95]/30 bg-[#E85A95]/10 px-4 py-3 text-sm font-medium text-[#FAFAFA]">
-      Mint open. {fmtCount(remaining)} remaining across {openStatuses.length}{" "}
+      Starship 1 mint open. {fmtCount(remaining)} remaining across {openStatuses.length}{" "}
       {openStatuses.length === 1 ? "lot" : "lots"}.
     </p>
   );
@@ -321,7 +337,8 @@ function LotCloseLine() {
   if (!endUnix) {
     return (
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        The open lot closes as the current bond period ends, when the raised capital is bonded.
+        The open Starship 1 lot closes as the current bond period ends, when the raised capital is
+        bonded.
       </p>
     );
   }
@@ -331,7 +348,7 @@ function LotCloseLine() {
 
   return (
     <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-      The open lot closes as the current bond period ends,{" "}
+      The open Starship 1 lot closes as the current bond period ends,{" "}
       <span className="text-[#FAFAFA] font-medium">
         {end.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
       </span>
@@ -360,16 +377,23 @@ function Lots({
   const statusFor = (tier: BondTier): TierStatus =>
     statuses.find((s) => s.key === tier.key) ?? { key: tier.key, address: tier.address };
 
-  const openTiers = tiers.filter((t) => t.address && isOpen(statusFor(t)));
-  const closedTiers = tiers.filter((t) => t.address && !isOpen(statusFor(t)));
+  const termTiers = tiers.filter(isTermTier);
+  const shareTiers = tiers.filter(isShareTier);
+  const openTiers = shareTiers.filter((t) => t.address && isOpen(statusFor(t)));
+  const closedTiers = shareTiers.filter((t) => t.address && !isOpen(statusFor(t)));
   const anyOpen = openTiers.length > 0;
 
   return (
-    <section className="mt-10" aria-labelledby="lots-title">
-      <h2 id="lots-title" className="text-xl font-semibold">
-        {anyOpen ? "Mint the open lot" : "The lots"}
-      </h2>
-      {anyOpen && <LotCloseLine />}
+    <>
+      <section className="mt-10" aria-labelledby="starship1-title">
+        <h2 id="starship1-title" className="text-xl font-semibold">
+          Starship 1
+        </h2>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
+          Perpetual share bonds. Your exit is selling the NFT, and holder distributions use each
+          lot&apos;s distributor after it closes.
+        </p>
+        {anyOpen && <LotCloseLine />}
 
       {anyOpen && (
         <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -436,11 +460,36 @@ function Lots({
 
       {!anyOpen && (
         <p className="mt-3 text-sm text-[#8FA0B8]">
-          Closed lots are capped at what sold and their capital is bonded. Bonds trade on the
-          secondary market.
+          Closed Starship 1 lots are capped at what sold and their capital is bonded. Bonds trade
+          on the secondary market.
         </p>
       )}
-    </section>
+      </section>
+
+      <section className="mt-10" aria-labelledby="starship2-title">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="starship2-title" className="text-xl font-semibold">
+            Starship 2
+          </h2>
+          {TERM_PREVIEW && (
+            <span className="rounded-full border border-sky-300/40 bg-sky-300/10 px-2.5 py-0.5 text-[10px] font-medium text-sky-200">
+              TESTNET PREVIEW
+            </span>
+          )}
+        </div>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
+          {STARSHIP2_INTRO}{" "}
+          <Link to="/nft/redeem" className="font-medium text-[#E85A95] hover:underline">
+            How redemption works
+          </Link>
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {termTiers.map((tier) => (
+            <MintTermLot key={tier.key} tier={tier} />
+          ))}
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -509,7 +558,8 @@ function Step({
  */
 export default function NftRewards() {
   const { tiers, preview } = useDisplayedLot();
-  const { statuses, statusLoading } = useTierStatuses(tiers);
+  const shareTiers = useMemo(() => tiers.filter(isShareTier), [tiers]);
+  const { statuses, statusLoading } = useTierStatuses(shareTiers);
 
   return (
     <div className="p-4 lg:p-8">
@@ -519,9 +569,8 @@ export default function NftRewards() {
           <h1 className="text-2xl font-bold tracking-tight">FlareForward Bonds</h1>
         </div>
         <p className="mt-3 text-lg leading-relaxed text-[#FAFAFA]/90">
-          A bond NFT adds FLR to the self-bond behind our FTSO validator. The FLR is not
-          returned. You hold the NFT, holders share what the validator earns, and selling the NFT
-          is the exit.
+          Starship 1 bonds are perpetual shares of holder distributions. Starship 2 bonds have a
+          12 month term and redeem through their tier vault after maturity.
         </p>
         <LeadStatus statuses={statuses} statusLoading={statusLoading} />
       </div>
@@ -543,7 +592,7 @@ export default function NftRewards() {
 
       <MeasuredPerformance />
 
-      <h2 className="mt-10 text-xl font-semibold">How a lot works</h2>
+      <h2 className="mt-10 text-xl font-semibold">How Starship 1 works</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Step
           n={1}
@@ -567,7 +616,7 @@ export default function NftRewards() {
           n={4}
           icon={<Tag size={18} />}
           title="Sell"
-          body="The exit is selling the NFT to another buyer. Unclaimed rewards travel with it. No redemption window is open or scheduled."
+          body="The exit is selling the NFT to another buyer. Unclaimed rewards travel with it. Starship 1 has no redemption window open or scheduled."
         />
       </div>
 
@@ -588,7 +637,7 @@ export default function NftRewards() {
             We are shaping a way for part of what the infrastructure earns to go to a cause worth
             backing. Nothing is promised yet; when it is settled, the details go here, transactions
             and all. One thing works today: a bond can be given away. Send it to an address the
-            recipient controls, and never burn it.
+            recipient controls. For Starship 1, never burn it.
           </p>
         </div>
       </section>

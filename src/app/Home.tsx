@@ -190,7 +190,7 @@ export default function Home() {
               to="/nft"
               icon={<Flame size={18} />}
               title="FlareForward Bonds"
-              body="Buy an NFT that funds the validator self-bond. The FLR is not returned; the NFT is yours to hold or sell. Every lot is closed today; the next is announced there first."
+              body="Starship 1 bonds fund the validator self-bond; the FLR is not returned and every lot is closed today. Starship 2, a 12 month bond you redeem at maturity, is coming soon."
             />
             {/* The odd one out: the first three are ways to back us, this one
                 is where you go once you have. It keeps its slot in the row, but

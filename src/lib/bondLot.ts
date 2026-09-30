@@ -1,12 +1,13 @@
 /**
- * FlareForward Bonds — lot contract config + ABI.
+ * FlareForward Bonds: lot contract config + ABI.
  *
  * The lot contract is `BondSeriesLot` (repo: ~/nft-bond-series). Terms are
  * immutable: `maxSupply` and `mintPrice` are constructor immutables and
  * `closeMint()` is one-way, so what the page reads is what a buyer gets. The
- * page derives everything from chain reads — never from hardcoded numbers —
+ * page derives everything from chain reads, never from hardcoded numbers,
  * so it cannot drift from the contract.
  */
+import { ADDRESS_RE, TERM_PREVIEW } from "./termPreview";
 
 /** Minimal ABI: only what the storefront reads and calls. */
 export const bondLotAbi = [
@@ -67,6 +68,140 @@ export const bondLotAbi = [
     stateMutability: "view",
     inputs: [{ type: "address" }, { type: "uint256" }],
     outputs: [{ type: "uint256" }],
+  },
+] as const;
+
+/** Minimal ABI for the 12 month Starship 2 term bond NFT. */
+export const termBondAbi = [
+  {
+    type: "function",
+    name: "isMintOpen",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "mintDeadline",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint64" }],
+  },
+  {
+    type: "function",
+    name: "bondExpiry",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint64" }],
+  },
+  {
+    type: "function",
+    name: "bondVault",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "address" }],
+  },
+  {
+    type: "function",
+    name: "saleClosed",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "mintPrice",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "maxSupply",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "totalSupply",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "balanceOf",
+    stateMutability: "view",
+    inputs: [{ type: "address" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "tokenOfOwnerByIndex",
+    stateMutability: "view",
+    inputs: [{ type: "address" }, { type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "mint",
+    stateMutability: "payable",
+    inputs: [{ name: "quantity", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    type: "function",
+    name: "burn",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "tokenId", type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
+
+/** Minimal ABI for a Starship 2 bond vault. */
+export const bondVaultAbi = [
+  {
+    type: "function",
+    name: "distributionFinalized",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "bool" }],
+  },
+  {
+    type: "function",
+    name: "payoutPerToken",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "claimableForToken",
+    stateMutability: "view",
+    inputs: [{ type: "uint256" }],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "totalAssets",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
+    name: "expiry",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint64" }],
+  },
+  {
+    type: "function",
+    name: "emergencyReleased",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "bool" }],
   },
 ] as const;
 
@@ -150,10 +285,16 @@ export const distributorAbi = [
 
 export interface BondTier {
   key: string;
+  /** Starship family this tier belongs to. */
+  series: "Starship 1" | "Starship 2";
+  /** Share tiers are perpetual; term tiers redeem at maturity. */
+  kind?: "share" | "term";
   /** Display name for the tier. */
   name: string;
-  /** Deployed BondSeriesLot address, or null until the lot is deployed. */
+  /** Deployed NFT address, or null until the tier is deployed. */
   address: `0x${string}` | null;
+  /** Term vault address, or null until the tier is deployed. */
+  vault?: `0x${string}` | null;
   /**
    * The lot's RoyaltyDistributor (VeriGuard rails), deployed only AFTER the lot
    * closes with totalTokenSupply = the final minted count. Null while the lot
@@ -170,6 +311,8 @@ export interface BondTier {
    * nothing minted has no token to read.
    */
   imageCid: string;
+  /** Static launch terms for a term tier before its contracts are deployed. */
+  terms?: { priceFlr: number; supply: number; termMonths: 12 };
 }
 
 /** Public IPFS gateway used for artwork. */
@@ -181,6 +324,62 @@ export interface BondLotConfig {
   tiers: BondTier[];
 }
 
+export function tierKind(tier: BondTier): "share" | "term" {
+  return tier.kind ?? "share";
+}
+
+export function isShareTier(tier: BondTier): tier is BondTier & { kind?: "share" } {
+  return tierKind(tier) === "share";
+}
+
+export function isTermTier(tier: BondTier): tier is BondTier & { kind: "term" } {
+  return tierKind(tier) === "term";
+}
+
+const STARSHIP2_IMAGE_CID = "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie";
+
+function withTermPreview(tier: BondTier): BondTier {
+  if (tier.kind !== "term") return tier;
+  const preview = TERM_PREVIEW?.tiers[tier.key];
+  return preview ? { ...tier, address: preview.address, vault: preview.vault } : tier;
+}
+
+const STARSHIP2_TERM_TIERS: BondTier[] = [
+  {
+    key: "s2-10k",
+    series: "Starship 2",
+    kind: "term",
+    name: "Starship 2 · 10,000 FLR",
+    address: null,
+    vault: null,
+    blurb: "A 12 month term bond for the first Starship 2 tier.",
+    imageCid: STARSHIP2_IMAGE_CID,
+    terms: { priceFlr: 10_000, supply: 250, termMonths: 12 },
+  },
+  {
+    key: "s2-50k",
+    series: "Starship 2",
+    kind: "term",
+    name: "Starship 2 · 50,000 FLR",
+    address: null,
+    vault: null,
+    blurb: "A 12 month term bond for the middle Starship 2 tier.",
+    imageCid: STARSHIP2_IMAGE_CID,
+    terms: { priceFlr: 50_000, supply: 50, termMonths: 12 },
+  },
+  {
+    key: "s2-100k",
+    series: "Starship 2",
+    kind: "term",
+    name: "Starship 2 · 100,000 FLR",
+    address: null,
+    vault: null,
+    blurb: "A 12 month term bond for the largest Starship 2 tier.",
+    imageCid: STARSHIP2_IMAGE_CID,
+    terms: { priceFlr: 100_000, supply: 50, termMonths: 12 },
+  },
+];
+
 /**
  * Current lot. Tier addresses stay null until deploy — the page renders the
  * "opening soon" state on null and the live storefront once an address lands.
@@ -190,10 +389,12 @@ export interface BondLotConfig {
  * launch time, not before.
  */
 export const CURRENT_LOT: BondLotConfig = {
-  label: "Lots 1–3",
+  label: "Starship 1 and 2",
   tiers: [
     {
       key: "tier-a",
+      series: "Starship 1",
+      kind: "share",
       name: "Lot 1 · 10,000 FLR",
       address: "0x697e2ece036253afb08ee35cb1bcb83fec361736",
       // Wired 2026-09-24 from the Bond Treasury Safe (Safe nonce 8): supply 250,
@@ -204,6 +405,8 @@ export const CURRENT_LOT: BondLotConfig = {
     },
     {
       key: "tier-b",
+      series: "Starship 1",
+      kind: "share",
       name: "Lot 1 · 2,500 FLR",
       address: "0xbfa14e5949eae2180af20bb30511d9023c67daf9",
       blurb: "The accessible entry.",
@@ -214,9 +417,11 @@ export const CURRENT_LOT: BondLotConfig = {
       // Same contract code and terms shape; its own collection and, after close,
       // its own distributor. Address lands here the moment it is deployed.
       key: "lot2-10k",
+      series: "Starship 1",
+      kind: "share",
       name: "Lot 2 · 10,000 FLR",
       address: "0xd7b8d7f436b4b30b94a12457615f872dc4d5895a",
-      blurb: "Second run of the larger position — 250 available.",
+      blurb: "Second run of the larger position, 250 available.",
       imageCid: "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
     },
     {
@@ -226,11 +431,14 @@ export const CURRENT_LOT: BondLotConfig = {
       // THE BOND TREASURY SAFE FROM ITS FIRST BLOCK — unlike Lots 1 and 2,
       // there was never a window in which a single key controlled it.
       key: "lot3-1m",
+      series: "Starship 1",
+      kind: "share",
       name: "Lot 3 · 1,000,000 FLR",
       address: "0xf963b3d02d5b17f87a2caac6f6a388841cd58da6",
-      blurb: "The largest position — 10 available.",
-      imageCid: "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
+      blurb: "The largest position, 10 available.",
+      imageCid: STARSHIP2_IMAGE_CID,
     },
+    ...STARSHIP2_TERM_TIERS.map(withTermPreview),
   ],
 };
 
@@ -239,7 +447,7 @@ export const CURRENT_LOT: BondLotConfig = {
  * BondSeriesLot (used to verify against the mainnet dust lot before launch).
  * Read-only public chain data, and the UI labels it clearly.
  */
-export const ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+export { ADDRESS_RE };
 
 /**
  * Custody facts /nft/disclosures publishes, verbatim from chain. These are
