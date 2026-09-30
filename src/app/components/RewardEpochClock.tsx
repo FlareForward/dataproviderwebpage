@@ -108,12 +108,41 @@ export function RewardEpochLine({ className = "" }: { className?: string }) {
   const { data } = useRewardEpochState();
   const left = useCountdown(data?.endTs);
   if (!data || left == null) return null;
+  const elapsed = EPOCH_SECONDS - left;
   return (
-    <p className={`text-[11px] leading-relaxed text-[#8FA0B8] ${className}`}>
-      Rewards claim every 3.5 days. Epoch {data.epoch} ends in{" "}
-      <span className="tabular-nums text-[#FAFAFA]">{left > 0 ? fmtCountdown(left) : "moments"}</span>{" "}
-      ({fmtWhen(data.endTs)}), claimable once Flare finalizes it. Claimable now: through epoch{" "}
-      {data.latestClaimable}.
-    </p>
+    <div className={className}>
+      <p className="text-[11px] leading-relaxed text-[#8FA0B8]">
+        Rewards claim every 3.5 days. Epoch {data.epoch} ends in{" "}
+        <span className="tabular-nums text-[#FAFAFA]">{left > 0 ? fmtCountdown(left) : "moments"}</span>{" "}
+        ({fmtWhen(data.endTs)}), claimable once Flare finalizes it. Claimable now: through epoch{" "}
+        {data.latestClaimable}.
+      </p>
+      <ProgressBar pct={(elapsed / EPOCH_SECONDS) * 100} tone="pink" label={`Epoch ${data.epoch} progress`} />
+    </div>
+  );
+}
+
+/** A reward epoch on Flare is 302,400 s (FlareSystemsManager.rewardEpochDurationSeconds, read 2026-09-30). */
+const EPOCH_SECONDS = 302_400;
+
+/** A thin countdown bar. It fills as the time runs down. */
+export function ProgressBar({ pct, tone, label }: { pct: number; tone: "pink" | "green"; label: string }) {
+  const width = Math.max(0, Math.min(100, pct));
+  return (
+    <div
+      className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden"
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(width)}
+    >
+      <div
+        className={`h-full rounded-full transition-[width] duration-1000 ease-linear ${
+          tone === "pink" ? "bg-gradient-to-r from-[#EE1A58] to-[#E85A95]" : "bg-gradient-to-r from-emerald-500 to-emerald-300"
+        }`}
+        style={{ width: `${Math.max(width, 0.5)}%` }}
+      />
+    </div>
   );
 }
