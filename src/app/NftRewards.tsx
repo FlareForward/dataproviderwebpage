@@ -18,6 +18,7 @@ import {
 import { EXPLORER_URL } from "../lib/flare";
 import { TERM_PREVIEW } from "../lib/termPreview";
 import { STARSHIP2_INTRO } from "../lib/starship2Copy";
+import { RewardEpochClock } from "./components/RewardEpochClock";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Store, Activity, HeartHandshake, FileText, ExternalLink } from "lucide-react";
 
@@ -393,6 +394,7 @@ function Lots({
           Perpetual share bonds. Your exit is selling the NFT, and holder distributions use each
           lot&apos;s distributor after it closes.
         </p>
+        <RewardEpochClock className="mt-4" />
         {anyOpen && <LotCloseLine />}
 
       {anyOpen && (
