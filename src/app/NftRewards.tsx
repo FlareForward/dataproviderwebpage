@@ -385,30 +385,6 @@ function Lots({
 
   return (
     <>
-      <section className="mt-10" aria-labelledby="starship2-title">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 id="starship2-title" className="text-xl font-semibold">
-            Starship 2
-          </h2>
-          {TERM_PREVIEW && (
-            <span className="rounded-full border border-sky-300/40 bg-sky-300/10 px-2.5 py-0.5 text-[10px] font-medium text-sky-200">
-              TESTNET PREVIEW
-            </span>
-          )}
-        </div>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-          {STARSHIP2_INTRO}{" "}
-          <Link to="/nft/redeem" className="font-medium text-[#E85A95] hover:underline">
-            How redemption works
-          </Link>
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {termTiers.map((tier) => (
-            <MintTermLot key={tier.key} tier={tier} />
-          ))}
-        </div>
-      </section>
-
       <section className="mt-10" aria-labelledby="starship1-title">
         <h2 id="starship1-title" className="text-xl font-semibold">
           Starship 1
@@ -488,6 +464,30 @@ function Lots({
           on the secondary market.
         </p>
       )}
+      </section>
+
+      <section className="mt-10" aria-labelledby="starship2-title">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 id="starship2-title" className="text-xl font-semibold">
+            Starship 2
+          </h2>
+          {TERM_PREVIEW && (
+            <span className="rounded-full border border-sky-300/40 bg-sky-300/10 px-2.5 py-0.5 text-[10px] font-medium text-sky-200">
+              TESTNET PREVIEW
+            </span>
+          )}
+        </div>
+        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
+          {STARSHIP2_INTRO}{" "}
+          <Link to="/nft/redeem" className="font-medium text-[#E85A95] hover:underline">
+            How redemption works
+          </Link>
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {termTiers.map((tier) => (
+            <MintTermLot key={tier.key} tier={tier} />
+          ))}
+        </div>
       </section>
     </>
   );

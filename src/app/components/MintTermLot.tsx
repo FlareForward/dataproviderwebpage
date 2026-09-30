@@ -188,7 +188,7 @@ export function MintTermLot({ tier }: { tier: BondTier }) {
           <div className="flex flex-wrap items-start justify-between gap-2">
             <h3 className="text-lg font-semibold">{tier.name}</h3>
             <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-medium text-amber-300">
-              Opening soon
+              Coming soon
             </span>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -237,7 +237,7 @@ export function MintTermLot({ tier }: { tier: BondTier }) {
                     : "border-amber-400/40 bg-amber-400/10 text-amber-300"
               }`}
             >
-              {openForMint ? "Mint open" : saleEnded ? "Sale closed" : notOpenedYet ? "Opening soon" : "Reading state"}
+              {openForMint ? "Mint open" : saleEnded ? "Sale closed" : notOpenedYet ? "Coming soon" : "Reading state"}
             </span>
           </div>
         </div>
