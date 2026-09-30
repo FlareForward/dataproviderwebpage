@@ -278,9 +278,11 @@ export function MintTermLot({ tier }: { tier: BondTier }) {
                 style={{ width: `${Math.min(100, soldPct)}%` }}
               />
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-[#8FA0B8]">
-              Sale open until {fmtDate(mintDeadline)} at the latest. It may close sooner.
-            </p>
+            {openForMint && (
+              <p className="mt-3 text-xs leading-relaxed text-[#8FA0B8]">
+                Sale open until {fmtDate(mintDeadline)} at the latest. It may close sooner.
+              </p>
+            )}
 
             {notOpenedYet ? (
               <p className="mt-4 text-sm leading-relaxed text-[#8FA0B8]">

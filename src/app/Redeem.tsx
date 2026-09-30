@@ -445,7 +445,9 @@ export default function Redeem() {
                         <div className="text-xs text-[#8FA0B8] sm:text-right">
                           Vault assets {fmtFlr(vault?.totalAssets)} FLR
                           <br />
-                          Per bond {fmtFlr(vault?.payoutPerToken)} FLR
+                          {vault?.distributionFinalized
+                            ? `Per bond ${fmtFlr(vault?.payoutPerToken)} FLR`
+                            : "Per bond: set when the vault is finalized"}
                         </div>
                       </div>
                       <div className="divide-y divide-white/8">
