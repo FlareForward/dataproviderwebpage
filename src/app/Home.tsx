@@ -11,11 +11,16 @@ import {
   ExternalLink,
   Loader2,
 } from "lucide-react";
+import { useReadContracts } from "wagmi";
+import { formatEther } from "viem";
 import { Card, CardContent } from "./components/Card";
+import { RewardEpochLine, useCountdown, fmtCountdown } from "./components/RewardEpochClock";
 import { Button } from "./components/Button";
 import { useRewards } from "../hooks/useRewards";
 import { settledRate, fmtFlrCompact, fmtPct } from "../lib/rewards";
 import { LINKS } from "../lib/links";
+import { CURRENT_LOT, isTermTier, termBondAbi } from "../lib/bondLot";
+import { TERM_CHAIN } from "../lib/flare";
 
 /**
  * / — the front door, built to sell. One job: a visitor who has never heard
@@ -111,6 +116,7 @@ export default function Home() {
                     spaceLeft={rewards.staking.space_left_flr}
                   />
                 )}
+              <Starship2Strip />
               <p className="mt-2 text-[11px] text-[#8FA0B8] text-center">
                 Sourced live from the Flare Systems Explorer and Flare RPC. Rates
                 vary epoch to epoch and are not a guarantee of future rewards.
@@ -308,8 +314,16 @@ function StakingCapacityStrip({
   return (
     <div className="mt-4 glass-panel p-4 space-y-2.5">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+        <span className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+          <span className="font-semibold text-[#FAFAFA]">Starship 1</span>
+          <span aria-hidden="true">·</span>
           Validator staking capacity
+          {/* Under 1 FLR open is full in practice: the node reports dust like 0.29 FLR. */}
+          {open < 1 && (
+            <span className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-semibold text-[#FAFAFA]">
+              Full
+            </span>
+          )}
         </span>
         <span className="text-xs text-[#8FA0B8]">
           Staking rewards are shared by everyone on the node — the bigger the
@@ -330,6 +344,105 @@ function StakingCapacityStrip({
           {fmtFlrCompact(open)} FLR open of {fmtFlrCompact(capacity)} FLR total
         </span>
       </div>
+      <RewardEpochLine />
+    </div>
+  );
+}
+
+const STARSHIP2_TIERS = CURRENT_LOT.tiers.filter(
+  (t): t is typeof t & { kind: "term"; address: `0x${string}` } => isTermTier(t) && !!t.address,
+);
+
+/**
+ * Starship 2, the next capacity: 12 month bond NFTs whose sale is open now. Every
+ * number is read from the three bond contracts, so the strip cannot say "open"
+ * after the Safe closes a sale or the backstop date passes.
+ */
+function Starship2Strip() {
+  const { data } = useReadContracts({
+    contracts: STARSHIP2_TIERS.flatMap((t) => [
+      { address: t.address, abi: termBondAbi, functionName: "isMintOpen" as const, chainId: TERM_CHAIN.id },
+      { address: t.address, abi: termBondAbi, functionName: "totalSupply" as const, chainId: TERM_CHAIN.id },
+      { address: t.address, abi: termBondAbi, functionName: "maxSupply" as const, chainId: TERM_CHAIN.id },
+      { address: t.address, abi: termBondAbi, functionName: "mintPrice" as const, chainId: TERM_CHAIN.id },
+      { address: t.address, abi: termBondAbi, functionName: "bondExpiry" as const, chainId: TERM_CHAIN.id },
+    ]),
+    query: { enabled: STARSHIP2_TIERS.length > 0, refetchInterval: 60_000 },
+  });
+  let maturity: number | null = null;
+  for (let i = 0; data && i < STARSHIP2_TIERS.length; i++) {
+    const exp = data[i * 5 + 4]?.result as bigint | undefined;
+    if (exp && exp > 0n) maturity = Number(exp);
+  }
+  const toMaturity = useCountdown(maturity);
+  if (STARSHIP2_TIERS.length === 0 || !data) return null;
+
+  let anyOpen = false;
+  let raisedWei = 0n;
+  let capWei = 0n;
+  for (let i = 0; i < STARSHIP2_TIERS.length; i++) {
+    const open = data[i * 5]?.result as boolean | undefined;
+    const sold = data[i * 5 + 1]?.result as bigint | undefined;
+    const max = data[i * 5 + 2]?.result as bigint | undefined;
+    const price = data[i * 5 + 3]?.result as bigint | undefined;
+    if (open) anyOpen = true;
+    if (sold != null && price != null) raisedWei += sold * price;
+    if (max != null && price != null) capWei += max * price;
+  }
+  const raised = Number(formatEther(raisedWei));
+  const cap = Number(formatEther(capWei));
+  const fillPct = cap > 0 ? Math.min(100, (raised / cap) * 100) : 0;
+
+  return (
+    <div className="mt-3 glass-panel p-4 space-y-2.5 border border-[#EE1A58]/25">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <span className="flex items-center gap-2 text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+          <span className="font-semibold text-[#FAFAFA]">Starship 2</span>
+          <span aria-hidden="true">·</span>
+          Bond mint
+          <span
+            className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+              anyOpen
+                ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
+                : "border-white/15 bg-white/5 text-[#FAFAFA]"
+            }`}
+          >
+            {anyOpen ? "Open now" : "Closed"}
+          </span>
+        </span>
+        <span className="text-xs text-[#8FA0B8]">
+          A 12 month bond NFT. Redeem it at maturity for your share of the bond vault.
+        </span>
+      </div>
+      <div className="h-2 rounded-full bg-white/5 overflow-hidden" aria-hidden="true">
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-300"
+          style={{ width: `${raised > 0 ? Math.max(1, fillPct) : 0}%` }}
+        />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
+        <span className="text-[#FAFAFA] font-medium tabular-nums">
+          {fmtFlrCompact(raised)} FLR raised of {fmtFlrCompact(cap)} FLR
+        </span>
+        <Link
+          to="/nft"
+          className="inline-flex items-center gap-1 text-sm font-medium text-[#E85A95] hover:underline"
+        >
+          {anyOpen ? "Mint a Starship 2 bond" : "See Starship 2"} <ArrowRight size={14} />
+        </Link>
+      </div>
+      {toMaturity != null && maturity != null && (
+        <p className="text-[11px] leading-relaxed text-[#8FA0B8]">
+          No payouts during the term. Redeem once at maturity, in{" "}
+          <span className="tabular-nums text-[#FAFAFA]">{fmtCountdown(toMaturity)}</span> (
+          {new Date(maturity * 1000).toLocaleDateString(undefined, {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })}
+          ).
+        </p>
+      )}
     </div>
   );
 }
