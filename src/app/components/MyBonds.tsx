@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAccount, useReadContracts } from "wagmi";
 import { Gem, ExternalLink, Search } from "lucide-react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { isAddress } from "viem";
 import { Button } from "./Button";
-import { bondLotAbi, CURRENT_LOT, IPFS_GATEWAY, type BondTier } from "../../lib/bondLot";
+import {
+  bondLotAbi,
+  CURRENT_LOT,
+  IPFS_GATEWAY,
+  isShareTier,
+  isTermTier,
+  termBondAbi,
+  type BondTier,
+} from "../../lib/bondLot";
+import { TERM_CHAIN } from "../../lib/flare";
 import { useRewards } from "../../hooks/useRewards";
 import { settledRate } from "../../lib/rewards";
 
@@ -20,12 +29,25 @@ import { settledRate } from "../../lib/rewards";
  * pinned CID. No indexer, no cache, no gateway roulette.
  */
 
-const LIVE_TIERS = CURRENT_LOT.tiers.filter(
-  (t): t is BondTier & { address: `0x${string}` } => !!t.address,
+const LIVE_SHARE_TIERS = CURRENT_LOT.tiers.filter(
+  (t): t is BondTier & { address: `0x${string}` } => isShareTier(t) && !!t.address,
+);
+
+const LIVE_TERM_TIERS = CURRENT_LOT.tiers.filter(
+  (t): t is BondTier & { kind: "term"; address: `0x${string}` } => isTermTier(t) && !!t.address,
 );
 
 /** Contract-side cap on how many tokens we enumerate per tier. */
 const MAX_ENUMERATE = 50;
+
+function fmtDate(seconds: bigint | null | undefined): string {
+  if (seconds == null || seconds === 0n) return "-";
+  return new Date(Number(seconds) * 1000).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
 
 /**
  * `bare` drops the heading, the explainer and the address lookup, leaving just
@@ -71,13 +93,13 @@ export function MyBonds({
 
   // Pass 1: how many does this wallet hold in each tier?
   const { data: balances, isLoading: loadingBalances } = useReadContracts({
-    contracts: LIVE_TIERS.map((t) => ({
+    contracts: LIVE_SHARE_TIERS.map((t) => ({
       address: t.address,
       abi: bondLotAbi,
       functionName: "balanceOf" as const,
       args: [address ?? "0x0000000000000000000000000000000000000000"] as const,
     })),
-    query: { enabled: valid && LIVE_TIERS.length > 0 },
+    query: { enabled: valid && LIVE_SHARE_TIERS.length > 0 },
   });
 
   /**
@@ -94,7 +116,7 @@ export function MyBonds({
   // Pass 2: enumerate the actual token ids behind those balances.
   const indexCalls = useMemo(() => {
     const calls: { address: `0x${string}`; tierKey: string; index: number }[] = [];
-    LIVE_TIERS.forEach((t, i) => {
+    LIVE_SHARE_TIERS.forEach((t, i) => {
       const bal = Number((balances?.[i]?.result as bigint | undefined) ?? 0n);
       for (let idx = 0; idx < Math.min(bal, MAX_ENUMERATE); idx++) {
         calls.push({ address: t.address, tierKey: t.key, index: idx });
@@ -131,9 +153,9 @@ export function MyBonds({
   const held = useMemo(() => {
     return indexCalls
       .map((c, i) => {
-        const id = ids?.[i]?.result as bigint | undefined;
-        const tier = LIVE_TIERS.find((t) => t.key === c.tierKey);
-        return id != null && tier ? { tier, tokenId: Number(id) } : null;
+      const id = ids?.[i]?.result as bigint | undefined;
+      const tier = LIVE_SHARE_TIERS.find((t) => t.key === c.tierKey);
+      return id != null && tier ? { tier, tokenId: Number(id) } : null;
       })
       .filter((x): x is { tier: BondTier & { address: `0x${string}` }; tokenId: number } => !!x)
       .sort((a, b) => a.tier.key.localeCompare(b.tier.key) || a.tokenId - b.tokenId);
@@ -155,9 +177,92 @@ export function MyBonds({
 
   const openGroup = groups.find((g) => g.tier.key === openTier) ?? null;
 
-  const loading = loadingBalances || loadingIds;
+  const { data: termBalances, isLoading: loadingTermBalances } = useReadContracts({
+    contracts: LIVE_TERM_TIERS.map((tier) => ({
+      address: tier.address,
+      abi: termBondAbi,
+      functionName: "balanceOf" as const,
+      args: [address ?? "0x0000000000000000000000000000000000000000"] as const,
+      chainId: TERM_CHAIN.id,
+    })),
+    query: { enabled: valid && LIVE_TERM_TIERS.length > 0 },
+  });
 
-  if (LIVE_TIERS.length === 0) return null;
+  const { data: termMaturities, isLoading: loadingTermMaturities } = useReadContracts({
+    contracts: LIVE_TERM_TIERS.map((tier) => ({
+      address: tier.address,
+      abi: termBondAbi,
+      functionName: "bondExpiry" as const,
+      chainId: TERM_CHAIN.id,
+    })),
+    query: { enabled: LIVE_TERM_TIERS.length > 0, refetchInterval: 30_000 },
+  });
+
+  const termIndexCalls = useMemo(() => {
+    const calls: { address: `0x${string}`; tierKey: string; index: number }[] = [];
+    LIVE_TERM_TIERS.forEach((tier, i) => {
+      const bal = Number((termBalances?.[i]?.result as bigint | undefined) ?? 0n);
+      for (let idx = 0; idx < Math.min(bal, MAX_ENUMERATE); idx++) {
+        calls.push({ address: tier.address, tierKey: tier.key, index: idx });
+      }
+    });
+    return calls;
+  }, [termBalances]);
+
+  const { data: termIds, isLoading: loadingTermIds } = useReadContracts({
+    contracts: termIndexCalls.map((c) => ({
+      address: c.address,
+      abi: termBondAbi,
+      functionName: "tokenOfOwnerByIndex" as const,
+      args: [address ?? "0x0000000000000000000000000000000000000000", BigInt(c.index)] as const,
+      chainId: TERM_CHAIN.id,
+    })),
+    query: { enabled: valid && termIndexCalls.length > 0 },
+  });
+
+  const termHeld = useMemo(
+    () =>
+      termIndexCalls
+        .map((c, i) => {
+          const id = termIds?.[i]?.result as bigint | undefined;
+          const tier = LIVE_TERM_TIERS.find((t) => t.key === c.tierKey);
+          return id != null && tier ? { tier, tokenId: Number(id) } : null;
+        })
+        .filter(
+          (x): x is { tier: BondTier & { kind: "term"; address: `0x${string}` }; tokenId: number } =>
+            !!x,
+        )
+        .sort((a, b) => a.tier.key.localeCompare(b.tier.key) || a.tokenId - b.tokenId),
+    [termIds, termIndexCalls],
+  );
+
+  const termGroups = useMemo(() => {
+    const byTier = new Map<
+      string,
+      {
+        tier: BondTier & { kind: "term"; address: `0x${string}` };
+        tokenIds: number[];
+        maturity?: bigint;
+      }
+    >();
+    for (const { tier, tokenId } of termHeld) {
+      const tierIndex = LIVE_TERM_TIERS.findIndex((t) => t.key === tier.key);
+      const g = byTier.get(tier.key) ?? {
+        tier,
+        tokenIds: [],
+        maturity: termMaturities?.[tierIndex]?.result as bigint | undefined,
+      };
+      g.tokenIds.push(tokenId);
+      byTier.set(tier.key, g);
+    }
+    return [...byTier.values()];
+  }, [termHeld, termMaturities]);
+
+  const loading =
+    loadingBalances || loadingIds || loadingTermBalances || loadingTermIds || loadingTermMaturities;
+  const totalHeld = held.length + termHeld.length;
+
+  if (LIVE_SHARE_TIERS.length === 0 && LIVE_TERM_TIERS.length === 0) return null;
 
   return (
     <section id="your-bonds" className={compact ? "mt-8 scroll-mt-20" : "p-4 lg:p-8 scroll-mt-20"}>
@@ -210,7 +315,7 @@ export function MyBonds({
         </div>
       ) : loading ? (
         <div className="glass-panel mt-4 p-6 text-sm text-[#8FA0B8]">Reading the contracts…</div>
-      ) : held.length === 0 ? (
+      ) : totalHeld === 0 ? (
         <div className="glass-panel mt-4 p-6">
           <p className="text-sm text-[#8FA0B8]">This address holds no FlareForward Bonds yet.</p>
         </div>
@@ -221,6 +326,41 @@ export function MyBonds({
               thing that distinguishes one from another is what it has earned.
               The stack opens into a compact grid for that. */}
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {termGroups.map((g) => (
+              <Link key={g.tier.key} to="/nft/redeem" className="asset-tile p-0 text-left">
+                <div className={`relative${g.tokenIds.length > 1 ? " pt-2" : ""}`}>
+                  {g.tokenIds.length > 1 && (
+                    <>
+                      <div className="absolute inset-x-4 top-0 h-2 rounded-t-md border border-white/10 bg-white/[0.06]" />
+                      <div className="absolute inset-x-2 top-1 h-2 rounded-t-md border border-white/12 bg-white/[0.09]" />
+                    </>
+                  )}
+                  <img
+                    src={`${IPFS_GATEWAY}/${g.tier.imageCid}`}
+                    alt={`FlareForward Bonds ${g.tier.name}`}
+                    loading="lazy"
+                    className="relative aspect-square w-full object-cover"
+                  />
+                  {g.tokenIds.length > 1 && (
+                    <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-[#FAFAFA]">
+                      ×{g.tokenIds.length}
+                    </span>
+                  )}
+                </div>
+                <div className="p-4">
+                  <p className="font-semibold">
+                    {g.tier.name}
+                    <span className="ml-2 text-sm font-normal text-[#8FA0B8]">
+                      {g.tokenIds.length} bond{g.tokenIds.length === 1 ? "" : "s"}
+                    </span>
+                  </p>
+                  <p className="mt-2 text-sm text-[#8FA0B8]">Matures {fmtDate(g.maturity)}</p>
+                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[#E85A95]">
+                    Redeem after maturity
+                  </span>
+                </div>
+              </Link>
+            ))}
             {groups.map((g) => (
               <button
                 key={g.tier.key}
@@ -292,8 +432,9 @@ export function MyBonds({
             ))}
           </div>
           <p className="mt-3 text-xs text-[#8FA0B8]/80">
-            Holding {held.length} bond{held.length === 1 ? "" : "s"}. Distributions open once the
-            lot closes and its distribution contract is deployed.
+            Holding {totalHeld} bond{totalHeld === 1 ? "" : "s"}. Starship 1 distributions open
+            once the lot closes and its distribution contract is deployed. Starship 2 redemption
+            opens on the redemption page after maturity and vault finalization.
           </p>
         </>
       )}
@@ -318,7 +459,7 @@ export function MyBonds({
                 <h3 className="text-lg font-semibold">{openGroup.tier.name} tier</h3>
                 <p className="mt-0.5 text-sm text-[#8FA0B8]">
                   {openGroup.tokenIds.length} bond
-                  {openGroup.tokenIds.length === 1 ? "" : "s"} · {CURRENT_LOT.label}
+                  {openGroup.tokenIds.length === 1 ? "" : "s"} · {openGroup.tier.series}
                 </p>
               </div>
               <button

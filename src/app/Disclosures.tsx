@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { AlertTriangle, ArrowLeft, FileText, Wallet } from "lucide-react";
 import { CustodySection } from "./components/CustodySection";
+import { STARSHIP2_KNOW_BULLETS, STARSHIP2_SECURITY_NOTES } from "../lib/starship2Copy";
 
 /**
  * /nft/disclosures: everything a buyer is entitled to read before they buy,
@@ -33,6 +34,41 @@ export default function Disclosures() {
         <CustodySection />
       </div>
 
+      <section id="starship-2" className="mt-10 scroll-mt-6">
+        <h2 className="text-xl font-semibold">Starship 2 term bonds</h2>
+        <div className="glass-panel mt-4 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-[#FAFAFA]">What you should know</h3>
+              <p className="mt-1 text-sm leading-relaxed text-[#8FA0B8]">
+                These points apply to Starship 2. The live redemption status is on the{" "}
+                <Link to="/nft/redeem" className="text-[#E85A95] hover:underline">
+                  redemption page
+                </Link>
+                .
+              </p>
+            </div>
+            <Link
+              to="/nft/redeem"
+              className="inline-flex shrink-0 items-center justify-center rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-sm font-medium text-[#FAFAFA] transition hover:bg-white/10"
+            >
+              Go to redemption
+            </Link>
+          </div>
+          <ul className="mt-4 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
+            {STARSHIP2_KNOW_BULLETS.map((item) => (
+              <li key={item}>• {item}</li>
+            ))}
+          </ul>
+          <h3 className="mt-5 font-semibold text-[#FAFAFA]">Security notes</h3>
+          <ul className="mt-2 grid gap-x-8 gap-y-2 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
+            {STARSHIP2_SECURITY_NOTES.map((item) => (
+              <li key={item}>• {item}</li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
       <section id="risks" className="mt-10 scroll-mt-6">
         <div className="flex items-center gap-3">
           <AlertTriangle size={20} className="text-amber-300" />
@@ -43,9 +79,10 @@ export default function Disclosures() {
         </p>
         <ul className="glass-panel mt-4 grid gap-x-8 gap-y-2 p-5 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
           <li>
-            • <span className="font-medium text-[#FAFAFA]">Your FLR does not come back.</span> It
-            funds the validator self-bond at lot close. No redemption window is open, none is
-            scheduled, and there is no maturity date. You hold an NFT, not a claim on the capital.
+            • <span className="font-medium text-[#FAFAFA]">Starship 1 only.</span> Your FLR does
+            not come back. It funds the validator self-bond at lot close. No redemption window is
+            open, none is scheduled, and there is no maturity date. You hold an NFT, not a claim
+            on the capital.
           </li>
           <li>
             • <span className="font-medium text-[#FAFAFA]">You may not be able to sell.</span>{" "}
@@ -89,15 +126,15 @@ export default function Disclosures() {
         <h2 className="text-xl font-semibold">The plain-English terms</h2>
         <ul className="glass-panel mt-4 grid gap-x-8 gap-y-2 p-5 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
           <li>
-            • Funds bond at lot close. After that, your exit is selling the NFT.
+            • Starship 1 funds bond at lot close. After that, your exit is selling the NFT.
           </li>
           <li>
             • Any distribution is split equally per NFT within a lot, enforced on-chain by that
             lot&apos;s distribution contract.
           </li>
           <li>
-            • Never burn a bond. A burned token&apos;s share of future distributions is gone for
-            good. Sell it instead.
+            • Starship 1 only: never burn a bond. A burned token&apos;s share of future distributions
+            is gone for good. Sell it instead.
           </li>
           <li>
             • Reward amounts follow what the infrastructure actually earns. We publish measured

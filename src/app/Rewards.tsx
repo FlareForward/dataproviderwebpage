@@ -22,7 +22,7 @@ import { useReadContracts } from "wagmi";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { EarningsStrip } from "./components/EarningsStrip";
 import { RewardHistory } from "./components/RewardHistory";
-import { bondLotAbi, CURRENT_LOT, type BondTier } from "../lib/bondLot";
+import { bondLotAbi, CURRENT_LOT, isShareTier, type BondTier } from "../lib/bondLot";
 import { useDelegation } from "../hooks/useDelegation";
 import { actualRatePct, useEarned } from "../hooks/useEarned";
 import { useRewards } from "../hooks/useRewards";
@@ -654,7 +654,7 @@ function BondsSection({
   earnedLoading: boolean;
 }) {
   const tiers = CURRENT_LOT.tiers.filter(
-    (t): t is BondTier & { address: `0x${string}` } => !!t.address,
+    (t): t is BondTier & { address: `0x${string}` } => isShareTier(t) && !!t.address,
   );
 
   const { data } = useReadContracts({

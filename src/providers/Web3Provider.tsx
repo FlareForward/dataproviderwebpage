@@ -2,7 +2,8 @@ import { ReactNode } from "react";
 import { WagmiProvider, createConfig, http } from "wagmi";
 import { injected, walletConnect } from "wagmi/connectors";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { chain, FLARE_RPC_URL } from "../lib/flare";
+import { chain, FLARE_RPC_URL, TERM_CHAIN } from "../lib/flare";
+import { TERM_PREVIEW } from "../lib/termPreview";
 import { ledger } from "../lib/connectors/ledger";
 
 // Public WalletConnect Cloud project ID. This is not a secret: Vite inlines
@@ -90,12 +91,15 @@ const connectors = [
     : []),
 ];
 
+const chains = (TERM_PREVIEW ? [chain, TERM_CHAIN] : [chain]) as [typeof chain, ...typeof TERM_CHAIN[]];
+const transports = TERM_PREVIEW
+  ? { [chain.id]: http(FLARE_RPC_URL), [TERM_CHAIN.id]: http(TERM_PREVIEW.rpc) }
+  : { [chain.id]: http(FLARE_RPC_URL) };
+
 export const wagmiConfig = createConfig({
-  chains: [chain],
+  chains,
   connectors,
-  transports: {
-    [chain.id]: http(FLARE_RPC_URL),
-  },
+  transports,
 });
 
 const queryClient = new QueryClient({
