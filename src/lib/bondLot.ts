@@ -350,8 +350,11 @@ const STARSHIP2_TERM_TIERS: BondTier[] = [
     series: "Starship 2",
     kind: "term",
     name: "Starship 2 · 10,000 FLR",
-    address: null,
-    vault: null,
+    // Deployed 2026-09-30 by the operations Trezor with the Bond Treasury Safe as owner,
+    // admin, vault manager and only emergency signer. Addresses copied from the launch tool's
+    // verified state, not typed.
+    address: "0xe32F7E02475a100C0C22Da26A47b16cb904a770b",
+    vault: "0xE4c96479529975a452EDa8e724a8F8DaAA15AeF8",
     blurb: "A 12 month term bond for the first Starship 2 tier.",
     imageCid: STARSHIP2_IMAGE_CID,
     terms: { priceFlr: 10_000, supply: 250, termMonths: 12 },
@@ -361,8 +364,11 @@ const STARSHIP2_TERM_TIERS: BondTier[] = [
     series: "Starship 2",
     kind: "term",
     name: "Starship 2 · 50,000 FLR",
-    address: null,
-    vault: null,
+    // Deployed 2026-09-30 by the operations Trezor with the Bond Treasury Safe as owner,
+    // admin, vault manager and only emergency signer. Addresses copied from the launch tool's
+    // verified state, not typed.
+    address: "0x3878b78AfbA836634d76B2905b38d856C07c07ba",
+    vault: "0x53ED4c1Db2e66FB1D21b0581f8ddEB880f37bc6A",
     blurb: "A 12 month term bond for the middle Starship 2 tier.",
     imageCid: STARSHIP2_IMAGE_CID,
     terms: { priceFlr: 50_000, supply: 50, termMonths: 12 },
@@ -372,8 +378,11 @@ const STARSHIP2_TERM_TIERS: BondTier[] = [
     series: "Starship 2",
     kind: "term",
     name: "Starship 2 · 100,000 FLR",
-    address: null,
-    vault: null,
+    // Deployed 2026-09-30 by the operations Trezor with the Bond Treasury Safe as owner,
+    // admin, vault manager and only emergency signer. Addresses copied from the launch tool's
+    // verified state, not typed.
+    address: "0x378564Fb9c045E3D7F2AF7440708c95C46F3e738",
+    vault: "0xD4b275C1FBE7f45c949B36ad77e4e2F798Eaa409",
     blurb: "A 12 month term bond for the largest Starship 2 tier.",
     imageCid: STARSHIP2_IMAGE_CID,
     terms: { priceFlr: 100_000, supply: 50, termMonths: 12 },
