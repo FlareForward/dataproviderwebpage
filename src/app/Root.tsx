@@ -1,27 +1,20 @@
-import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Outlet, NavLink, useLocation } from "react-router";
 import {
   LayoutDashboard,
-  Menu,
-  X,
   BarChart3,
   Gift,
   Gem,
   Coins,
   Wallet,
   Landmark,
-  ExternalLink,
-  ChevronDown,
 } from "lucide-react";
-import { LINKS, NETWORK, NETWORK_HERE, NETWORK_URL, type NetworkList } from "../lib/links";
-import { Button } from "./components/Button";
+import { LINKS } from "../lib/links";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import logoImage from "../imports/flareforward_logo.png";
 
 export function Root() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   return (
     <div className="relative min-h-screen bg-[#1C2D47] text-[#FAFAFA] font-['Inter'] flex overflow-hidden">
       {/* Ambient background glows — the "liquid glass" backdrop */}
@@ -33,13 +26,14 @@ export function Root() {
 
       {/* Sidebar */}
       <aside className="relative z-10 w-64 border-r border-white/8 glass-surface hidden lg:flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-white/8">
-          <div className="flex items-center gap-3">
-            <ImageWithFallback src={logoImage} alt="FlareForward Logo" className="h-8 w-auto object-contain" />
-            <span className="font-extrabold text-lg tracking-tight bg-gradient-to-br from-[#EE1A58] to-[#E85A95] bg-clip-text text-transparent">
+        <div className="h-16 flex items-center gap-1.5 px-4 border-b border-white/8">
+          <div className="flex items-center gap-2 min-w-0">
+            <ImageWithFallback src={logoImage} alt="FlareForward Logo" className="h-8 w-auto object-contain shrink-0" />
+            <span className="font-extrabold text-base tracking-tight bg-gradient-to-br from-[#EE1A58] to-[#E85A95] bg-clip-text text-transparent">
               FlareForward
             </span>
           </div>
+          <NetworkMenu />
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Home" />
@@ -49,7 +43,6 @@ export function Root() {
           <NavItem to="/nft" icon={<Coins size={20} />} label="Bond Lots" />
           <NavItem to="/rewards" icon={<Gift size={20} />} label="My Rewards" />
           <NavItem to="/analytics" icon={<BarChart3 size={20} />} label="Analytics" />
-          <NetworkLinks />
         </nav>
         <div className="p-4 border-t border-white/8 space-y-3">
           <SocialLinks />
@@ -67,20 +60,11 @@ export function Root() {
       <main className="relative z-10 flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header className="h-16 border-b border-white/8 glass-surface sticky top-0 z-20 flex items-center justify-between px-4 lg:px-8">
-          <div className="flex items-center gap-4 lg:hidden">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="px-2"
-              onClick={() => setMobileMenuOpen((open) => !open)}
-              aria-label="Toggle navigation menu"
-              aria-expanded={mobileMenuOpen}
-            >
-              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </Button>
+          <div className="flex items-center gap-2 lg:hidden min-w-0">
             <div className="flex items-center gap-2">
               <ImageWithFallback src={logoImage} alt="FlareForward Logo" className="h-7 w-auto object-contain" />
             </div>
+            <NetworkMenu includeSiteLinks />
           </div>
 
           <div className="hidden lg:flex items-center gap-2 text-sm text-[#8FA0B8]">
@@ -92,58 +76,6 @@ export function Root() {
             <ConnectWallet />
           </div>
         </header>
-
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <nav className="lg:hidden relative z-10 border-b border-white/8 glass-surface p-4 space-y-1">
-            <NavItem
-              to="/"
-              icon={<LayoutDashboard size={20} />}
-              label="Home"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <NavItem
-              to="/delegation"
-              icon={<Wallet size={20} />}
-              label="Delegate"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <NavItem
-              to="/staking"
-              icon={<Landmark size={20} />}
-              label="Stake"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <NavItem
-              to="/bonds"
-              icon={<Gem size={20} />}
-              label="Bonds"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <NavItem
-              to="/nft"
-              icon={<Coins size={20} />}
-              label="Bond Lots"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <NavItem
-              to="/rewards"
-              icon={<Gift size={20} />}
-              label="My Rewards"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <NavItem
-              to="/analytics"
-              icon={<BarChart3 size={20} />}
-              label="Analytics"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <NetworkLinks />
-            <div className="pt-2">
-              <SocialLinks />
-            </div>
-          </nav>
-        )}
 
         {/* Dynamic Content */}
         <div className="flex-1 overflow-y-auto">
@@ -160,74 +92,41 @@ export function Root() {
   );
 }
 
-/** Every FlareForward project, one click away, in the shared network order.
-    Collapsed by default so the site's own pages lead; the header opens it.
-    Starts from the baked list and swaps in the live one from flareforward.com
-    when it answers. Items without a link yet show "Soon"; this site shows as
-    the one you are on. */
-function NetworkLinks() {
-  const [open, setOpen] = useState(false);
-  const [list, setList] = useState<NetworkList>(NETWORK);
-  useEffect(() => {
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 2500);
-    fetch(NETWORK_URL, { signal: ctl.signal })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((live: NetworkList | null) => {
-        if (live && Array.isArray(live.network) && live.version >= NETWORK.version) setList(live);
-      })
-      .catch(() => {})
-      .finally(() => clearTimeout(timer));
-    return () => { clearTimeout(timer); ctl.abort(); };
-  }, []);
+function NetworkMenu({ includeSiteLinks = false }: { includeSiteLinks?: boolean }) {
   return (
-    <div className="mt-4 border-t border-white/8 pt-4">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        aria-controls="ff-network-links"
-        className="w-full flex items-center justify-between px-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8FA0B8]/70 hover:text-[#FAFAFA] transition-colors"
-      >
-        FlareForward network
-        <ChevronDown
-          size={14}
-          className={`shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
-          aria-hidden="true"
-        />
-      </button>
-      <div id="ff-network-links" hidden={!open} className="space-y-0.5">
-        {list.network.map((item) =>
-          item.url && !item.soon && item.id !== NETWORK_HERE ? (
-            <a
-              key={item.id}
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg text-sm text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5 transition-all"
-            >
-              {item.name}
-              <ExternalLink size={12} className="shrink-0 opacity-60" />
-            </a>
-          ) : (
-            <div
-              key={item.id}
-              aria-current={item.id === NETWORK_HERE ? "page" : undefined}
-              className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm text-[#8FA0B8]/60"
-            >
-              {item.name}
-              <span className="shrink-0 rounded-full border border-white/10 px-1.5 py-px text-[10px]">
-                {item.id === NETWORK_HERE ? "You are here" : "Soon"}
-              </span>
-            </div>
-          ),
-        )}
-      </div>
-    </div>
+    <ff-network-menu site="ftso">
+      {includeSiteLinks && (
+        <>
+          <NavLink slot="site" className="ffn-phone-site-link" to="/">
+            Home
+          </NavLink>
+          <NavLink slot="site" className="ffn-phone-site-link" to="/delegation">
+            Delegate
+          </NavLink>
+          <NavLink slot="site" className="ffn-phone-site-link" to="/staking">
+            Stake
+          </NavLink>
+          <NavLink slot="site" className="ffn-phone-site-link" to="/bonds">
+            Bonds
+          </NavLink>
+          <NavLink slot="site" className="ffn-phone-site-link" to="/nft">
+            Bond Lots
+          </NavLink>
+          <NavLink slot="site" className="ffn-phone-site-link" to="/rewards">
+            My Rewards
+          </NavLink>
+          <NavLink slot="site" className="ffn-phone-site-link" to="/analytics">
+            Analytics
+          </NavLink>
+          <a slot="site" className="ffn-phone-site-link" href={LINKS.x} target="_blank" rel="noopener noreferrer">
+            X / Twitter
+          </a>
+        </>
+      )}
+    </ff-network-menu>
   );
 }
 
-/** Community links. The main site now lives in NetworkLinks above. */
 function SocialLinks() {
   const linkClass =
     "flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[#8FA0B8] hover:text-[#FAFAFA] hover:bg-white/5 transition-all";
@@ -247,13 +146,11 @@ function NavItem({
   icon,
   label,
   to,
-  onClick,
   alsoActiveOn,
 }: {
-  icon: React.ReactNode;
+  icon: ReactNode;
   label: string;
   to: string;
-  onClick?: () => void;
   /**
    * Extra routes this item owns. The mint page has no nav entry of its own —
    * without this it sits on a route nothing in the nav is highlighted for,
@@ -267,7 +164,6 @@ function NavItem({
     <NavLink
       to={to}
       end
-      onClick={onClick}
       className={({ isActive: exact }) =>
         `flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
           exact || ownsRoute

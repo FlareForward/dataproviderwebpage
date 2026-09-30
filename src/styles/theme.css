@@ -180,6 +180,13 @@
 /* Translucent blurred surfaces, glowing pink/magenta gradient borders */
 /* ------------------------------------------------------------------ */
 @layer components {
+  ff-network-menu {
+    --ffn-bg: #1c2d47;
+    --ffn-fg: #fafafa;
+    --ffn-accent: #ee1a58;
+    color: #fafafa;
+  }
+
   /* Primary glass surface: translucent navy with a glowing gradient hairline
      border rendered via a masked ::before so rounded corners stay clean. */
   .glass-card {

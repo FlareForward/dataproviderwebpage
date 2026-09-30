@@ -135,13 +135,13 @@ export default function Home() {
               icon={<GraduationCap size={20} />}
               title="We teach this network"
               body="FlareForward gives away its DeFi courses: free, plain-English education that turns curious FLR holders into confident ones. Your delegation funds people bringing the next wave of users into Flare."
-              cta={{ label: "Take the free DeFi courses", href: LINKS.university, external: true }}
+              cta={{ label: "Take the free DeFi courses", href: LINKS.university }}
             />
             <WhyCard
               icon={<Hammer size={20} />}
               title="We build here, every day"
               body="We're a builder collective, not a passive node operator. Trading tools, payment rails, data infrastructure — shipped on Flare, by the same team signing your feeds."
-              cta={{ label: "See what we've built", href: LINKS.site, external: true }}
+              cta={{ label: "See what we've built", href: LINKS.site }}
             />
             <WhyCard
               icon={<Flame size={20} />}
@@ -150,7 +150,6 @@ export default function Home() {
               cta={{
                 label: "See the FLR burn in Apex's fee split",
                 href: LINKS.apexDocsFees,
-                external: true,
               }}
             />
             <WhyCard
@@ -220,8 +219,6 @@ export default function Home() {
                     Learn who we are at{" "}
                     <a
                       href={LINKS.site}
-                      target="_blank"
-                      rel="noopener noreferrer"
                       className="text-[#EE1A58] hover:underline"
                     >
                       flareforward.com
@@ -239,7 +236,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 shrink-0">
-                  <a href={LINKS.site} target="_blank" rel="noopener noreferrer">
+                  <a href={LINKS.site}>
                     <Button variant="outline" className="gap-2">
                       <ExternalLink size={16} /> flareforward.com
                     </Button>
