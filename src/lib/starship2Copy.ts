@@ -13,7 +13,7 @@ export const REDEMPTION_STEPS = [
 export const STARSHIP2_KNOW_BULLETS = [
   "The amount you receive is your share of what is in the vault. It is not a fixed or promised amount. The contract cannot force the treasury to deposit.",
   "Redemption opens when the vault is finalized, not at the exact second of maturity. This page shows the live status.",
-  "If something goes badly wrong, 2 of the 3 Safe signers can release what remains in the vault to a recovery address, no sooner than 30 days after maturity. That would end normal redemption.",
+  "If something goes badly wrong, the Bond Treasury Safe can release what remains in the vault to a recovery address, no sooner than 30 days after maturity. That takes 2 of the Safe's 3 signers and would end normal redemption.",
   "There is no deadline to redeem. Your share waits in the vault.",
 ];
 
@@ -21,5 +21,5 @@ export const STARSHIP2_KNOW_BULLETS = [
 export const STARSHIP2_SECURITY_NOTES = [
   "The Starship 2 bond contract can be upgraded by the 2-of-3 Bond Treasury Safe. There is no time delay on an upgrade.",
   "The vault contract that holds redemption funds cannot be upgraded.",
-  "The Bond Treasury Safe owns each Starship 2 bond contract and manages each vault. The key that deployed them holds no role.",
+  "The Bond Treasury Safe owns each Starship 2 bond contract, manages each vault, and is the only emergency signer. No single key can act alone, and the key that deployed the contracts holds no role.",
 ];
