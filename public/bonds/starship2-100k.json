@@ -1,8 +1,8 @@
 {
   "name": "FlareForward Starship 2 (100,000 FLR)",
   "description": "A 12 month FlareForward bond backing the FlareForward validator on Flare. At maturity the holder redeems the bond for an equal per-bond share of what the treasury has returned to the bond vault. The amount is not guaranteed. The bond does not renew. Details at ftso.flareforward.com/nft/redeem.",
-  "image": "https://amethyst-selective-bovid-293.mypinata.cloud/ipfs/bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
-  "image_ipfs": "ipfs://bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
+  "image": "https://amethyst-selective-bovid-293.mypinata.cloud/ipfs/bafybeiaxbbjjlqtpjkzwdzqbm4jny5ksqvs5vndywortlhsoepb3bmfu34",
+  "image_ipfs": "ipfs://bafybeiaxbbjjlqtpjkzwdzqbm4jny5ksqvs5vndywortlhsoepb3bmfu34",
   "external_url": "https://ftso.flareforward.com/nft",
   "attributes": [
     { "trait_type": "Series", "value": "FlareForward Starship" },
