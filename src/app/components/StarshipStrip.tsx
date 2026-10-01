@@ -38,7 +38,7 @@ export function StarshipStrip({
   className?: string;
 }) {
   return (
-    <div className={`glass-panel p-4 space-y-3 ${className}`}>
+    <div className={`glass-card glass-card-hover p-5 space-y-3 ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
         <span className="flex flex-wrap items-center gap-2 pt-0.5 text-[11px] uppercase tracking-wider text-[#8FA0B8]">
           <span className="font-semibold text-[#FAFAFA]">{name}</span>
