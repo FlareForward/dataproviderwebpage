@@ -18,7 +18,7 @@ import {
 import { EXPLORER_URL } from "../lib/flare";
 import { TERM_PREVIEW } from "../lib/termPreview";
 import { STARSHIP2_INTRO } from "../lib/starship2Copy";
-import { RewardEpochLine } from "./components/RewardEpochClock";
+import { Starship1Timer, Starship2Timer, useStarship2 } from "./components/StarshipStrip";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Store, Activity, HeartHandshake, FileText, ExternalLink } from "lucide-react";
 
@@ -387,14 +387,18 @@ function Lots({
   return (
     <>
       <section className="mt-10" aria-labelledby="starship1-title">
-        <h2 id="starship1-title" className="text-xl font-semibold">
-          Starship 1
-        </h2>
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <h2 id="starship1-title" className="text-xl font-semibold">
+            Starship 1
+          </h2>
+          <div className="w-full sm:w-[min(320px,28%)] sm:min-w-[240px]">
+            <Starship1Timer />
+          </div>
+        </div>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
           Perpetual share bonds. Your exit is selling the NFT, and holder distributions use each
           lot&apos;s distributor after it closes.
         </p>
-        <RewardEpochLine className="mt-2 max-w-3xl" />
         {anyOpen && <LotCloseLine />}
 
       {anyOpen && (
@@ -469,15 +473,20 @@ function Lots({
       </section>
 
       <section className="mt-10" aria-labelledby="starship2-title">
-        <div className="flex flex-wrap items-center gap-3">
-          <h2 id="starship2-title" className="text-xl font-semibold">
-            Starship 2
-          </h2>
-          {TERM_PREVIEW && (
-            <span className="rounded-full border border-sky-300/40 bg-sky-300/10 px-2.5 py-0.5 text-[10px] font-medium text-sky-200">
-              TESTNET PREVIEW
-            </span>
-          )}
+        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 id="starship2-title" className="text-xl font-semibold">
+              Starship 2
+            </h2>
+            {TERM_PREVIEW && (
+              <span className="rounded-full border border-sky-300/40 bg-sky-300/10 px-2.5 py-0.5 text-[10px] font-medium text-sky-200">
+                TESTNET PREVIEW
+              </span>
+            )}
+          </div>
+          <div className="w-full sm:w-[min(320px,28%)] sm:min-w-[240px]">
+            <Starship2HeadingTimer />
+          </div>
         </div>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
           {STARSHIP2_INTRO}{" "}
@@ -663,4 +672,10 @@ export default function NftRewards() {
       </section>
     </div>
   );
+}
+
+function Starship2HeadingTimer() {
+  const s = useStarship2();
+  if (!s) return null;
+  return <Starship2Timer maturity={s.maturity} toMaturity={s.toMaturity} />;
 }

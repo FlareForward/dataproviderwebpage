@@ -46,7 +46,7 @@ const rewardManagerAbi = [
   },
 ] as const;
 
-function useRewardEpochState() {
+export function useRewardEpochState() {
   const publicClient = usePublicClient();
   const fsm = useContractAddress("FlareSystemsManager");
   const rm = useContractAddress("RewardManager");
@@ -100,27 +100,20 @@ function fmtWhen(ts: number): string {
   });
 }
 
-/**
- * Small-print claim line for Starship 1. Starship 2 has its own line (redeem at maturity),
- * because the two claim on different terms.
- */
-export function RewardEpochLine({ className = "" }: { className?: string }) {
+/** The current reward epoch, its end, and how far through it we are. Ticks every second. */
+export function useRewardEpoch() {
   const { data } = useRewardEpochState();
   const left = useCountdown(data?.endTs);
   if (!data || left == null) return null;
-  const elapsed = EPOCH_SECONDS - left;
-  return (
-    <div className={className}>
-      <p className="text-[11px] leading-relaxed text-[#8FA0B8]">
-        Rewards claim every 3.5 days. Epoch {data.epoch} ends in{" "}
-        <span className="tabular-nums text-[#FAFAFA]">{left > 0 ? fmtCountdown(left) : "moments"}</span>{" "}
-        ({fmtWhen(data.endTs)}), claimable once Flare finalizes it. Claimable now: through epoch{" "}
-        {data.latestClaimable}.
-      </p>
-      <ProgressBar pct={(elapsed / EPOCH_SECONDS) * 100} tone="pink" label={`Epoch ${data.epoch} progress`} />
-    </div>
-  );
+  return {
+    epoch: data.epoch,
+    endTs: data.endTs,
+    left,
+    pct: ((EPOCH_SECONDS - left) / EPOCH_SECONDS) * 100,
+  };
 }
+
+export { fmtWhen };
 
 /** A reward epoch on Flare is 302,400 s (FlareSystemsManager.rewardEpochDurationSeconds, read 2026-09-30). */
 const EPOCH_SECONDS = 302_400;
