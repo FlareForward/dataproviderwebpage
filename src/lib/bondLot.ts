@@ -336,7 +336,18 @@ export function isTermTier(tier: BondTier): tier is BondTier & { kind: "term" } 
   return tierKind(tier) === "term";
 }
 
-const STARSHIP2_IMAGE_CID = "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie";
+/** The Lot 2 artwork, still used by Lot 3. Starship 2 had it as a placeholder until its own art. */
+const LOT2_ART_CID = "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie";
+
+/**
+ * Starship 2 artwork from Whale, pinned on the FlareForward Pinata gateway (2026-09-30).
+ * Keep these equal to the `image_ipfs` CIDs in public/bonds/starship2-*.json.
+ */
+const STARSHIP2_ART_CID = {
+  "s2-10k": "bafybeicxpbg4n6ofzekn6rofzf46nhvpce63sjecz2gwbsuhztzjol375a", // 004, whale tail
+  "s2-50k": "bafybeibtowcpvbaa3avnzdyy52hbauk77w4s2htccbzvr72hqxe35x4gju", // 005, underwater whale
+  "s2-100k": LOT2_ART_CID, // waiting on the third image
+} as const;
 
 function withTermPreview(tier: BondTier): BondTier {
   if (tier.kind !== "term") return tier;
@@ -356,7 +367,7 @@ const STARSHIP2_TERM_TIERS: BondTier[] = [
     address: "0xe32F7E02475a100C0C22Da26A47b16cb904a770b",
     vault: "0xE4c96479529975a452EDa8e724a8F8DaAA15AeF8",
     blurb: "A 12 month term bond for the first Starship 2 tier.",
-    imageCid: STARSHIP2_IMAGE_CID,
+    imageCid: STARSHIP2_ART_CID["s2-10k"],
     terms: { priceFlr: 10_000, supply: 250, termMonths: 12 },
   },
   {
@@ -370,7 +381,7 @@ const STARSHIP2_TERM_TIERS: BondTier[] = [
     address: "0x3878b78AfbA836634d76B2905b38d856C07c07ba",
     vault: "0x53ED4c1Db2e66FB1D21b0581f8ddEB880f37bc6A",
     blurb: "A 12 month term bond for the middle Starship 2 tier.",
-    imageCid: STARSHIP2_IMAGE_CID,
+    imageCid: STARSHIP2_ART_CID["s2-50k"],
     terms: { priceFlr: 50_000, supply: 50, termMonths: 12 },
   },
   {
@@ -384,7 +395,7 @@ const STARSHIP2_TERM_TIERS: BondTier[] = [
     address: "0x378564Fb9c045E3D7F2AF7440708c95C46F3e738",
     vault: "0xD4b275C1FBE7f45c949B36ad77e4e2F798Eaa409",
     blurb: "A 12 month term bond for the largest Starship 2 tier.",
-    imageCid: STARSHIP2_IMAGE_CID,
+    imageCid: STARSHIP2_ART_CID["s2-100k"],
     terms: { priceFlr: 100_000, supply: 50, termMonths: 12 },
   },
 ];
@@ -445,7 +456,7 @@ export const CURRENT_LOT: BondLotConfig = {
       name: "Lot 3 · 1,000,000 FLR",
       address: "0xf963b3d02d5b17f87a2caac6f6a388841cd58da6",
       blurb: "The largest position, 10 available.",
-      imageCid: STARSHIP2_IMAGE_CID,
+      imageCid: LOT2_ART_CID,
     },
     ...STARSHIP2_TERM_TIERS.map(withTermPreview),
   ],
