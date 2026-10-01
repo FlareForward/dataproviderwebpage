@@ -346,7 +346,7 @@ const LOT2_ART_CID = "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxi
 const STARSHIP2_ART_CID = {
   "s2-10k": "bafybeicxpbg4n6ofzekn6rofzf46nhvpce63sjecz2gwbsuhztzjol375a", // 004, whale tail
   "s2-50k": "bafybeibtowcpvbaa3avnzdyy52hbauk77w4s2htccbzvr72hqxe35x4gju", // 005, underwater whale
-  "s2-100k": LOT2_ART_CID, // waiting on the third image
+  "s2-100k": "bafybeiaxbbjjlqtpjkzwdzqbm4jny5ksqvs5vndywortlhsoepb3bmfu34", // 003, whale surfacing
 } as const;
 
 function withTermPreview(tier: BondTier): BondTier {
