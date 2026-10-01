@@ -344,9 +344,10 @@ const LOT2_ART_CID = "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxi
  * Keep these equal to the `image_ipfs` CIDs in public/bonds/starship2-*.json.
  */
 const STARSHIP2_ART_CID = {
-  "s2-10k": "bafybeicxpbg4n6ofzekn6rofzf46nhvpce63sjecz2gwbsuhztzjol375a", // 004, whale tail
-  "s2-50k": "bafybeibtowcpvbaa3avnzdyy52hbauk77w4s2htccbzvr72hqxe35x4gju", // 005, underwater whale
-  "s2-100k": "bafybeiaxbbjjlqtpjkzwdzqbm4jny5ksqvs5vndywortlhsoepb3bmfu34", // 003, whale surfacing
+  // In Whale's numbering order: 003, 004, 005 from the smallest tier up.
+  "s2-10k": "bafybeiaxbbjjlqtpjkzwdzqbm4jny5ksqvs5vndywortlhsoepb3bmfu34", // 003, whale surfacing
+  "s2-50k": "bafybeicxpbg4n6ofzekn6rofzf46nhvpce63sjecz2gwbsuhztzjol375a", // 004, whale tail
+  "s2-100k": "bafybeibtowcpvbaa3avnzdyy52hbauk77w4s2htccbzvr72hqxe35x4gju", // 005, underwater whale
 } as const;
 
 function withTermPreview(tier: BondTier): BondTier {
