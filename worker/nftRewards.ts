@@ -58,7 +58,29 @@ export const LOTS: Lot[] = [
     distributor: "0x283CB0179c827d87f15927540098e5815697d21a",
     live: true,
   },
-  // Tier B, Lot 2 and Lot 3 land here one at a time, each after its own close.
+  {
+    // Lot 1 Tier B. Closed at 21/21. Distributor deployed from the Bond Treasury
+    // Safe on 2026-10-02 (Safe nonce 14, factory nonce 13) with totalTokenSupply 21,
+    // registered with the VeriGuard registry, royalty receiver set to it.
+    slug: "lot1-tier-b",
+    name: "Lot 1 Tier B (2,500 FLR)",
+    distributor: "0x43EFE3eC5084762f8ba0DDC6478a8C6b27810811",
+    live: true,
+  },
+  {
+    // Lot 2. Closed at 28/28. Same Safe batch (nonce 14, factory nonce 14), supply 28.
+    slug: "lot2",
+    name: "Lot 2 (10,000 FLR)",
+    distributor: "0xA7a2E4563bd19C3b987236D401174B3D87834712",
+    live: true,
+  },
+  {
+    // Lot 3. Closed at 2/2. Same Safe batch (nonce 14, factory nonce 15), supply 2.
+    slug: "lot3",
+    name: "Lot 3 (1,000,000 FLR)",
+    distributor: "0x86F3fE537B30257Bd9ad4f4D30300DF66DFdE22B",
+    live: true,
+  },
 ];
 
 /**
