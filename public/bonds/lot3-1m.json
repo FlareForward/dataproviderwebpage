@@ -1,8 +1,8 @@
 {
   "name": "FlareForward Bond — Lot 3 (1,000,000 FLR)",
   "description": "Backs the FlareForward validator bond on Flare. Holders receive an equal per-NFT share of any distributions the lot makes from what the validator actually earns, paid on-chain through a distribution contract anyone can verify. Distributions are not guaranteed in amount or timing. Funds bond at lot close; there is no redemption, and unclaimed rewards travel with the NFT. Measured performance published at ftso.flareforward.com/nft.",
-  "image": "https://amethyst-selective-bovid-293.mypinata.cloud/ipfs/bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
-  "image_ipfs": "ipfs://bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
+  "image": "https://amethyst-selective-bovid-293.mypinata.cloud/ipfs/bafybeidn5n7ltt5qbaka3rjrzw6g3udwmqtracvnncqvudh2uhcgg4wgei",
+  "image_ipfs": "ipfs://bafybeidn5n7ltt5qbaka3rjrzw6g3udwmqtracvnncqvudh2uhcgg4wgei",
   "external_url": "https://ftso.flareforward.com/nft",
   "attributes": [
     { "trait_type": "Series", "value": "FlareForward Bonds" },
