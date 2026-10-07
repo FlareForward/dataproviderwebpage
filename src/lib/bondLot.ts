@@ -457,7 +457,7 @@ export const CURRENT_LOT: BondLotConfig = {
       name: "Lot 3 · 1,000,000 FLR",
       address: "0xf963b3d02d5b17f87a2caac6f6a388841cd58da6",
       blurb: "The largest position, 10 available.",
-      imageCid: LOT2_ART_CID,
+      imageCid: "bafybeidn5n7ltt5qbaka3rjrzw6g3udwmqtracvnncqvudh2uhcgg4wgei",
     },
     ...STARSHIP2_TERM_TIERS.map(withTermPreview),
   ],
