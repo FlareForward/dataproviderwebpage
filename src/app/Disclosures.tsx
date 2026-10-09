@@ -35,13 +35,13 @@ export default function Disclosures() {
       </div>
 
       <section id="starship-2" className="mt-10 scroll-mt-6">
-        <h2 className="text-xl font-semibold">Starship 2 term bonds</h2>
+        <h2 className="text-xl font-semibold">FTSO V2 term bonds</h2>
         <div className="glass-panel mt-4 p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <h3 className="font-semibold text-[#FAFAFA]">What you should know</h3>
               <p className="mt-1 text-sm leading-relaxed text-[#8FA0B8]">
-                These points apply to Starship 2. The live redemption status is on the{" "}
+                These points apply to FTSO V2. The live redemption status is on the{" "}
                 <Link to="/nft/redeem" className="text-[#E85A95] hover:underline">
                   redemption page
                 </Link>
@@ -79,7 +79,7 @@ export default function Disclosures() {
         </p>
         <ul className="glass-panel mt-4 grid gap-x-8 gap-y-2 p-5 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
           <li>
-            • <span className="font-medium text-[#FAFAFA]">Starship 1 only.</span> Your FLR does
+            • <span className="font-medium text-[#FAFAFA]">FTSO V1 only.</span> Your FLR does
             not come back. It funds the validator self-bond at lot close. No redemption window is
             open, none is scheduled, and there is no maturity date. You hold an NFT, not a claim
             on the capital.
@@ -126,14 +126,14 @@ export default function Disclosures() {
         <h2 className="text-xl font-semibold">The plain-English terms</h2>
         <ul className="glass-panel mt-4 grid gap-x-8 gap-y-2 p-5 text-sm leading-relaxed text-[#8FA0B8] lg:grid-cols-2">
           <li>
-            • Starship 1 funds bond at lot close. After that, your exit is selling the NFT.
+            • FTSO V1 funds bond at lot close. After that, your exit is selling the NFT.
           </li>
           <li>
             • Any distribution is split equally per NFT within a lot, enforced on-chain by that
             lot&apos;s distribution contract.
           </li>
           <li>
-            • Starship 1 only: never burn a bond. A burned token&apos;s share of future distributions
+            • FTSO V1 only: never burn a bond. A burned token&apos;s share of future distributions
             is gone for good. Sell it instead.
           </li>
           <li>

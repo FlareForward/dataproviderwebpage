@@ -30,13 +30,13 @@ export function CustodySection() {
           <div className="space-y-4">
             <p className="text-[#FAFAFA]/90">
               <strong className="text-[#FAFAFA]">
-                When you mint a Starship 1 bond, your FLR becomes FlareForward&apos;s.
+                When you mint a FTSO V1 bond, your FLR becomes FlareForward&apos;s.
               </strong>{" "}
               It is not held in escrow or in trust, and it is not returned.
             </p>
 
             <p>
-              <strong className="text-[#FAFAFA]">Where Starship 1 funds go.</strong> From the
+              <strong className="text-[#FAFAFA]">Where FTSO V1 funds go.</strong> From the
               lot&apos;s mint contract to the Bond Treasury Safe, where it is
               wrapped and delegated to the FlareForward FTSO provider until the
               lot closes. At close it is bonded to the validator. No contract
@@ -49,7 +49,7 @@ export function CustodySection() {
                 <>
                   The Bond Treasury Safe, a 2-of-3 multisig of the three
                   FlareForward principals. Nothing leaves it without two
-                  signatures. Every Starship 1 lot&apos;s mint contract is owned
+                  signatures. Every FTSO V1 lot&apos;s mint contract is owned
                   by that Safe.
                 </>
               ) : (
@@ -65,8 +65,8 @@ export function CustodySection() {
             </p>
 
             <p>
-              <strong className="text-[#FAFAFA]">How Starship 1 holders get paid.</strong> Each
-              closed Starship 1 lot gets its own distribution contract. We measure what the
+              <strong className="text-[#FAFAFA]">How FTSO V1 holders get paid.</strong> Each
+              closed FTSO V1 lot gets its own distribution contract. We measure what the
               validator earned, deposit FLR into that contract, and holders claim an equal
               per-token share. The deposit is a decision we make, not something a contract
               compels. Distribution contracts are owned by the same 2-of-3 Safe.
@@ -80,7 +80,7 @@ export function CustodySection() {
 
             <p>
               <strong className="text-[#FAFAFA]">How you exit.</strong> By
-              selling the NFT. For Starship 1, there is no burn-to-redeem. No redemption window
+              selling the NFT. For FTSO V1, there is no burn-to-redeem. No redemption window
               is open and none is scheduled.
             </p>
 
@@ -146,7 +146,7 @@ export function CustodySection() {
               </li>
               <li>
                 • <strong className="text-[#FAFAFA]">Owner minting.</strong>{" "}
-              The Starship 1 lot contracts let the owner mint at no cost. We do not use this on
+              The FTSO V1 lot contracts let the owner mint at no cost. We do not use this on
               public lots, and the owner is the 2-of-3 Safe.
               </li>
             </ul>

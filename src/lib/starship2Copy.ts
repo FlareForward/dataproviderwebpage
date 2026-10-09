@@ -2,7 +2,7 @@ export const STARSHIP2_INTRO =
   "A 12 month bond. Your FLR backs the FlareForward validator for the term. When the bond matures, you redeem it here for your share of what the treasury has returned to the bond vault. The bond does not renew. Returns are not guaranteed.";
 
 export const REDEMPTION_STEPS = [
-  "Each Starship 2 bond has one maturity date, set when the bond was created. It is the same for every bond in that tier and it cannot be changed.",
+  "Each FTSO V2 bond has one maturity date, set when the bond was created. It is the same for every bond in that tier and it cannot be changed.",
   "Until that date you can hold the bond or sell it. You cannot redeem early.",
   "Before the maturity date, the FlareForward treasury returns funds to that tier's bond vault. The vault is a contract on Flare that anyone can read.",
   "On or after the maturity date, the vault is finalized. That locks in the amount per bond: everything in the vault, split equally across the bonds sold in that tier.",
@@ -19,7 +19,7 @@ export const STARSHIP2_KNOW_BULLETS = [
 
 /** Security notes for /nft/disclosures. Not shown on the redemption page or the mint cards. */
 export const STARSHIP2_SECURITY_NOTES = [
-  "The Starship 2 bond contract can be upgraded by the 2-of-3 Bond Treasury Safe. There is no time delay on an upgrade.",
+  "The FTSO V2 bond contract can be upgraded by the 2-of-3 Bond Treasury Safe. There is no time delay on an upgrade.",
   "The vault contract that holds redemption funds cannot be upgraded.",
-  "The Bond Treasury Safe owns each Starship 2 bond contract, manages each vault, and is the only emergency signer. No single key can act alone, and the key that deployed the contracts holds no role.",
+  "The Bond Treasury Safe owns each FTSO V2 bond contract, manages each vault, and is the only emergency signer. No single key can act alone, and the key that deployed the contracts holds no role.",
 ];

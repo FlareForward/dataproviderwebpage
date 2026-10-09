@@ -292,7 +292,7 @@ export function MintTermLot({ tier }: { tier: BondTier }) {
               <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4">
                 <p className="text-sm font-semibold text-[#FAFAFA]">Sale closed</p>
                 <p className="mt-1 text-sm leading-relaxed text-[#8FA0B8]">
-                  Holders redeem Starship 2 bonds after maturity and vault finalization.
+                  Holders redeem FTSO V2 bonds after maturity and vault finalization.
                 </p>
                 <Link
                   to="/nft/redeem"

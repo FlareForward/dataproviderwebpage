@@ -318,7 +318,7 @@ export default function Redeem() {
         </Link>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <Gem size={24} className="text-[#E85A95]" />
-          <h1 className="text-2xl font-bold tracking-tight">Starship 2 redemption</h1>
+          <h1 className="text-2xl font-bold tracking-tight">FTSO V2 redemption</h1>
           {TERM_PREVIEW && (
             <span className="rounded-full border border-sky-300/40 bg-sky-300/10 px-2.5 py-0.5 text-[10px] font-medium text-sky-200">
               TESTNET PREVIEW
@@ -354,17 +354,17 @@ export default function Redeem() {
 
       <section className="mt-10 max-w-5xl" aria-labelledby="your-starship2-bonds">
         <h2 id="your-starship2-bonds" className="text-xl font-semibold">
-          Your Starship 2 bonds
+          Your FTSO V2 bonds
         </h2>
 
         {LIVE_TERM_TIERS.length === 0 ? (
           <div className="glass-panel mt-4 p-6 text-sm text-[#8FA0B8]">
-            Starship 2 bonds are not on sale yet.
+            FTSO V2 bonds are not on sale yet.
           </div>
         ) : !isConnected ? (
           <div className="glass-panel mt-4 p-5">
             <p className="mb-4 text-sm leading-relaxed text-[#8FA0B8]">
-              Connect your wallet to see your Starship 2 bonds and redeem after maturity.
+              Connect your wallet to see your FTSO V2 bonds and redeem after maturity.
             </p>
             <ConnectWallet />
           </div>
@@ -377,7 +377,7 @@ export default function Redeem() {
                   Your wallet is on another network
                 </p>
                 <p className="mt-2 text-sm leading-relaxed text-[#FAFAFA]/90">
-                  Switch to {TERM_CHAIN.name} before redeeming a Starship 2 bond.
+                  Switch to {TERM_CHAIN.name} before redeeming a FTSO V2 bond.
                 </p>
                 <Button className="mt-3" onClick={onSwitch} disabled={switching}>
                   {switching ? (
@@ -412,11 +412,11 @@ export default function Redeem() {
             {loading ? (
               <div className="glass-panel mt-4 flex items-center gap-2 p-6 text-sm text-[#8FA0B8]">
                 <Loader2 size={15} className="animate-spin" />
-                Reading your Starship 2 bonds.
+                Reading your FTSO V2 bonds.
               </div>
             ) : held.length === 0 ? (
               <div className="glass-panel mt-4 p-6 text-sm text-[#8FA0B8]">
-                This wallet holds no Starship 2 bonds.
+                This wallet holds no FTSO V2 bonds.
               </div>
             ) : (
               <div className="mt-4 space-y-4">
