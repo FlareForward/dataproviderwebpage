@@ -112,7 +112,7 @@ export function StarshipTimer({
   );
 }
 
-/** Starship 1: counts down the current reward epoch. */
+/** FTSO V1: counts down the current reward epoch. */
 export function Starship1Timer() {
   const e = useRewardEpoch();
   if (!e) return null;
@@ -128,7 +128,7 @@ export function Starship1Timer() {
 }
 
 /**
- * When the Starship 2 sales opened: Bond Treasury Safe nonce 13, tx 0x41f64b13…,
+ * When the FTSO V2 sales opened: Bond Treasury Safe nonce 13, tx 0x41f64b13…,
  * block 70998062, 2026-09-30 16:41:56Z. The term bar runs from here to maturity.
  */
 const STARSHIP2_OPENED_AT = 1790786516;
@@ -137,7 +137,7 @@ const STARSHIP2_TIERS = CURRENT_LOT.tiers.filter(
   (t): t is typeof t & { kind: "term"; address: `0x${string}` } => isTermTier(t) && !!t.address,
 );
 
-/** Live Starship 2 numbers, read from the three bond contracts. */
+/** Live FTSO V2 numbers, read from the three bond contracts. */
 export function useStarship2() {
   const { data } = useReadContracts({
     contracts: STARSHIP2_TIERS.flatMap((t) => [
@@ -175,7 +175,7 @@ export function useStarship2() {
   };
 }
 
-/** Starship 2: counts down to maturity, when the bonds redeem. */
+/** FTSO V2: counts down to maturity, when the bonds redeem. */
 export function Starship2Timer({ maturity, toMaturity }: { maturity: number | null; toMaturity: number | null }) {
   if (maturity == null || toMaturity == null) return null;
   const pct = ((maturity - toMaturity - STARSHIP2_OPENED_AT) / (maturity - STARSHIP2_OPENED_AT)) * 100;

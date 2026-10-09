@@ -199,7 +199,7 @@ function LeadStatus({
   if (liveStatuses.length === 0) {
     return (
       <p className="mt-4 text-sm text-amber-300">
-        No Starship 1 lot is open. The next one is announced here first.
+        No FTSO V1 lot is open. The next one is announced here first.
       </p>
     );
   }
@@ -218,9 +218,9 @@ function LeadStatus({
   if (openStatuses.length === 0) {
     return (
       <p className="mt-4 text-sm text-[#8FA0B8]">
-        Every Starship 1 lot is closed.{" "}
+        Every FTSO V1 lot is closed.{" "}
         <span className="text-[#FAFAFA]">{fmtCount(minted)} bonds</span> issued across{" "}
-        {liveStatuses.length} lots. The next Starship 1 lot is announced here first.
+        {liveStatuses.length} lots. The next FTSO V1 lot is announced here first.
       </p>
     );
   }
@@ -228,7 +228,7 @@ function LeadStatus({
   const remaining = openStatuses.reduce((sum, s) => sum + (remainingFor(s) ?? 0n), 0n);
   return (
     <p className="mt-4 max-w-3xl rounded-xl border border-[#E85A95]/30 bg-[#E85A95]/10 px-4 py-3 text-sm font-medium text-[#FAFAFA]">
-      Starship 1 mint open. {fmtCount(remaining)} remaining across {openStatuses.length}{" "}
+      FTSO V1 mint open. {fmtCount(remaining)} remaining across {openStatuses.length}{" "}
       {openStatuses.length === 1 ? "lot" : "lots"}.
     </p>
   );
@@ -338,7 +338,7 @@ function LotCloseLine() {
   if (!endUnix) {
     return (
       <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        The open Starship 1 lot closes as the current bond period ends, when the raised capital is
+        The open FTSO V1 lot closes as the current bond period ends, when the raised capital is
         bonded.
       </p>
     );
@@ -349,7 +349,7 @@ function LotCloseLine() {
 
   return (
     <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-      The open Starship 1 lot closes as the current bond period ends,{" "}
+      The open FTSO V1 lot closes as the current bond period ends,{" "}
       <span className="text-[#FAFAFA] font-medium">
         {end.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
       </span>
@@ -389,7 +389,7 @@ function Lots({
       <section className="mt-10" aria-labelledby="starship1-title">
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <h2 id="starship1-title" className="text-xl font-semibold">
-            Starship 1
+            FTSO V1
           </h2>
           <div className="w-full sm:w-[min(320px,28%)] sm:min-w-[240px]">
             <Starship1Timer />
@@ -466,7 +466,7 @@ function Lots({
 
       {!anyOpen && (
         <p className="mt-3 text-sm text-[#8FA0B8]">
-          Closed Starship 1 lots are capped at what sold and their capital is bonded. Bonds trade
+          Closed FTSO V1 lots are capped at what sold and their capital is bonded. Bonds trade
           on the secondary market.
         </p>
       )}
@@ -476,7 +476,7 @@ function Lots({
         <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
           <div className="flex flex-wrap items-center gap-3">
             <h2 id="starship2-title" className="text-xl font-semibold">
-              Starship 2
+              FTSO V2
             </h2>
             {TERM_PREVIEW && (
               <span className="rounded-full border border-sky-300/40 bg-sky-300/10 px-2.5 py-0.5 text-[10px] font-medium text-sky-200">
@@ -580,7 +580,7 @@ export default function NftRewards() {
           <h1 className="text-2xl font-bold tracking-tight">FlareForward Bonds</h1>
         </div>
         <p className="mt-3 text-lg leading-relaxed text-[#FAFAFA]/90">
-          Starship 1 bonds are perpetual shares of holder distributions. Starship 2 bonds have a
+          FTSO V1 bonds are perpetual shares of holder distributions. FTSO V2 bonds have a
           12 month term and redeem through their tier vault after maturity.
         </p>
         <LeadStatus statuses={statuses} statusLoading={statusLoading} />
@@ -603,7 +603,7 @@ export default function NftRewards() {
 
       <MeasuredPerformance />
 
-      <h2 className="mt-10 text-xl font-semibold">How Starship 1 works</h2>
+      <h2 className="mt-10 text-xl font-semibold">How FTSO V1 works</h2>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Step
           n={1}
@@ -627,7 +627,7 @@ export default function NftRewards() {
           n={4}
           icon={<Tag size={18} />}
           title="Sell"
-          body="The exit is selling the NFT to another buyer. Unclaimed rewards travel with it. Starship 1 has no redemption window open or scheduled."
+          body="The exit is selling the NFT to another buyer. Unclaimed rewards travel with it. FTSO V1 has no redemption window open or scheduled."
         />
       </div>
 
@@ -648,7 +648,7 @@ export default function NftRewards() {
             We are shaping a way for part of what the infrastructure earns to go to a cause worth
             backing. Nothing is promised yet; when it is settled, the details go here, transactions
             and all. One thing works today: a bond can be given away. Send it to an address the
-            recipient controls. For Starship 1, never burn it.
+            recipient controls. For FTSO V1, never burn it.
           </p>
         </div>
       </section>

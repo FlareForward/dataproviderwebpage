@@ -71,7 +71,7 @@ export const bondLotAbi = [
   },
 ] as const;
 
-/** Minimal ABI for the 12 month Starship 2 term bond NFT. */
+/** Minimal ABI for the 12 month FTSO V2 term bond NFT. */
 export const termBondAbi = [
   {
     type: "function",
@@ -159,7 +159,7 @@ export const termBondAbi = [
   },
 ] as const;
 
-/** Minimal ABI for a Starship 2 bond vault. */
+/** Minimal ABI for a FTSO V2 bond vault. */
 export const bondVaultAbi = [
   {
     type: "function",
@@ -285,8 +285,8 @@ export const distributorAbi = [
 
 export interface BondTier {
   key: string;
-  /** Starship family this tier belongs to. */
-  series: "Starship 1" | "Starship 2";
+  /** FTSO node this tier belongs to. */
+  series: "FTSO V1" | "FTSO V2";
   /** Share tiers are perpetual; term tiers redeem at maturity. */
   kind?: "share" | "term";
   /** Display name for the tier. */
@@ -336,11 +336,11 @@ export function isTermTier(tier: BondTier): tier is BondTier & { kind: "term" } 
   return tierKind(tier) === "term";
 }
 
-/** The Lot 2 artwork, still used by Lot 3. Starship 2 had it as a placeholder until its own art. */
+/** The Lot 2 artwork, still used by Lot 3. FTSO V2 had it as a placeholder until its own art. */
 const LOT2_ART_CID = "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie";
 
 /**
- * Starship 2 artwork from Whale, pinned on the FlareForward Pinata gateway (2026-09-30).
+ * FTSO V2 artwork from Whale, pinned on the FlareForward Pinata gateway (2026-09-30).
  * Keep these equal to the `image_ipfs` CIDs in public/bonds/starship2-*.json.
  */
 const STARSHIP2_ART_CID = {
@@ -359,43 +359,43 @@ function withTermPreview(tier: BondTier): BondTier {
 const STARSHIP2_TERM_TIERS: BondTier[] = [
   {
     key: "s2-10k",
-    series: "Starship 2",
+    series: "FTSO V2",
     kind: "term",
-    name: "Starship 2 · 10,000 FLR",
+    name: "FTSO V2 · 10,000 FLR",
     // Deployed 2026-09-30 by the operations Trezor with the Bond Treasury Safe as owner,
     // admin, vault manager and only emergency signer. Addresses copied from the launch tool's
     // verified state, not typed.
     address: "0xe32F7E02475a100C0C22Da26A47b16cb904a770b",
     vault: "0xE4c96479529975a452EDa8e724a8F8DaAA15AeF8",
-    blurb: "A 12 month term bond for the first Starship 2 tier.",
+    blurb: "A 12 month term bond for the first FTSO V2 tier.",
     imageCid: STARSHIP2_ART_CID["s2-10k"],
     terms: { priceFlr: 10_000, supply: 250, termMonths: 12 },
   },
   {
     key: "s2-50k",
-    series: "Starship 2",
+    series: "FTSO V2",
     kind: "term",
-    name: "Starship 2 · 50,000 FLR",
+    name: "FTSO V2 · 50,000 FLR",
     // Deployed 2026-09-30 by the operations Trezor with the Bond Treasury Safe as owner,
     // admin, vault manager and only emergency signer. Addresses copied from the launch tool's
     // verified state, not typed.
     address: "0x3878b78AfbA836634d76B2905b38d856C07c07ba",
     vault: "0x53ED4c1Db2e66FB1D21b0581f8ddEB880f37bc6A",
-    blurb: "A 12 month term bond for the middle Starship 2 tier.",
+    blurb: "A 12 month term bond for the middle FTSO V2 tier.",
     imageCid: STARSHIP2_ART_CID["s2-50k"],
     terms: { priceFlr: 50_000, supply: 50, termMonths: 12 },
   },
   {
     key: "s2-100k",
-    series: "Starship 2",
+    series: "FTSO V2",
     kind: "term",
-    name: "Starship 2 · 100,000 FLR",
+    name: "FTSO V2 · 100,000 FLR",
     // Deployed 2026-09-30 by the operations Trezor with the Bond Treasury Safe as owner,
     // admin, vault manager and only emergency signer. Addresses copied from the launch tool's
     // verified state, not typed.
     address: "0x378564Fb9c045E3D7F2AF7440708c95C46F3e738",
     vault: "0xD4b275C1FBE7f45c949B36ad77e4e2F798Eaa409",
-    blurb: "A 12 month term bond for the largest Starship 2 tier.",
+    blurb: "A 12 month term bond for the largest FTSO V2 tier.",
     imageCid: STARSHIP2_ART_CID["s2-100k"],
     terms: { priceFlr: 100_000, supply: 50, termMonths: 12 },
   },
@@ -410,11 +410,11 @@ const STARSHIP2_TERM_TIERS: BondTier[] = [
  * launch time, not before.
  */
 export const CURRENT_LOT: BondLotConfig = {
-  label: "Starship 1 and 2",
+  label: "FTSO V1 and 2",
   tiers: [
     {
       key: "tier-a",
-      series: "Starship 1",
+      series: "FTSO V1",
       kind: "share",
       name: "Lot 1 · 10,000 FLR",
       address: "0x697e2ece036253afb08ee35cb1bcb83fec361736",
@@ -426,7 +426,7 @@ export const CURRENT_LOT: BondLotConfig = {
     },
     {
       key: "tier-b",
-      series: "Starship 1",
+      series: "FTSO V1",
       kind: "share",
       name: "Lot 1 · 2,500 FLR",
       address: "0xbfa14e5949eae2180af20bb30511d9023c67daf9",
@@ -438,7 +438,7 @@ export const CURRENT_LOT: BondLotConfig = {
       // Same contract code and terms shape; its own collection and, after close,
       // its own distributor. Address lands here the moment it is deployed.
       key: "lot2-10k",
-      series: "Starship 1",
+      series: "FTSO V1",
       kind: "share",
       name: "Lot 2 · 10,000 FLR",
       address: "0xd7b8d7f436b4b30b94a12457615f872dc4d5895a",
@@ -452,7 +452,7 @@ export const CURRENT_LOT: BondLotConfig = {
       // THE BOND TREASURY SAFE FROM ITS FIRST BLOCK — unlike Lots 1 and 2,
       // there was never a window in which a single key controlled it.
       key: "lot3-1m",
-      series: "Starship 1",
+      series: "FTSO V1",
       kind: "share",
       name: "Lot 3 · 1,000,000 FLR",
       address: "0xf963b3d02d5b17f87a2caac6f6a388841cd58da6",

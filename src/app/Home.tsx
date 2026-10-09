@@ -191,7 +191,7 @@ export default function Home() {
               to="/nft"
               icon={<Flame size={18} />}
               title="FlareForward Bonds"
-              body="Starship 1 bonds fund the validator self-bond; the FLR is not returned and every lot is closed today. Starship 2, a 12 month bond you redeem at maturity, is coming soon."
+              body="FTSO V1 bonds fund the validator self-bond; the FLR is not returned and every lot is closed today. FTSO V2, a 12 month bond you redeem at maturity, is coming soon."
             />
             {/* The odd one out: the first three are ways to back us, this one
                 is where you go once you have. It keeps its slot in the row, but
@@ -291,7 +291,7 @@ function XGlyph() {
 }
 
 /**
- * Starship 1 is the FlareForward validator. The bar is how full it is; the
+ * FTSO V1 is the FlareForward validator. The bar is how full it is; the
  * timer is the current reward epoch, when delegation and staking rewards land.
  */
 function StakingCapacityStrip({
@@ -307,7 +307,7 @@ function StakingCapacityStrip({
   return (
     <StarshipStrip
       className="mt-4"
-      name="Starship 1"
+      name="FTSO V1"
       label="Validator capacity"
       // Under 1 FLR open is full in practice: the node reports dust like 0.29 FLR.
       badge={open < 1 ? { text: "Full", tone: "neutral" } : undefined}
@@ -316,26 +316,26 @@ function StakingCapacityStrip({
       barTone="pink"
       left={`${fmtFlrCompact(staked)} FLR staked`}
       right={`${fmtFlrCompact(open)} FLR open of ${fmtFlrCompact(capacity)} FLR`}
-      link={{ to: "/nft", text: "Starship 1 NFTs" }}
+      link={{ to: "/nft", text: "FTSO V1 NFTs" }}
     />
   );
 }
 
-/** Starship 2: the 12 month bond NFTs. Bar is FLR raised; timer is time to redemption. */
+/** FTSO V2: the 12 month bond NFTs. Bar is FLR raised; timer is time to redemption. */
 function Starship2Strip() {
   const s = useStarship2();
   if (!s) return null;
   return (
     <StarshipStrip
       className="mt-3"
-      name="Starship 2"
+      name="FTSO V2"
       label="12 month bond"
       badge={s.anyOpen ? { text: "Mint open", tone: "green" } : { text: "Closed", tone: "neutral" }}
       timer={<Starship2Timer maturity={s.maturity} toMaturity={s.toMaturity} />}
       barPct={s.cap > 0 ? (s.raised / s.cap) * 100 : 0}
       barTone="green"
       left={`${fmtFlrCompact(s.raised)} FLR raised of ${fmtFlrCompact(s.cap)} FLR`}
-      link={{ to: "/nft", text: s.anyOpen ? "Mint Starship 2" : "Starship 2 NFTs" }}
+      link={{ to: "/nft", text: s.anyOpen ? "Mint FTSO V2" : "FTSO V2 NFTs" }}
     />
   );
 }

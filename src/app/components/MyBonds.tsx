@@ -432,8 +432,8 @@ export function MyBonds({
             ))}
           </div>
           <p className="mt-3 text-xs text-[#8FA0B8]/80">
-            Holding {totalHeld} bond{totalHeld === 1 ? "" : "s"}. Starship 1 distributions open
-            once the lot closes and its distribution contract is deployed. Starship 2 redemption
+            Holding {totalHeld} bond{totalHeld === 1 ? "" : "s"}. FTSO V1 distributions open
+            once the lot closes and its distribution contract is deployed. FTSO V2 redemption
             opens on the redemption page after maturity and vault finalization.
           </p>
         </>
