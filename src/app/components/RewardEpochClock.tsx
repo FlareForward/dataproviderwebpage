@@ -11,6 +11,13 @@ import { useContractAddress } from "../../hooks/useProviders";
  * RewardManager pays both in one claim. The legacy ValidatorRewardManager only holds a
  * pre-FSP tail and has no schedule. So there is one countdown, labelled for both.
  *
+ * Update 2026-10-10: the Flare Foundation's reward-scripts repo sums staking rewards over
+ * four reward epochs (14 days) before the on-chain payout, and publishes each batch as
+ * validator-rewards/epochs-A-B (410-413, 414-417 ... 434-437, so a batch always ends on an
+ * epoch where epoch % 4 == 1). That is the "big distribution", tracked by useStakingCycle.
+ * When it lands after the batch's last epoch closes is not fixed, so we show the batch
+ * window, not a payout time.
+ *
  * The end of an epoch is exact (FlareSystemsManager.currentRewardEpochExpectedEndTs).
  * When its rewards become claimable is NOT fixed: epoch 435 took 18 h after it ended,
  * epoch 436 took 6 h. So the clock never predicts that moment; it reads the last
@@ -114,6 +121,16 @@ export function useRewardEpoch() {
 }
 
 export { fmtWhen };
+
+/** Staking rewards are paid per batch of four reward epochs (14 days). A batch ends on an epoch where epoch % 4 == 1. */
+export const STAKING_BATCH_EPOCHS = 4;
+
+/** The 4-epoch staking batch the current epoch belongs to, with its start and end timestamps. */
+export function stakingBatch(epoch: number, currentEndTs: number) {
+  const endEpoch = epoch + ((1 - (epoch % STAKING_BATCH_EPOCHS) + STAKING_BATCH_EPOCHS) % STAKING_BATCH_EPOCHS);
+  const endTs = currentEndTs + (endEpoch - epoch) * EPOCH_SECONDS;
+  return { startEpoch: endEpoch - STAKING_BATCH_EPOCHS + 1, endEpoch, startTs: endTs - STAKING_BATCH_EPOCHS * EPOCH_SECONDS, endTs };
+}
 
 /** A reward epoch on Flare is 302,400 s (FlareSystemsManager.rewardEpochDurationSeconds, read 2026-09-30). */
 const EPOCH_SECONDS = 302_400;

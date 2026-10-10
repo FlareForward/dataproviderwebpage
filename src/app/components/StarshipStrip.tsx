@@ -5,7 +5,7 @@ import { useReadContracts } from "wagmi";
 import { formatEther } from "viem";
 import { CURRENT_LOT, isTermTier, termBondAbi } from "../../lib/bondLot";
 import { TERM_CHAIN } from "../../lib/flare";
-import { ProgressBar, fmtCountdown, fmtWhen, useCountdown, useRewardEpoch } from "./RewardEpochClock";
+import { ProgressBar, fmtCountdown, fmtWhen, stakingBatch, useCountdown, useRewardEpoch, useRewardEpochState } from "./RewardEpochClock";
 
 /**
  * One layout for every Starship, so a visitor reads each one the same way:
@@ -112,18 +112,33 @@ export function StarshipTimer({
   );
 }
 
-/** FTSO V1: counts down the current reward epoch. */
+/** FTSO V1: the 14-day staking batch on top, the current reward epoch under it. */
 export function Starship1Timer() {
   const e = useRewardEpoch();
+  const { data } = useRewardEpochState();
+  const batch = data ? stakingBatch(data.epoch, data.endTs) : null;
+  const batchLeft = useCountdown(batch?.endTs);
   if (!e) return null;
+  const batchSecs = batch ? batch.endTs - batch.startTs : 0;
   return (
-    <StarshipTimer
-      heading={`Epoch ${e.epoch} ends in`}
-      secs={e.left}
-      pct={e.pct}
-      tone="pink"
-      note={`${fmtWhen(e.endTs)}. Claimable once Flare finalizes it.`}
-    />
+    <div className="space-y-3">
+      {batch && batchLeft != null && (
+        <StarshipTimer
+          heading="Staking payout batch ends in"
+          secs={batchLeft}
+          pct={((batchSecs - batchLeft) / batchSecs) * 100}
+          tone="green"
+          note={`Epochs ${batch.startEpoch} to ${batch.endEpoch}, ends ${fmtWhen(batch.endTs)}. Staking rewards are paid every 14 days, after Flare finalizes the batch.`}
+        />
+      )}
+      <StarshipTimer
+        heading={`Epoch ${e.epoch} ends in`}
+        secs={e.left}
+        pct={e.pct}
+        tone="pink"
+        note={`${fmtWhen(e.endTs)}. Claimable once Flare finalizes it.`}
+      />
+    </div>
   );
 }
 
