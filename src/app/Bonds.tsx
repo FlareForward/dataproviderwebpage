@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { ArrowRight, ExternalLink, Gem, Gift, Loader2 } from "lucide-react";
+import { ArrowRight, ExternalLink, Gem, Gift, Info, Loader2 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { Button } from "./components/Button";
 import { MyBonds } from "./components/MyBonds";
@@ -107,6 +107,19 @@ export default function Bonds() {
               <Gem size={16} /> Bond lots <ArrowRight size={15} />
             </Button>
           </Link>
+        </div>
+
+        {/* Payout schedule notice. Stays on the page; the one-time claim popup is the nudge. */}
+        <div className="glass-panel flex items-start gap-3 p-4 text-sm">
+          <Info size={18} className="mt-0.5 shrink-0 text-[#E85A95]" />
+          <div className="space-y-1">
+            <div className="font-semibold text-[#FAFAFA]">Payouts are moving to the staking schedule</div>
+            <p className="text-[#8FA0B8] leading-relaxed">
+              We will pay out the next mirror epoch as usual. After that, bond rewards are released after each Flare
+              staking payout, which comes every 14 days, with a goal of one business day later. This keeps payouts
+              steady, because Flare releases mirror rewards at a different time every 3.5 days.
+            </p>
+          </div>
         </div>
 
         {/* Earnings and claim, together and at the top — the two things someone
