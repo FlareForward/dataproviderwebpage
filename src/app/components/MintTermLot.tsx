@@ -22,9 +22,10 @@ import {
 import { TERM_CHAIN, TERM_EXPLORER_URL } from "../../lib/flare";
 import { TERM_PREVIEW } from "../../lib/termPreview";
 
-function fmtFlr(wei: bigint): string {
+/** Whole FLR with separators. The dust below 1 FLR is noise on a sales page. */
+function fmtFlr(wei: bigint, round: "nearest" | "up" = "nearest"): string {
   const n = Number(formatEther(wei));
-  return n.toLocaleString("en-US", { maximumFractionDigits: 4 });
+  return (round === "up" ? Math.ceil(n) : Math.round(n)).toLocaleString("en-US");
 }
 
 function fmtNumber(value: number | bigint | null | undefined): string {
@@ -394,7 +395,7 @@ export function MintTermLot({ tier }: { tier: BondTier }) {
                     {affordable != null && affordable > 0
                       ? `, enough for ${affordable} ${affordable === 1 ? "bond" : "bonds"} at this tier.`
                       : shortfall != null && shortfall > 0n
-                        ? `, about ${fmtFlr(shortfall)} FLR short of one bond here, allowing for gas.`
+                        ? `, about ${fmtFlr(shortfall, "up")} FLR short of one bond here, allowing for gas.`
                         : "."}
                   </p>
                 )}
