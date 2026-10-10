@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { ArrowRight, ExternalLink, Gem, Gift, Loader2 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { Button } from "./components/Button";
 import { MyBonds } from "./components/MyBonds";
+import { ClaimNoticeDialog, hasSeenClaimNotice, markClaimNoticeSeen } from "./components/ClaimNoticeDialog";
 import { useEarned } from "../hooks/useEarned";
 import { useBondClaims } from "../hooks/useBondClaims";
 import { settledRate, fmtPct, fmtFlrWei } from "../lib/rewards";
@@ -26,6 +28,15 @@ export default function Bonds() {
   const { address } = useAccount();
   const earned = useEarned(address);
   const claims = useBondClaims();
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  // One-time notice per wallet, shown on the first bond claim after the payout schedule change.
+  function onClaimClick() {
+    if (address && !hasSeenClaimNotice(address)) {
+      setNoticeOpen(true);
+      return;
+    }
+    void claims.claimAll();
+  }
   const busy = claims.phase === "processing" || claims.phase === "claiming";
   const claimLabel =
     claims.phase === "processing"
@@ -127,12 +138,22 @@ export default function Bonds() {
                 variant="action"
                 className="gap-2 w-full sm:w-auto"
                 disabled={!claims.mayClaim || busy}
-                onClick={() => void claims.claimAll()}
+                onClick={onClaimClick}
               >
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}{" "}
                 {claimLabel}
               </Button>
               <p className="mt-2 text-xs text-[#8FA0B8]">{claimCaption}</p>
+              {noticeOpen && address && (
+                <ClaimNoticeDialog
+                  onCancel={() => setNoticeOpen(false)}
+                  onContinue={() => {
+                    markClaimNoticeSeen(address);
+                    setNoticeOpen(false);
+                    void claims.claimAll();
+                  }}
+                />
+              )}
               {claims.lastTx && (
                 <a
                   href={`https://flare-explorer.flare.network/tx/${claims.lastTx}`}
