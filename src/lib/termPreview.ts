@@ -11,8 +11,8 @@ export interface TermPreviewConfig {
   tiers: Record<string, TermPreviewTier>;
 }
 
-function parseTermPreview(raw: unknown): TermPreviewConfig | null {
-  if (!import.meta.env.DEV || typeof raw !== "string" || raw.trim() === "") {
+function parseTermPreview(raw: unknown, dev: boolean): TermPreviewConfig | null {
+  if (!dev || typeof raw !== "string" || raw.trim() === "") {
     return null;
   }
 
@@ -52,4 +52,7 @@ function parseTermPreview(raw: unknown): TermPreviewConfig | null {
   }
 }
 
-export const TERM_PREVIEW = parseTermPreview(import.meta.env.VITE_TERM_PREVIEW);
+export const TERM_PREVIEW = parseTermPreview(
+  import.meta.env?.VITE_TERM_PREVIEW,
+  import.meta.env?.DEV === true,
+);
