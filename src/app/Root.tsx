@@ -27,13 +27,13 @@ export function Root() {
       {/* Sidebar */}
       <aside className="relative z-10 w-64 border-r border-white/8 glass-surface hidden lg:flex flex-col">
         <div className="h-16 flex items-center gap-1.5 px-4 border-b border-white/8">
+          <NetworkMenu />
           <div className="flex items-center gap-2 min-w-0">
             <ImageWithFallback src={logoImage} alt="FlareForward Logo" className="h-8 w-auto object-contain shrink-0" />
             <span className="font-extrabold text-base tracking-tight bg-gradient-to-br from-[#EE1A58] to-[#E85A95] bg-clip-text text-transparent">
               FlareForward
             </span>
           </div>
-          <NetworkMenu />
         </div>
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           <NavItem to="/" icon={<LayoutDashboard size={20} />} label="Home" />
@@ -61,10 +61,10 @@ export function Root() {
         {/* Header */}
         <header className="h-16 border-b border-white/8 glass-surface sticky top-0 z-20 flex items-center justify-between px-4 lg:px-8">
           <div className="flex items-center gap-2 lg:hidden min-w-0">
+            <NetworkMenu includeSiteLinks />
             <div className="flex items-center gap-2">
               <ImageWithFallback src={logoImage} alt="FlareForward Logo" className="h-7 w-auto object-contain" />
             </div>
-            <NetworkMenu includeSiteLinks />
           </div>
 
           <div className="hidden lg:flex items-center gap-2 text-sm text-[#8FA0B8]">
