@@ -14,18 +14,22 @@
  * otherwise rewrite them to index.html.
  */
 
-import { handleNftRewards } from "./nftRewards";
-import { handleBondYield, loadLastMeasuredEpoch } from "./bondYield";
-import { handleEarned } from "./earned";
+import { CURRENT_LOT, tierKind, type BondTier } from "../src/lib/bondLot.js";
+import { handleNftRewards } from "./nftRewards.js";
+import { handleBondYield, loadLastMeasuredEpoch } from "./bondYield.js";
+import { handleEarned } from "./earned.js";
 
 /** Flare Forward identity (pinned) — mirrors PINNED_PROVIDER_ADDRESS in the app. */
 const IDENTITY_ADDRESS = "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
 
 const EXPLORER_BASE =
   "https://flare-systems-explorer-backend.flare.network/api/v0";
+const FLARE_RPC = "https://flare-api.flare.network/ext/C/rpc";
 
 /** Serve for 5 min; allow a stale copy for 10 min more while revalidating. */
 const CACHE_CONTROL = "public, max-age=300, stale-while-revalidate=600";
+const SUPPORT_CACHE_SECONDS = 60;
+const SUPPORT_CACHE_CONTROL = `public, max-age=${SUPPORT_CACHE_SECONDS}`;
 
 interface Env {
   ASSETS?: { fetch: (request: Request) => Promise<Response> };
@@ -162,6 +166,19 @@ function jsonResponse(body: unknown, status = 200): Response {
   );
 }
 
+function supportJsonResponse(body: unknown): Response {
+  return withSecurityHeaders(
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: {
+        "content-type": "application/json",
+        "access-control-allow-origin": "*",
+        "cache-control": SUPPORT_CACHE_CONTROL,
+      },
+    })
+  );
+}
+
 async function handleFtso(feedsOnly: boolean): Promise<Response> {
   try {
     const [ftso, feeds, ownerMap] = await Promise.all([
@@ -265,6 +282,25 @@ async function findValidatorRow(
     row = pg.results?.find((r) => r.node_id && nodeIds.has(r.node_id));
   }
   return row;
+}
+
+interface ValidatorStakeSummary {
+  selfBond: number | null;
+  delegated: number | null;
+  capacity: number | null;
+  totalStake: number | null;
+  spaceLeft: number | null;
+}
+
+function validatorStakeSummary(row: ValidatorRow | undefined): ValidatorStakeSummary {
+  const selfBond = flr(row?.self_bond, STAKE_DECIMALS);
+  const delegated = flr(row?.delegated, STAKE_DECIMALS);
+  const capacity = flr(row?.total_available_stake, STAKE_DECIMALS);
+  const totalStake =
+    selfBond != null && delegated != null ? selfBond + delegated : null;
+  const spaceLeft =
+    capacity != null && totalStake != null ? capacity - totalStake : null;
+  return { selfBond, delegated, capacity, totalStake, spaceLeft };
 }
 
 async function handleValidator(): Promise<Response> {
@@ -462,13 +498,8 @@ async function handleRewards(): Promise<Response> {
     const stakingEpoch = liveSettled ? stakingEpochLive : asPct(fallback?.staking_rate_epoch);
     const bondEpoch = liveSettled ? bondEpochLive : asPct(fallback?.bond_rate_epoch);
 
-    const selfBond = flr(row?.self_bond, STAKE_DECIMALS);
-    const delegated = flr(row?.delegated, STAKE_DECIMALS);
-    const capacity = flr(row?.total_available_stake, STAKE_DECIMALS);
-    const totalStake =
-      selfBond != null && delegated != null ? selfBond + delegated : null;
-    const spaceLeft =
-      capacity != null && totalStake != null ? capacity - totalStake : null;
+    const { selfBond, delegated, capacity, totalStake, spaceLeft } =
+      validatorStakeSummary(row);
 
     const delegators = Array.isArray(row?.delegators)
       ? (row!.delegators as Array<Record<string, unknown>>).map((d) => ({
@@ -544,6 +575,179 @@ async function handleRewards(): Promise<Response> {
       502
     );
   }
+}
+
+interface SupportStakingRow {
+  id: string;
+  name: string;
+  state: "open" | "full";
+  room_flr: number;
+  url: string;
+}
+
+interface SupportBondRow {
+  id: string;
+  name: string;
+  left: number;
+  url: string;
+}
+
+interface SupportPayload {
+  version: 1;
+  generated_at_unix: number;
+  staking: SupportStakingRow[];
+  bonds: SupportBondRow[];
+}
+
+type RpcCall = { to: string; data: string };
+
+const BOND_SELECTORS = {
+  mintOpen: "0x24bbd049",
+  isMintOpen: "0x19908016",
+  totalSupply: "0x18160ddd",
+  maxSupply: "0xd5abeb01",
+} as const;
+
+let supportCache:
+  | { expiresAtMs: number; payload: SupportPayload }
+  | null = null;
+
+export function __resetSupportCacheForTest(): void {
+  supportCache = null;
+}
+
+function decodeUint256(raw: string): bigint {
+  const hex = raw.replace(/^0x/, "");
+  if (!hex || !/^[0-9a-fA-F]+$/.test(hex)) {
+    throw new Error("bad uint256 result");
+  }
+  return BigInt(`0x${hex}`);
+}
+
+function decodeBool(raw: string): boolean {
+  return decodeUint256(raw) !== 0n;
+}
+
+async function ethCallBatch(calls: RpcCall[]): Promise<string[]> {
+  const body = calls.map((c, id) => ({
+    jsonrpc: "2.0",
+    id,
+    method: "eth_call",
+    params: [{ to: c.to, data: c.data }, "latest"],
+  }));
+  const res = await fetch(FLARE_RPC, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`RPC ${res.status}`);
+  const json = (await res.json()) as Array<{
+    id: number;
+    result?: string;
+    error?: unknown;
+  }>;
+  if (!Array.isArray(json)) throw new Error("RPC batch returned no array");
+
+  const results: string[] = new Array(calls.length);
+  for (const entry of json) {
+    if (entry.result === undefined) {
+      throw new Error(`eth_call failed: ${JSON.stringify(entry.error)}`);
+    }
+    results[entry.id] = entry.result;
+  }
+  for (let i = 0; i < calls.length; i += 1) {
+    if (typeof results[i] !== "string") {
+      throw new Error("RPC batch returned incomplete results");
+    }
+  }
+  return results;
+}
+
+async function readSupportBondTier(
+  tier: BondTier
+): Promise<SupportBondRow | null> {
+  if (!tier.address) return null;
+  try {
+    const isTerm = tierKind(tier) === "term";
+    const [openRaw, totalRaw, maxRaw] = await ethCallBatch([
+      {
+        to: tier.address,
+        data: isTerm ? BOND_SELECTORS.isMintOpen : BOND_SELECTORS.mintOpen,
+      },
+      { to: tier.address, data: BOND_SELECTORS.totalSupply },
+      { to: tier.address, data: BOND_SELECTORS.maxSupply },
+    ]);
+    if (!decodeBool(openRaw)) return null;
+
+    const left = decodeUint256(maxRaw) - decodeUint256(totalRaw);
+    if (left <= 0n) return null;
+    return {
+      id: tier.key,
+      name: tier.name,
+      left: Number(left),
+      url: "https://ftso.flareforward.com/nft",
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function loadSupportBonds(): Promise<SupportBondRow[]> {
+  const rows = await Promise.all(CURRENT_LOT.tiers.map(readSupportBondTier));
+  return rows.filter((row): row is SupportBondRow => row !== null);
+}
+
+async function loadSupportStaking(): Promise<SupportStakingRow[]> {
+  try {
+    const entity = (await fetchExplorerJson(
+      `/entity?query=${IDENTITY_ADDRESS}`
+    )) as { results?: EntityQueryResult[] };
+    const e = entity.results?.[0];
+    const nodeIds = new Set(e?.denormalizedentity?.node_ids ?? []);
+    const row = await findValidatorRow(nodeIds);
+    if (!row) return [];
+
+    const { spaceLeft } = validatorStakeSummary(row);
+    if (spaceLeft == null || !Number.isFinite(spaceLeft)) return [];
+    const room = Math.max(0, Math.floor(spaceLeft));
+    return [
+      {
+        id: "ftso-v1",
+        name: "FlareForward validator",
+        state: room > 0 ? "open" : "full",
+        room_flr: room,
+        url: "https://ftso.flareforward.com/staking",
+      },
+    ];
+  } catch {
+    return [];
+  }
+}
+
+async function buildSupportPayload(): Promise<SupportPayload> {
+  const [staking, bonds] = await Promise.all([
+    loadSupportStaking(),
+    loadSupportBonds(),
+  ]);
+  return {
+    version: 1,
+    generated_at_unix: Math.floor(Date.now() / 1000),
+    staking,
+    bonds,
+  };
+}
+
+async function handleSupport(): Promise<Response> {
+  const now = Date.now();
+  if (supportCache && supportCache.expiresAtMs > now) {
+    return supportJsonResponse(supportCache.payload);
+  }
+  const payload = await buildSupportPayload();
+  supportCache = {
+    expiresAtMs: now + SUPPORT_CACHE_SECONDS * 1000,
+    payload,
+  };
+  return supportJsonResponse(payload);
 }
 
 /**
@@ -635,6 +839,9 @@ export default {
     }
     if (pathname === "/api/rewards" || pathname === "/api/rewards/") {
       return handleRewards();
+    }
+    if (pathname === "/api/support" || pathname === "/api/support/") {
+      return handleSupport();
     }
     if (pathname === "/api/youtube" || pathname === "/api/youtube/") {
       return handleYouTube();

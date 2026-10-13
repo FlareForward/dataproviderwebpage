@@ -7,7 +7,7 @@
  * page derives everything from chain reads, never from hardcoded numbers,
  * so it cannot drift from the contract.
  */
-import { ADDRESS_RE, TERM_PREVIEW } from "./termPreview";
+import { ADDRESS_RE, TERM_PREVIEW } from "./termPreview.js";
 
 /** Minimal ABI: only what the storefront reads and calls. */
 export const bondLotAbi = [

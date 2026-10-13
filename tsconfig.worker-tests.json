@@ -11,11 +11,16 @@
     "outDir": ".tmp/worker-tests"
   },
   "include": [
+    "src/vite-env.d.ts",
     "src/lib/earned.ts",
     "src/lib/fspRewards.ts",
+    "src/lib/termPreview.ts",
+    "src/lib/bondLot.ts",
     "worker/fspRewards.test.ts",
+    "worker/index.ts",
     "worker/earned.ts",
     "worker/nftRewards.ts",
+    "worker/support.test.ts",
     "worker/earned.test.ts"
   ]
 }
