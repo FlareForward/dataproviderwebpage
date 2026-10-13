@@ -12,6 +12,7 @@ const SELECTORS = {
   isMintOpen: "0x19908016",
   totalSupply: "0x18160ddd",
   maxSupply: "0xd5abeb01",
+  mintPrice: "0x6817c76c",
 } as const;
 
 type FetchHandler = (
@@ -198,6 +199,9 @@ test("support endpoint shows open bond lots and full validator, omitting unavail
           if (call.data === SELECTORS.maxSupply) {
             return { jsonrpc: "2.0", id: entry.id, result: uintResult(state.max) };
           }
+          if (call.data === SELECTORS.mintPrice) {
+            return { jsonrpc: "2.0", id: entry.id, result: uintResult(10_000n * 10n ** 18n) };
+          }
           throw new Error(`Unexpected call data ${call.data}`);
         }),
       );
@@ -229,6 +233,7 @@ test("support endpoint shows open bond lots and full validator, omitting unavail
       id: "lot2-10k",
       name: "Lot 2 · 10,000 FLR",
       left: 112,
+      open_flr: 1_120_000,
       url: "https://ftso.flareforward.com/nft",
     },
   ]);

@@ -589,6 +589,8 @@ interface SupportBondRow {
   id: string;
   name: string;
   left: number;
+  /** FLR still open in this tier: supply left times the mint price. */
+  open_flr: number;
   url: string;
 }
 
@@ -606,6 +608,7 @@ const BOND_SELECTORS = {
   isMintOpen: "0x19908016",
   totalSupply: "0x18160ddd",
   maxSupply: "0xd5abeb01",
+  mintPrice: "0x6817c76c",
 } as const;
 
 let supportCache:
@@ -669,22 +672,25 @@ async function readSupportBondTier(
   if (!tier.address) return null;
   try {
     const isTerm = tierKind(tier) === "term";
-    const [openRaw, totalRaw, maxRaw] = await ethCallBatch([
+    const [openRaw, totalRaw, maxRaw, priceRaw] = await ethCallBatch([
       {
         to: tier.address,
         data: isTerm ? BOND_SELECTORS.isMintOpen : BOND_SELECTORS.mintOpen,
       },
       { to: tier.address, data: BOND_SELECTORS.totalSupply },
       { to: tier.address, data: BOND_SELECTORS.maxSupply },
+      { to: tier.address, data: BOND_SELECTORS.mintPrice },
     ]);
     if (!decodeBool(openRaw)) return null;
 
     const left = decodeUint256(maxRaw) - decodeUint256(totalRaw);
     if (left <= 0n) return null;
+    const openFlr = (left * decodeUint256(priceRaw)) / 10n ** 18n;
     return {
       id: tier.key,
       name: tier.name,
       left: Number(left),
+      open_flr: Number(openFlr),
       url: "https://ftso.flareforward.com/nft",
     };
   } catch {
