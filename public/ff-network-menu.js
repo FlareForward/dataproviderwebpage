@@ -1,8 +1,8 @@
-/*! ff-network-menu v1.2.1 | list v5 | sha256:40b80e40d9fdfd8387e46cdd502b575620297db1f413bf1d34fe0dfdaaef1fa3 | copied in, do not edit; source https://github.com/FlareForward/flareforward-network-menu */
+/*! ff-network-menu v1.4.1 | list v5 | sha256:5aa0c62dc84efed45b055cb01d7126e2155b49a3e041847ccf50197a3cd93cd0 | copied in, do not edit; source https://github.com/FlareForward/flareforward-network-menu */
 (() => {
   "use strict";
 
-  const MENU_VERSION = "1.2.1";
+  const MENU_VERSION = "1.4.1";
   const BAKED_LIST = {
   "version": 5,
   "updated": "2026-09-28",
@@ -83,14 +83,20 @@
   ]
 };
   const LIVE_URL = "https://flareforward.com/network.json";
+  const SUPPORT_URL = "https://ftso.flareforward.com/api/support";
   const TAG_NAME = "ff-network-menu";
+  const SUPPORT_TAG_NAME = "ff-support-tag";
   const HERE_TEXT = "You are here";
   const DEFAULT_SITE_LABEL = "This site";
+  const SUPPORT_STALE_SECONDS = 15 * 60;
   const DATA = {
     current: BAKED_LIST,
     liveStarted: false,
     liveDone: false,
-    instances: new Set()
+    supportStarted: false,
+    support: null,
+    instances: new Set(),
+    tags: new Set()
   };
 
   if (
@@ -102,7 +108,7 @@
     return;
   }
 
-  if (window.customElements.get(TAG_NAME)) {
+  if (window.customElements.get(TAG_NAME) && window.customElements.get(SUPPORT_TAG_NAME)) {
     return;
   }
 
@@ -152,7 +158,9 @@ button[aria-expanded="true"] {
 }
 
 button:focus-visible,
-a:focus-visible {
+a:focus-visible,
+.support-tag:focus-visible,
+section[data-group="support"]:focus-visible {
   outline: 3px solid var(--ffn-accent);
   outline-offset: 3px;
 }
@@ -191,21 +199,15 @@ svg {
   }
 }
 
-section + section {
-  margin-block-start: 6px;
-  padding-block-start: 6px;
-  border-block-start: 1px solid var(--ffn-border);
-}
-
 section[hidden] {
   display: none;
 }
 
-/* No divider above the first group that actually shows. */
-section[hidden] + section {
-  margin-block-start: 0;
-  padding-block-start: 0;
-  border-block-start: 0;
+/* A divider above every group that shows, except the first one that shows. */
+section:not([hidden]) ~ section:not([hidden]) {
+  margin-block-start: 6px;
+  padding-block-start: 6px;
+  border-block-start: 1px solid var(--ffn-border);
 }
 
 h2 {
@@ -299,6 +301,46 @@ a.row:hover {
   font-weight: 700;
   line-height: 1.4;
   white-space: nowrap;
+}
+
+:host([data-ff-support-tag]) {
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  font: inherit;
+  color: inherit;
+}
+
+:host([data-ff-support-tag][hidden]) {
+  display: none;
+}
+
+.support-tag {
+  min-block-size: 44px;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 999px;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  font-size: 0.86rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.support-tag:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+@media (max-width: 359px) {
+  :host([data-ff-support-tag]) {
+    display: none;
+  }
 }
 `;
 
@@ -415,6 +457,154 @@ a.row:hover {
     return { version: candidate.version, labels, network, support };
   }
 
+  function safeSupportUrl(value) {
+    if (typeof value !== "string") return null;
+    let parsed;
+    try {
+      parsed = new URL(value);
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password) return null;
+    const host = parsed.hostname;
+    if (host === "flareforward.com" || host.endsWith(".flareforward.com")) return parsed.href;
+    return null;
+  }
+
+  function compactFlr(value) {
+    const amount = Math.max(0, Math.trunc(value));
+    const units = [
+      { suffix: "B", size: 1000000000 },
+      { suffix: "M", size: 1000000 },
+      { suffix: "K", size: 1000 }
+    ];
+    for (const unit of units) {
+      if (amount >= unit.size) {
+        const compact = (amount / unit.size).toFixed(amount >= unit.size * 100 ? 0 : 1).replace(/\.0$/, "");
+        return `${compact}${unit.suffix}`;
+      }
+    }
+    return String(amount);
+  }
+
+  function validateSupportFeed(candidate) {
+    if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) return null;
+    if (candidate.version !== 1) return null;
+    if (!Number.isFinite(candidate.generated_at_unix)) return null;
+    if (Math.floor(Date.now() / 1000) - candidate.generated_at_unix > SUPPORT_STALE_SECONDS) return null;
+    if (!Array.isArray(candidate.staking) || !Array.isArray(candidate.bonds)) return null;
+
+    // Staking: total room across validators. null means "not known", which is not the same as full.
+    let stakingRoom = 0;
+    let stakingUrl = "";
+    let stakingSeen = false;
+    for (const entry of candidate.staking) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const url = safeSupportUrl(entry.url);
+      if (!url) continue;
+      if (entry.state === "open" && Number.isFinite(entry.room_flr) && entry.room_flr > 0) {
+        stakingSeen = true;
+        stakingRoom += Math.trunc(entry.room_flr);
+        if (!stakingUrl) stakingUrl = url;
+      } else if (entry.state === "full") {
+        stakingSeen = true;
+      }
+    }
+    const staking = stakingSeen ? { open: stakingRoom > 0, room: stakingRoom, url: stakingUrl } : null;
+
+    // Bonds: one total of FLR still open across every lot on sale.
+    let bondFlr = 0;
+    let bondUrl = "";
+    for (const entry of candidate.bonds) {
+      if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
+      const url = safeSupportUrl(entry.url);
+      if (!url || !Number.isFinite(entry.open_flr) || entry.open_flr <= 0) continue;
+      if (!Number.isFinite(entry.left) || entry.left <= 0) continue;
+      bondFlr += Math.trunc(entry.open_flr);
+      if (!bondUrl) bondUrl = url;
+    }
+    const bonds = bondFlr > 0 ? { openFlr: bondFlr, url: bondUrl } : null;
+
+    return {
+      staking,
+      bonds,
+      tagText: bonds ? "Bonds on sale" : staking && staking.open ? "Staking open" : ""
+    };
+  }
+
+  function isStakingEntry(item) {
+    try {
+      return new URL(item.url).pathname.replace(/\/+$/, "") === "/staking";
+    } catch {
+      return false;
+    }
+  }
+
+  /** The Support us rows: Delegate always, Stake with its live room (hidden when full), bonds only while on sale. */
+  function supportRows(listSupport) {
+    const live = DATA.support;
+    const rows = [];
+    for (const item of listSupport) {
+      if (!isStakingEntry(item)) {
+        rows.push(item);
+        continue;
+      }
+      if (live && live.staking && !live.staking.open) continue;
+      if (live && live.staking && live.staking.open) {
+        rows.push({ ...item, url: live.staking.url || item.url, note: `${compactFlr(live.staking.room)} FLR of room`, supportKind: "staking-open" });
+      } else {
+        rows.push(item);
+      }
+    }
+    if (live && live.bonds) {
+      rows.push({ name: "Bond NFTs on sale", note: `${compactFlr(live.bonds.openFlr)} FLR open`, url: live.bonds.url, supportKind: "bond" });
+    }
+    return rows;
+  }
+
+  function notifySupportConsumers() {
+    for (const instance of DATA.instances) instance.render();
+    for (const tag of DATA.tags) tag.render();
+  }
+
+  // The figures load after the page's own work, so the feed gets a longer wait than the list and one retry.
+  // Until it lands (or if it never does) the plain Delegate and Stake rows show, so nothing false is ever shown.
+  const SUPPORT_TIMEOUT_MS = 8000;
+  const SUPPORT_RETRY_MS = 4000;
+
+  function fetchSupport(attempt) {
+    const controller = new win.AbortController();
+    const timer = win.setTimeout(() => controller.abort(), SUPPORT_TIMEOUT_MS);
+    win.fetch(SUPPORT_URL, { cache: "no-cache", signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("fetch failed");
+        return response.text();
+      })
+      .then((body) => {
+        const support = validateSupportFeed(JSON.parse(body));
+        if (!support && attempt === 0) throw new Error("bad feed");
+        DATA.support = support;
+        notifySupportConsumers();
+      })
+      .catch(() => {
+        if (attempt === 0) {
+          win.setTimeout(() => fetchSupport(1), SUPPORT_RETRY_MS);
+          return;
+        }
+        DATA.support = null;
+        notifySupportConsumers();
+      })
+      .finally(() => {
+        win.clearTimeout(timer);
+      });
+  }
+
+  function ensureSupportRefresh() {
+    if (DATA.supportStarted) return;
+    DATA.supportStarted = true;
+    fetchSupport(0);
+  }
+
   function ensureLiveRefresh() {
     if (DATA.liveStarted) return;
     DATA.liveStarted = true;
@@ -527,6 +717,7 @@ a.row:hover {
     connectedCallback() {
       DATA.instances.add(this);
       this.render();
+      ensureSupportRefresh();
       if (this.getAttribute("live") !== "off") ensureLiveRefresh();
     }
 
@@ -585,6 +776,14 @@ a.row:hover {
       const focusedNetworkId = focused && focused.dataset ? focused.dataset.networkId || "" : "";
       this.panel.replaceChildren();
 
+      const supportSection = this.makeGroup(labels.supportGroup, "support");
+      supportSection.tabIndex = -1;
+      for (const item of supportRows(data.support)) {
+        supportSection.append(this.makeRow(item, "support", currentSite, labels));
+      }
+      this.panel.append(supportSection);
+      this.supportBlockSection = supportSection;
+
       const siteSection = doc.createElement("section");
       siteSection.dataset.group = "site";
       const siteHeading = doc.createElement("h2");
@@ -605,12 +804,6 @@ a.row:hover {
         networkSection.append(this.makeRow(item, "network", currentSite, labels));
       }
       this.panel.append(networkSection);
-
-      const supportSection = this.makeGroup(labels.supportGroup, "support");
-      for (const item of data.support) {
-        supportSection.append(this.makeRow(item, "support", currentSite, labels));
-      }
-      this.panel.append(supportSection);
 
       this.updateSlotGroup(siteSection, slot);
       if (this.opened) this.updatePosition();
@@ -640,6 +833,7 @@ a.row:hover {
       const row = doc.createElement(canLink ? "a" : "div");
       row.className = "row";
       row.dataset.rowKind = kind;
+      if (item.supportKind) row.dataset.supportKind = item.supportKind;
       if (kind === "network") row.dataset.networkId = item.id;
       if (canLink) row.href = item.url;
       if (isCurrent) row.setAttribute("aria-current", "page");
@@ -652,6 +846,14 @@ a.row:hover {
       row.append(nameLine);
       if (item.note) appendText(row, "note", item.note);
       return row;
+    }
+
+    openSupportBlock() {
+      this.openPanel();
+      const section = this.supportBlockSection;
+      if (!section || section.hidden) return;
+      section.scrollIntoView({ block: "nearest" });
+      section.focus({ preventScroll: true });
     }
 
     openPanel() {
@@ -738,5 +940,60 @@ a.row:hover {
     bakedListVersion: { value: BAKED_LIST.version, writable: false, configurable: false }
   });
 
-  win.customElements.define(TAG_NAME, FlareForwardNetworkMenu);
+  class FlareForwardSupportTag extends win.HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: "open" });
+      this.render = this.render.bind(this);
+      this.activate = this.activate.bind(this);
+      this.pill = doc.createElement("span");
+      this.pill.className = "support-tag";
+      this.pill.setAttribute("role", "button");
+      this.pill.tabIndex = 0;
+      this.pill.addEventListener("click", this.activate);
+      this.pill.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        this.activate();
+      });
+      if (canUseSheets) {
+        this.shadowRoot.adoptedStyleSheets = [baseSheet];
+      } else {
+        const style = doc.createElement("style");
+        style.textContent = cssText;
+        this.shadowRoot.append(style);
+      }
+      this.shadowRoot.append(this.pill);
+    }
+
+    connectedCallback() {
+      DATA.tags.add(this);
+      this.setAttribute("data-ff-support-tag", "");
+      this.render();
+      ensureSupportRefresh();
+    }
+
+    disconnectedCallback() {
+      DATA.tags.delete(this);
+    }
+
+    render() {
+      const label = DATA.support?.tagText || "";
+      this.hidden = label.length === 0;
+      this.pill.textContent = label;
+      this.pill.setAttribute("aria-label", label ? `${label}, open support options` : "");
+    }
+
+    activate() {
+      const menu = doc.querySelector(TAG_NAME);
+      if (menu && typeof menu.openSupportBlock === "function") menu.openSupportBlock();
+    }
+  }
+
+  if (!win.customElements.get(TAG_NAME)) {
+    win.customElements.define(TAG_NAME, FlareForwardNetworkMenu);
+  }
+  if (!win.customElements.get(SUPPORT_TAG_NAME)) {
+    win.customElements.define(SUPPORT_TAG_NAME, FlareForwardSupportTag);
+  }
 })();

@@ -65,6 +65,7 @@ export function Root() {
             <div className="flex items-center gap-2">
               <ImageWithFallback src={logoImage} alt="FlareForward Logo" className="h-7 w-auto object-contain" />
             </div>
+            <ff-support-tag className="text-[#FAFAFA]" />
           </div>
 
           <div className="hidden lg:flex items-center gap-2 text-sm text-[#8FA0B8]">

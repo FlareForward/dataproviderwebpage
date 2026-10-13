@@ -27,5 +27,6 @@ declare namespace JSX {
       "site-label"?: string;
       live?: string;
     };
+    "ff-support-tag": React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>;
   }
 }
