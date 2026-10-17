@@ -112,6 +112,16 @@ export function StarshipTimer({
   );
 }
 
+/**
+ * Flare pays a staking batch about a week after it ends. Measured on the
+ * ValidatorRewardManager: batch 430-433 ended Sep 17, paid Sep 24; batch
+ * 434-437 ended Oct 1, paid Oct 8 (operator, 2026-10-17: users must see the wait).
+ */
+const STAKING_PAYOUT_LAG_SECONDS = 7 * 24 * 3600;
+
+const fmtDay = (ts: number) =>
+  new Date(ts * 1000).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+
 /** FTSO V1: the 14-day staking batch on top, the current reward epoch under it. */
 export function Starship1Timer() {
   const e = useRewardEpoch();
@@ -120,6 +130,12 @@ export function Starship1Timer() {
   const batchLeft = useCountdown(batch?.endTs);
   if (!e) return null;
   const batchSecs = batch ? batch.endTs - batch.startTs : 0;
+  // The batch before this one ended at batch.startTs; until it pays, say when.
+  const lastBatchPay = batch ? batch.startTs + STAKING_PAYOUT_LAG_SECONDS : 0;
+  const lastBatchNote =
+    batch && lastBatchPay > Date.now() / 1000
+      ? ` The last batch (${batch.startEpoch - 4} to ${batch.startEpoch - 1}) arrives around ${fmtDay(lastBatchPay)}.`
+      : "";
   return (
     <div className="space-y-3">
       {batch && batchLeft != null && (
@@ -128,7 +144,7 @@ export function Starship1Timer() {
           secs={batchLeft}
           pct={((batchSecs - batchLeft) / batchSecs) * 100}
           tone="green"
-          note={`Epochs ${batch.startEpoch} to ${batch.endEpoch}, ends ${fmtWhen(batch.endTs)}. Staking rewards are paid every 14 days, after Flare finalizes the batch.`}
+          note={`Epochs ${batch.startEpoch} to ${batch.endEpoch}, end ${fmtWhen(batch.endTs)}. Flare pays each batch about a week after it ends, so expect these rewards around ${fmtDay(batch.endTs + STAKING_PAYOUT_LAG_SECONDS)}.${lastBatchNote}`}
         />
       )}
       <StarshipTimer
@@ -136,7 +152,7 @@ export function Starship1Timer() {
         secs={e.left}
         pct={e.pct}
         tone="pink"
-        note={`${fmtWhen(e.endTs)}. Claimable once Flare finalizes it.`}
+        note={`Ends ${fmtWhen(e.endTs)}. Rewards are ready to claim 11 to 31 hours later, once Flare publishes them.`}
       />
     </div>
   );
