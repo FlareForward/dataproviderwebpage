@@ -1,195 +1,206 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router";
-import { ArrowRight, ExternalLink, Gem, Gift, Info, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router";
+import { ArrowRight, ExternalLink, Gem, Gift, Loader2, Search } from "lucide-react";
 import { useAccount } from "wagmi";
+import { isAddress } from "viem";
 import { Button } from "./components/Button";
 import { MyBonds } from "./components/MyBonds";
 import { ClaimNoticeDialog, hasSeenClaimNotice, markClaimNoticeSeen } from "./components/ClaimNoticeDialog";
 import { useEarned } from "../hooks/useEarned";
 import { useBondClaims } from "../hooks/useBondClaims";
-import { settledRate, fmtPct, fmtFlrWei } from "../lib/rewards";
+import { useBondApy } from "../hooks/useBondApy";
+import { fmtPct, fmtFlrWei } from "../lib/rewards";
 
-const BOND_YIELD_URL = import.meta.env.VITE_BOND_YIELD_URL ?? "/api/bond-yield";
+const PAYOUT_NOTE_VISIBLE_AT = Date.parse("2026-11-05T00:00:00Z");
 
-/**
- * /bonds — what this wallet holds and what it has earned. Nothing else.
- *
- * No marketplace block (that belongs on the mint page, where someone is
- * choosing between minting and buying) and no address lookup (this page already
- * knows whose wallet it is).
- *
- * Claim works for every lot that has a payout contract (a lot gets one after it
- * closes). It pokes the distributor's lazy accounting, then claims, so a holder
- * never has to know the distributor needs a nudge. For a wallet holding only
- * bonds in still-open lots the button stays shut and says why.
- */
 export default function Bonds() {
-  const { address } = useAccount();
-  const earned = useEarned(address);
-  const claims = useBondClaims();
+  const { address: connectedAddress } = useAccount();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryAddress = searchParams.get("address");
+  const viewedAddress =
+    queryAddress && isAddress(queryAddress)
+      ? (queryAddress as `0x${string}`)
+      : connectedAddress;
+  const [input, setInput] = useState(viewedAddress ?? "");
   const [noticeOpen, setNoticeOpen] = useState(false);
-  // One-time notice per wallet, shown on the first bond claim after the payout schedule change.
-  function onClaimClick() {
-    if (address && !hasSeenClaimNotice(address)) {
-      setNoticeOpen(true);
-      return;
-    }
-    void claims.claimAll();
-  }
+  const [pendingTierKey, setPendingTierKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (viewedAddress) setInput(viewedAddress);
+  }, [viewedAddress]);
+
+  const earned = useEarned(viewedAddress);
+  const claims = useBondClaims(viewedAddress);
+  const bondApy = useBondApy();
+  const lifetimeWei = useMemo(
+    () => claims.perTier.reduce((total, tier) => total + tier.lifetimeWei, 0n),
+    [claims.perTier],
+  );
   const busy = claims.phase === "processing" || claims.phase === "claiming";
   const claimLabel =
     claims.phase === "processing"
-      ? "Updating payouts…"
+      ? "Updating payouts..."
       : claims.phase === "claiming"
-        ? "Claiming…"
+        ? "Claiming..."
         : "Claim all";
-  const claimCaption = !claims.isConnected
-    ? "Connect your wallet to claim"
-    : claims.heldPaid === 0
-      ? "Opens when your lot closes"
-      : claims.mayClaim
-        ? `${fmtFlrWei(claims.claimableWei, 4)} WFLR ready${
-            claims.unprocessedWei > 0n ? ", plus a new release to process" : ""
-          } · two wallet confirmations`
-        : "Nothing to claim yet";
-  const { data } = useQuery<{
-    current?: { bond_rate_annualized_pct: number | null } | null;
-    last_measured?: { bond_rate_annualized_pct: number | null } | null;
-  }>({
-    queryKey: ["bond-yield"],
-    queryFn: async () => {
-      const res = await fetch(BOND_YIELD_URL, {
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) throw new Error(`bond-yield ${res.status}`);
-      return res.json();
-    },
-    staleTime: 15 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
 
-  // `current` is zero for the whole of an in-flight epoch, so fall back to the
-  // last epoch that actually paid out rather than showing nothing for days.
-  const rate =
-    settledRate(data?.current?.bond_rate_annualized_pct) ??
-    settledRate(data?.last_measured?.bond_rate_annualized_pct);
-  const earnedBondsWei = earned.data?.earned.bondsWei;
-  const earnedLabel =
-    earned.isLoading || earnedBondsWei === undefined
-      ? "—"
-      : earnedBondsWei === null
-        ? "not tracked yet"
-        : `${fmtFlrWei(earnedBondsWei, 2)} FLR`;
-  const earnedSubline = !address
-    ? "connect your wallet to see yours"
-    : earnedBondsWei === null
-      ? "distribution contract pending"
-      : "claimed plus currently claimable";
+  function lookUp() {
+    const value = input.trim();
+    if (!isAddress(value)) return;
+    const next = new URLSearchParams(searchParams);
+    next.set("address", value);
+    setSearchParams(next, { replace: true });
+  }
+
+  function runClaim(tierKey: string | null) {
+    if (tierKey) {
+      void claims.claimTier(tierKey);
+    } else {
+      void claims.claimAll();
+    }
+  }
+
+  function onClaimClick(tierKey: string | null = null) {
+    if (connectedAddress && !hasSeenClaimNotice(connectedAddress)) {
+      setPendingTierKey(tierKey);
+      setNoticeOpen(true);
+      return;
+    }
+    runClaim(tierKey);
+  }
+
+  const claimCaption = !claims.isConnected
+    ? "Connect this wallet to claim"
+    : !claims.isViewingConnectedWallet
+      ? "Connect the address shown above to claim"
+      : claims.heldPaid === 0
+        ? "No reward-paying bonds in this wallet"
+        : claims.mayClaim
+          ? "Two wallet confirmations per lot"
+          : "Nothing to claim yet";
 
   return (
     <div className="p-4 lg:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="mx-auto max-w-7xl space-y-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <div className="flex items-center gap-3">
               <Gem size={22} className="text-[#E85A95]" />
-              <h1 className="text-2xl lg:text-3xl font-bold tracking-tight">
-                Your Bonds
-              </h1>
+              <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">Your Bonds</h1>
             </div>
-            <p className="text-[#8FA0B8] text-sm mt-1">
-              What you hold, and what it has earned.
-            </p>
+            <p className="mt-1 text-sm text-[#8FA0B8]">Live earnings from every lot you hold.</p>
           </div>
           <Link to="/nft">
-            <Button variant="action" className="gap-2">
-              <Gem size={16} /> Bond lots <ArrowRight size={15} />
+            <Button variant="outline" className="gap-2">
+              Bond lots <ArrowRight size={15} />
             </Button>
           </Link>
         </div>
 
-        {/* Payout schedule notice. Stays on the page; the one-time claim popup is the nudge. */}
-        <div className="glass-panel flex items-start gap-3 p-4 text-sm">
-          <Info size={18} className="mt-0.5 shrink-0 text-[#E85A95]" />
-          <div className="space-y-1">
-            <div className="font-semibold text-[#FAFAFA]">Payouts are moving to the staking schedule</div>
-            <p className="text-[#8FA0B8] leading-relaxed">
-              We will pay out the next mirror epoch as usual. After that, bond rewards are released after each Flare
-              staking payout, which comes every 14 days, with a goal of one business day later. This keeps payouts
-              steady, because Flare releases mirror rewards at a different time every 3.5 days.
-            </p>
+        <div className="flex max-w-2xl flex-wrap items-center gap-2">
+          <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2">
+            <Search size={14} className="shrink-0 text-[#8FA0B8]" />
+            <input
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => event.key === "Enter" && lookUp()}
+              placeholder="0x... any Flare address"
+              spellCheck={false}
+              className="w-full border-none bg-transparent font-mono text-sm text-[#FAFAFA] outline-none placeholder:text-[#8FA0B8]"
+            />
           </div>
+          <Button variant="primary" size="sm" onClick={lookUp} disabled={!isAddress(input.trim())}>
+            Look up
+          </Button>
         </div>
 
-        {/* Earnings and claim, together and at the top — the two things someone
-            opens this page to find. */}
-        <div className="glass-card p-5 lg:p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
-                Current bond rate
-              </div>
-              <div className="mt-1 text-2xl font-bold tabular-nums text-emerald-400">
-                {fmtPct(rate)}
-              </div>
-              <div className="mt-1 text-xs text-[#8FA0B8]">
-                what our validator bond earns now — measured
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
-                Earned so far
-              </div>
-              <div className="mt-1 text-2xl font-bold tabular-nums text-[#FAFAFA]">
-                {earnedLabel}
-              </div>
-              <div className="mt-1 text-xs text-[#8FA0B8]">{earnedSubline}</div>
-            </div>
-            <div className="sm:text-right">
-              <Button
-                variant="action"
-                className="gap-2 w-full sm:w-auto"
-                disabled={!claims.mayClaim || busy}
-                onClick={onClaimClick}
-              >
-                {busy ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}{" "}
-                {claimLabel}
-              </Button>
-              <p className="mt-2 text-xs text-[#8FA0B8]">{claimCaption}</p>
-              {noticeOpen && address && (
-                <ClaimNoticeDialog
-                  onCancel={() => setNoticeOpen(false)}
-                  onContinue={() => {
-                    markClaimNoticeSeen(address);
-                    setNoticeOpen(false);
-                    void claims.claimAll();
-                  }}
-                />
-              )}
-              {claims.lastTx && (
-                <a
-                  href={`https://flare-explorer.flare.network/tx/${claims.lastTx}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 text-xs text-emerald-400 hover:underline"
-                >
-                  Claimed · view transaction <ExternalLink size={12} />
-                </a>
-              )}
-            </div>
-          </div>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-            Rewards are released to bond holders every reward epoch, about
-            every 3.5 days, after the epoch closes. Your share is equal per
-            bond. Click Claim to receive it as WFLR; a 0.3% processing fee is
-            taken by the payout contract's operator. Unclaimed rewards wait for
-            you; they do not expire. The rate above is what our validator bond
-            is earning; it moves epoch to epoch and is not a promise.
+        {Date.now() >= PAYOUT_NOTE_VISIBLE_AT && (
+          <p className="text-xs text-[#8FA0B8]">
+            Bond rewards are paid every 2 weeks, after each Flare staking payout.
           </p>
-        </div>
+        )}
 
-        <MyBonds compact bare />
+        {viewedAddress ? (
+          <>
+            <section className="glass-card p-5 sm:p-6">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-[#8FA0B8]">Earned</p>
+                  <p className="mt-1 text-4xl font-semibold tabular-nums text-[#FAFAFA] sm:text-5xl">
+                    {claims.isLoading ? "-" : fmtFlrWei(lifetimeWei, 2)}{" "}
+                    <span className="text-lg font-medium text-[#8FA0B8]">FLR</span>
+                  </p>
+                  <p className="mt-2 text-xs text-[#8FA0B8]">Claimed plus currently claimable</p>
+                  <p className="mt-3 text-sm text-emerald-400">
+                    {fmtPct(bondApy.apyPct)} APY so far, from real payouts
+                  </p>
+                </div>
+                <div className="sm:text-right">
+                  <Button
+                    variant="action"
+                    className="w-full gap-2 sm:w-auto"
+                    disabled={!claims.mayClaim || busy}
+                    onClick={() => onClaimClick()}
+                  >
+                    {busy ? <Loader2 size={16} className="animate-spin" /> : <Gift size={16} />}
+                    {claimLabel}
+                    {claims.claimableWei > 0n && (
+                      <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs tabular-nums">
+                        Ready to claim: {fmtFlrWei(claims.claimableWei, 2)} WFLR
+                      </span>
+                    )}
+                  </Button>
+                  <p className="mt-2 text-xs text-[#8FA0B8]">{claimCaption}</p>
+                  <p className="mt-1 text-xs text-[#8FA0B8]">
+                    0.3% fee goes to the payout contract&apos;s operator
+                  </p>
+                  {claims.lastTx && (
+                    <a
+                      href={`https://flare-explorer.flare.network/tx/${claims.lastTx}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-emerald-400 hover:underline"
+                    >
+                      Claimed. View transaction <ExternalLink size={12} />
+                    </a>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <MyBonds
+              compact
+              bare
+              tiers={claims.perTier}
+              history={earned.data?.bondLots ?? []}
+              apyPct={bondApy.apyPct}
+              rewardsLoading={claims.isLoading}
+              claimPhase={claims.phase}
+              activeTierKey={claims.activeTierKey}
+              canClaim={claims.isConnected && claims.isViewingConnectedWallet}
+              onClaimTier={(tierKey) => onClaimClick(tierKey)}
+            />
+          </>
+        ) : (
+          <div className="glass-panel p-6 text-sm text-[#8FA0B8]">
+            Connect a wallet or look up an address to see its bonds.
+          </div>
+        )}
+
+        {noticeOpen && connectedAddress && (
+          <ClaimNoticeDialog
+            onCancel={() => {
+              setNoticeOpen(false);
+              setPendingTierKey(null);
+            }}
+            onContinue={() => {
+              markClaimNoticeSeen(connectedAddress);
+              setNoticeOpen(false);
+              runClaim(pendingTierKey);
+              setPendingTierKey(null);
+            }}
+          />
+        )}
       </div>
     </div>
   );

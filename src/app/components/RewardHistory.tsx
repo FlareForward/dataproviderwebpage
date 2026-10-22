@@ -6,6 +6,7 @@ import {
   weightedRate,
   type ClaimableEarnedInput,
   type EarnedClaim,
+  type EarnedKind,
 } from "../../hooks/useEarned";
 import { fmtDate, fmtFlrWei, fmtUtcDate } from "../../lib/rewards";
 
@@ -26,6 +27,67 @@ const RANGES: RangeOption[] = [
 ];
 
 const DAY_SECONDS = 86_400;
+
+export function SourceRewardHistory({
+  kind,
+  totalWei,
+  claims,
+  loading = false,
+  unavailable = false,
+}: {
+  kind: Exclude<EarnedKind, "bonds">;
+  totalWei: bigint | undefined;
+  claims: EarnedClaim[];
+  loading?: boolean;
+  unavailable?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const sourceClaims = useMemo(
+    () => claims.filter((claim) => claim.kind === kind),
+    [claims, kind],
+  );
+
+  return (
+    <div className="glass-panel px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">Earned</p>
+          <p className="mt-1 text-xl font-bold tabular-nums text-[#FAFAFA]">
+            {loading || unavailable || totalWei == null ? "-" : fmtFlrWei(totalWei, 2)}{" "}
+            {!loading && !unavailable && totalWei != null && (
+              <span className="text-sm font-semibold text-[#8FA0B8]">FLR</span>
+            )}
+          </p>
+          <p className="mt-1 text-xs text-[#8FA0B8]">Claimed plus currently claimable</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          disabled={loading || unavailable || sourceClaims.length === 0}
+          aria-expanded={open}
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#E85A95] hover:underline disabled:cursor-default disabled:text-[#8FA0B8] disabled:no-underline"
+        >
+          <History size={15} /> History
+          <ChevronDown
+            size={14}
+            className={`transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
+
+      {open && (
+        <ul className="mt-3 divide-y divide-white/8 border-t border-white/8">
+          {sourceClaims.map((claim) => (
+            <ClaimRow
+              key={`${claim.block}-${claim.epoch}-${claim.kind}`}
+              claim={claim}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 export function RewardHistory({
   address,
@@ -102,7 +164,7 @@ export function RewardHistory({
           </p>
         ) : error || !trustworthy ? (
           <p className="text-sm text-[#8FA0B8]">
-            Earned history is unavailable right now — claimable figures above
+            Earned history is unavailable right now. Claimable figures above
             are unaffected.
           </p>
         ) : (
@@ -133,32 +195,13 @@ export function RewardHistory({
           <History size={15} /> History
           <ChevronDown
             size={14}
-            className={`transition-transform ${open ? "rotate-180" : ""}`}
+            className={`transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
           />
         </button>
       </div>
 
       {open && trustworthy && (
         <div className="mt-4 space-y-3">
-          <div className="grid gap-2 sm:grid-cols-3">
-            <SourceTotal
-              label="Delegation"
-              value={`${fmtFlrWei(data.earned.delegationWei, 2)} FLR`}
-            />
-            <SourceTotal
-              label="Staking"
-              value={`${fmtFlrWei(data.earned.stakingWei, 2)} FLR`}
-            />
-            <SourceTotal
-              label="Bonds"
-              value={
-                data.earned.bondsWei == null
-                  ? "not tracked yet"
-                  : `${fmtFlrWei(data.earned.bondsWei, 2)} FLR`
-              }
-            />
-          </div>
-
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div className="space-y-2">
               <div
@@ -273,19 +316,6 @@ function DateField({
         className="glass-panel px-2 py-1 text-xs text-[#FAFAFA] outline-none focus:border-[#EE1A58]/60"
       />
     </label>
-  );
-}
-
-function SourceTotal({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="glass-panel px-3 py-2">
-      <div className="text-[10px] uppercase tracking-wider text-[#8FA0B8]">
-        {label}
-      </div>
-      <div className="mt-0.5 text-sm font-semibold tabular-nums text-[#FAFAFA]">
-        {value}
-      </div>
-    </div>
   );
 }
 

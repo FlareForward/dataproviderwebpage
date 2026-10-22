@@ -26,7 +26,7 @@ import {
   markClaimNoticeSeen,
 } from "./components/ClaimNoticeDialog";
 import { EarningsStrip } from "./components/EarningsStrip";
-import { RewardHistory } from "./components/RewardHistory";
+import { RewardHistory, SourceRewardHistory } from "./components/RewardHistory";
 import { bondLotAbi, CURRENT_LOT, isShareTier, type BondTier } from "../lib/bondLot";
 import { useBondClaims } from "../hooks/useBondClaims";
 import { useDelegation } from "../hooks/useDelegation";
@@ -35,6 +35,7 @@ import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
 import { settledRate, fmtPct, fmtFlrWei } from "../lib/rewards";
 import { type DisplayStake } from "../lib/staking";
+import { useBondApy } from "../hooks/useBondApy";
 
 type ClaimSource = "delegation" | "staking";
 type ClaimState = "idle" | "claiming" | "claimed" | "failed";
@@ -195,7 +196,7 @@ export default function Rewards() {
 
         {error && !isLoading && (
           <div className="glass-card p-6 text-sm text-red-400">
-            Couldn't load rewards data right now — refresh in a moment.
+            Couldn&apos;t load rewards data right now. Refresh in a moment.
           </div>
         )}
 
@@ -272,6 +273,17 @@ export default function Rewards() {
                     claimableReward={delegation.claimableReward}
                     emptyMessage="No WFLR from this wallet is delegated to FlareForward."
                   />
+                  <SourceRewardHistory
+                    kind="delegation"
+                    totalWei={earned.data?.earned.delegationWei}
+                    claims={earned.data?.claims ?? []}
+                    loading={earned.isLoading || delegation.claimableRewardLoading}
+                    unavailable={
+                      !!earned.error ||
+                      delegation.claimableRewardError ||
+                      (earned.data != null && !earned.data.claimableReady)
+                    }
+                  />
                 </RewardSection>
 
                 <RewardSection
@@ -345,15 +357,21 @@ export default function Rewards() {
                       </CardContent>
                     </Card>
                   )}
+                  <SourceRewardHistory
+                    kind="staking"
+                    totalWei={earned.data?.earned.stakingWei}
+                    claims={earned.data?.claims ?? []}
+                    loading={earned.isLoading || staking.claimableRewardLoading}
+                    unavailable={
+                      !!earned.error ||
+                      staking.claimableRewardError ||
+                      (earned.data != null && !earned.data.claimableReady)
+                    }
+                  />
                 </RewardSection>
 
                 <BondsSection
                   address={delegation.address ?? undefined}
-                  stagedRatePct={settledRate(
-                    rewards.rates.delegation_annual_pct,
-                  )}
-                  earnedBondsWei={earned.data?.earned.bondsWei}
-                  earnedLoading={earned.isLoading}
                 />
                 {/* The address-lookup card that sat here is gone by operator
                     call: My Rewards is about the connected wallet, and /bonds
@@ -364,7 +382,7 @@ export default function Rewards() {
 
             <p className="text-[11px] text-[#8FA0B8]">
               Figures come from the FlareForward rewards hooks, Flare RPC, and
-              the lot contracts — read live, not cached.
+              the lot contracts, read live and not cached.
             </p>
           </>
         )}
@@ -609,7 +627,7 @@ function ClaimItem({
           }`}
         >
           {pending || amount === undefined
-            ? "—"
+            ? "-"
             : amount === null
               ? "not tracked yet"
               : fmtFlrWei(amount)}{" "}
@@ -668,36 +686,19 @@ function RewardSection({
   );
 }
 
-/**
- * Bonds, as a peer of Delegation and Staking.
- *
- * This was twice pared down to a one-line strip, and twice that left the third
- * thing a member can hold reading as an afterthought next to two full sections
- * — a 52px strip beside two 168px blocks. Restored by operator call to the same
- * shape as the others: heading, manage action, four tiles on the same 104px
- * grid, so all three holdings answer "what is this earning" identically.
- *
- * Staged capital is derived, not hardcoded: balanceOf x mintPrice per tier,
- * both read from the lot contracts. Bond payouts stay "not tracked yet" until
- * a RoyaltyDistributor lands in the worker LOTS registry.
- */
+/** Bond position summary; realized APY shares the site's one bond APY source. */
 function BondsSection({
   address,
-  stagedRatePct,
-  earnedBondsWei,
-  earnedLoading,
 }: {
   address: `0x${string}` | undefined;
-  stagedRatePct: number | null;
-  earnedBondsWei: bigint | null | undefined;
-  earnedLoading: boolean;
 }) {
+  const bondApy = useBondApy();
   const tiers = CURRENT_LOT.tiers.filter(
     (t): t is BondTier & { address: `0x${string}` } => isShareTier(t) && !!t.address,
   );
 
   const { data } = useReadContracts({
-    contracts: tiers.flatMap((t) => [
+    contracts: tiers.map((t) => (
       {
         address: t.address,
         abi: bondLotAbi,
@@ -705,30 +706,21 @@ function BondsSection({
         args: [
           address ?? "0x0000000000000000000000000000000000000000",
         ] as const,
-      },
-      {
-        address: t.address,
-        abi: bondLotAbi,
-        functionName: "mintPrice" as const,
-      },
-    ]),
+      }
+    )),
     query: { enabled: !!address && tiers.length > 0 },
   });
 
-  // Reads come back as [balanceOf, mintPrice] per tier, in tier order.
   let held = 0;
-  let stagedWei = 0n;
   tiers.forEach((_, i) => {
-    const balance = (data?.[i * 2]?.result as bigint | undefined) ?? 0n;
-    const price = (data?.[i * 2 + 1]?.result as bigint | undefined) ?? 0n;
+    const balance = (data?.[i]?.result as bigint | undefined) ?? 0n;
     held += Number(balance);
-    stagedWei += balance * price;
   });
 
   return (
     <RewardSection
       title="Bonds"
-      description="Your FlareForward Bonds and what the staged capital is earning."
+      description="Your FlareForward Bonds and their realized APY."
       action={
         <Link to="/bonds">
           <Button variant="outline" size="sm" className="gap-2">
@@ -737,31 +729,14 @@ function BondsSection({
         </Link>
       }
     >
-      {/* No per-year projection here: the /nft terms say we do not publish
-          projections, and this section briefly did. Rate and earned only. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 items-stretch">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch">
         <BondStat
-          label="Bond rate"
-          value={fmtPct(stagedRatePct)}
-          sub="while staged"
-          accent={stagedRatePct != null}
+          label="Bond APY"
+          value={fmtPct(bondApy.apyPct)}
+          sub="APY so far, from real payouts"
+          accent={bondApy.apyPct != null}
         />
         <BondStat label="Bonds held" value={`${held}`} sub="your position" />
-        <BondStat
-          label="What we've earned you"
-          value={
-            earnedLoading || earnedBondsWei === undefined
-              ? "—"
-              : earnedBondsWei === null
-                ? "not tracked yet"
-                : `${fmtFlrWei(earnedBondsWei, 2)} FLR`
-          }
-          sub={
-            earnedBondsWei == null
-              ? "distribution contract pending"
-              : "claimed plus claimable"
-          }
-        />
       </div>
     </RewardSection>
   );

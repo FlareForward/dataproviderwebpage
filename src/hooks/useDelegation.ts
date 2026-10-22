@@ -69,7 +69,7 @@ export function useDelegation() {
     if (!connector) throw new Error("No wallet connector available");
     const live = resolveLiveConnector(config, connector);
     if (!live) {
-      throw new Error("Wallet is still reconnecting — try again in a moment.");
+      throw new Error("Wallet is still reconnecting. Try again in a moment.");
     }
     console.info("[claim] getWallet: requesting provider from connector", live.id);
     const provider = wrapWalletProvider((await live.getProvider()) as any);

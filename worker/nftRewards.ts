@@ -17,6 +17,7 @@
  */
 
 const RPC = "https://flare-api.flare.network/ext/C/rpc";
+const BLOCKSCOUT = "https://flare-explorer.flare.network/api";
 
 const SEL = {
   totalTokenSupply: "0x1ca8b6cb", // totalTokenSupply()
@@ -31,6 +32,8 @@ const SEL = {
 
 const NATIVE = "0x0000000000000000000000000000000000000000";
 const WFLR = "0x1d80c49bbbcd1c0911346656b529df9e5c2f783d";
+const ERC20_TRANSFER_TOPIC =
+  "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 const TOKEN_LABELS: Record<string, string> = {
   [NATIVE]: "FLR",
   [WFLR]: "WFLR",
@@ -174,14 +177,83 @@ export interface BondRewardClaim {
   claimable_amount_wei: string;
 }
 
+export interface BondPayoutRelease {
+  block: number;
+  unix: number;
+  amount_wei: string;
+  per_bond_amount_wei: string;
+}
+
+export interface BondRewardLot {
+  lot_slug: string;
+  lot_name: string;
+  distributor: string;
+  collection: string;
+  held: number;
+  lifetime_per_bond_wei: string;
+  lifetime_amount_wei: string;
+  claimable_amount_wei: string;
+  payouts_available: boolean;
+  payouts: BondPayoutRelease[];
+}
+
 export function hasLiveBondRewardDistributors(): boolean {
   return LOTS.some((l) => l.live);
+}
+
+function blockscoutNumber(value: string | undefined): number {
+  if (!value) return 0;
+  return Number.parseInt(value, value.startsWith("0x") ? 16 : 10);
+}
+
+async function fetchBondPayoutHistory(
+  distributor: string,
+  supply: bigint,
+): Promise<BondPayoutRelease[]> {
+  if (supply <= 0n) return [];
+  const params = new URLSearchParams({
+    module: "logs",
+    action: "getLogs",
+    fromBlock: "0",
+    toBlock: "latest",
+    address: WFLR,
+    topic0: ERC20_TRANSFER_TOPIC,
+    topic2: `0x${pad(distributor)}`,
+    topic0_2_opr: "and",
+  });
+  const res = await fetch(`${BLOCKSCOUT}?${params}`, {
+    headers: { Accept: "application/json" },
+    cf: { cacheTtl: 60, cacheEverything: true },
+  } as RequestInit);
+  if (!res.ok) throw new Error(`Blockscout bond payouts -> ${res.status}`);
+  const body = (await res.json()) as {
+    message?: string;
+    result?: Array<{ blockNumber?: string; timeStamp?: string; data?: string }>;
+  };
+  if (!Array.isArray(body.result)) {
+    if (typeof body.message === "string" && /no logs found/i.test(body.message)) {
+      return [];
+    }
+    throw new Error(`Blockscout bond payouts: ${body.message ?? "unexpected payload"}`);
+  }
+  return body.result
+    .map((log) => {
+      const amount = BigInt(log.data ?? "0x0");
+      return {
+        block: blockscoutNumber(log.blockNumber),
+        unix: blockscoutNumber(log.timeStamp),
+        amount_wei: amount.toString(),
+        per_bond_amount_wei: (amount / supply).toString(),
+      };
+    })
+    .filter((release) => BigInt(release.amount_wei) > 0n)
+    .sort((a, b) => b.unix - a.unix || b.block - a.block);
 }
 
 async function fetchBondRewardClaimsForLot(
   owner: string,
   lot: { slug: string; name: string; distributor: string },
-): Promise<BondRewardClaim[]> {
+): Promise<{ claims: BondRewardClaim[]; lot: BondRewardLot | null }> {
   const d = lot.distributor;
   const [collectionRaw, tokensRaw, precisionRaw] = await ethCallBatch([
     { to: d, data: SEL.erc721Token },
@@ -197,15 +269,19 @@ async function fetchBondRewardClaimsForLot(
     { to: collection, data: SEL.erc721BalanceOf + pad(owner) },
   ]);
   const balance = Number(BigInt(balanceRaw));
-  if (balance <= 0 || paymentTokens.length === 0) return [];
+  if (balance <= 0 || paymentTokens.length === 0) {
+    return { claims: [], lot: null };
+  }
 
-  const tokenIdRaw = await ethCallBatch(
-    Array.from({ length: balance }, (_, index) => ({
+  const [tokenIdRaw, supplyRaw] = await Promise.all([
+    ethCallBatch(Array.from({ length: balance }, (_, index) => ({
       to: collection,
       data: SEL.erc721TokenOfOwnerByIndex + pad(owner) + padUint(index),
-    })),
-  );
+    }))),
+    ethCallBatch([{ to: d, data: SEL.totalTokenSupply }]),
+  ]);
   const tokenIds = tokenIdRaw.map((raw) => Number(BigInt(raw)));
+  const supply = BigInt(supplyRaw[0]);
 
   const cumRaw = await ethCallBatch(
     paymentTokens.map((t) => ({
@@ -224,7 +300,7 @@ async function fetchBondRewardClaimsForLot(
     ),
   );
 
-  return tokenIds
+  const claims = tokenIds
     .map((tokenId, tokenIndex) => {
       let lifetime = 0n;
       let claimable = 0n;
@@ -251,19 +327,54 @@ async function fetchBondRewardClaimsForLot(
       (claim) =>
         claim.lifetime_amount_wei !== "0" || claim.claimable_amount_wei !== "0",
     );
+  const lifetimePerBond = paymentTokens.reduce(
+    (total, _, index) => total + (precision > 0n ? cum[index] / precision : 0n),
+    0n,
+  );
+  const lifetimeAmount = lifetimePerBond * BigInt(balance);
+  const claimableAmount = claims.reduce(
+    (total, claim) => total + BigInt(claim.claimable_amount_wei),
+    0n,
+  );
+  let payouts: BondPayoutRelease[] = [];
+  let payoutsAvailable = true;
+  try {
+    payouts = await fetchBondPayoutHistory(d, supply);
+  } catch {
+    payoutsAvailable = false;
+  }
+
+  return {
+    claims,
+    lot: {
+      lot_slug: lot.slug,
+      lot_name: lot.name,
+      distributor: d,
+      collection,
+      held: balance,
+      lifetime_per_bond_wei: lifetimePerBond.toString(),
+      lifetime_amount_wei: lifetimeAmount.toString(),
+      claimable_amount_wei: claimableAmount.toString(),
+      payouts_available: payoutsAvailable,
+      payouts,
+    },
+  };
 }
 
 export async function loadBondRewardClaims(
   owner: string,
-): Promise<{ tracked: boolean; claims: BondRewardClaim[] }> {
+): Promise<{ tracked: boolean; claims: BondRewardClaim[]; lots: BondRewardLot[] }> {
   const targets = LOTS.filter((l) => l.live);
-  if (targets.length === 0) return { tracked: false, claims: [] };
+  if (targets.length === 0) return { tracked: false, claims: [], lots: [] };
 
   const claims: BondRewardClaim[] = [];
+  const lots: BondRewardLot[] = [];
   for (const lot of targets) {
-    claims.push(...(await fetchBondRewardClaimsForLot(owner, lot)));
+    const reward = await fetchBondRewardClaimsForLot(owner, lot);
+    claims.push(...reward.claims);
+    if (reward.lot) lots.push(reward.lot);
   }
-  return { tracked: true, claims };
+  return { tracked: true, claims, lots };
 }
 
 async function fetchBoard(lot: {

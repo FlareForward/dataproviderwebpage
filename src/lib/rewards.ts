@@ -96,7 +96,7 @@ export function fmtFlrWei(wei: bigint, digits = 0): string {
 }
 
 export function fmtFlr(value: number | null | undefined, digits = 0): string {
-  if (value == null || !Number.isFinite(value)) return "—";
+  if (value == null || !Number.isFinite(value)) return "-";
   return value.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: digits,
@@ -116,7 +116,7 @@ export function settledRate(value: number | null | undefined): number | null {
 }
 
 export function fmtPct(value: number | null | undefined, digits = 2): string {
-  if (value == null || !Number.isFinite(value)) return "—";
+  if (value == null || !Number.isFinite(value)) return "-";
   return `${value.toLocaleString(undefined, {
     minimumFractionDigits: 0,
     maximumFractionDigits: digits,
@@ -125,7 +125,7 @@ export function fmtPct(value: number | null | undefined, digits = 2): string {
 
 /** "54.3K FLR"-style compact label for large reward amounts. */
 export function fmtFlrCompact(value: number | null | undefined): string {
-  if (value == null || !Number.isFinite(value)) return "—";
+  if (value == null || !Number.isFinite(value)) return "-";
   if (Math.abs(value) >= 1_000_000)
     return `${(value / 1_000_000).toFixed(2)}M`;
   if (Math.abs(value) >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
@@ -133,7 +133,7 @@ export function fmtFlrCompact(value: number | null | undefined): string {
 }
 
 export function fmtDate(unix: number | null | undefined): string {
-  if (unix == null || !Number.isFinite(unix)) return "—";
+  if (unix == null || !Number.isFinite(unix)) return "-";
   return new Date(unix * 1000).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -142,7 +142,7 @@ export function fmtDate(unix: number | null | undefined): string {
 }
 
 export function fmtUtcDate(unix: number | null | undefined): string {
-  if (unix == null || !Number.isFinite(unix)) return "—";
+  if (unix == null || !Number.isFinite(unix)) return "-";
   return new Date(unix * 1000).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",

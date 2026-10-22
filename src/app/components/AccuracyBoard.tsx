@@ -11,7 +11,7 @@ import { EpochGapNotice } from "./EpochGapNotice";
 
 /** Round to one decimal (e.g. 30 -> "30.0"); null/NaN render as an em dash. */
 function f1(v: number | null | undefined): string {
-  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  if (v === null || v === undefined || Number.isNaN(v)) return "-";
   return (Math.round(v * 10) / 10).toFixed(1);
 }
 
@@ -46,7 +46,7 @@ function HeatCell({
   if (value === null || value === undefined) {
     return (
       <span className="inline-block min-w-[3.25rem] rounded-md px-2 py-0.5 font-semibold tabular-nums text-[#8FA0B8]/50">
-        —
+        -
       </span>
     );
   }
@@ -274,7 +274,7 @@ export function AccuracyBoard() {
             <p className="mt-0.5 text-[0.8125rem] text-[#8FA0B8]">
               {submitting
                 ? "How often our feeds land inside the on-chain reward bands"
-                : "Not submitting this epoch — accuracy paused until we resume"}
+                : "Not submitting this epoch. Accuracy is paused until we resume"}
             </p>
           </div>
         </div>
@@ -330,7 +330,7 @@ export function AccuracyBoard() {
           {/* Headline: overall success rate + availability, 6h + 24h */}
           <div className="px-6 py-6">
             <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8FA0B8]">
-              Overall — across all {data.feeds_count} feeds and every voting
+              Overall, across all {data.feeds_count} feeds and every voting
               round in the window
             </div>
             <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -392,7 +392,7 @@ export function AccuracyBoard() {
           <div>
             <div className="flex flex-wrap items-center justify-between gap-2 px-6 pb-3 pt-4">
               <h3 className="text-[11px] font-semibold uppercase tracking-wider text-[#8FA0B8]">
-                Per-feed landing — all {data.feeds.length} feeds
+                Per-feed landing, all {data.feeds.length} feeds
               </h3>
               <div className="flex items-center gap-4 text-[11px] text-[#8FA0B8]">
                 <span className="flex items-center gap-1.5">
@@ -506,7 +506,7 @@ export function AccuracyBoard() {
             </div>
             <div className="border-t border-white/8 px-6 py-3 text-[11.5px] text-[#8FA0B8]">
               Canonical figures from the Flare Systems Explorer, graded on-chain
-              against the real consensus bands — the same measure the public
+              against the real consensus bands, the same measure the public
               trackers use. Snapshot{" "}
               <span className="font-semibold text-[#FAFAFA]">
                 {updated.toISOString().slice(0, 16).replace("T", " ")} UTC

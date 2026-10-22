@@ -12,8 +12,6 @@ import {
   type BondTier,
 } from "../lib/bondLot";
 
-/** Enumerating more than this per tier is a wall nobody claims in one go. */
-const MAX_ENUMERATE = 100;
 /** balanceOf, cumulative, PRECISION, distributor WFLR, lastKnownBalance. */
 const READS_PER_TIER = 5;
 
@@ -26,6 +24,21 @@ export const PAID_TIERS: PaidTier[] = CURRENT_LOT.tiers.filter(
 
 export type ClaimPhase = "idle" | "processing" | "claiming" | "claimed" | "failed";
 
+export interface BondClaimTier {
+  tier: PaidTier;
+  held: number;
+  tokenIds: bigint[];
+  bonds: Array<{
+    tokenId: bigint;
+    earnedWei: bigint;
+    claimableWei: bigint;
+  }>;
+  payoutPerBondWei: bigint;
+  lifetimeWei: bigint;
+  claimableWei: bigint;
+  unprocessedWei: bigint;
+}
+
 /**
  * What the connected wallet can claim from each lot's distributor, and the
  * two-step claim itself.
@@ -36,25 +49,29 @@ export type ClaimPhase = "idle" | "processing" | "claiming" | "claimed" | "faile
  * with nothing to process (it simply does nothing); the claim reverts when
  * nothing is owed, so it is only sent once the re-read shows a balance.
  */
-export function useBondClaims() {
+export function useBondClaims(viewedAddress?: `0x${string}`) {
   const { address, status } = useAccount();
   const isConnected = status === "connected";
+  const owner = viewedAddress ?? address;
+  const isViewingConnectedWallet =
+    !!address && !!owner && address.toLowerCase() === owner.toLowerCase();
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const [phase, setPhase] = useState<ClaimPhase>("idle");
+  const [activeTierKey, setActiveTierKey] = useState<string | null>(null);
   const [lastTx, setLastTx] = useState<`0x${string}` | null>(null);
 
   const zero = "0x0000000000000000000000000000000000000000" as const;
 
   // Pass 1: per paid tier, how many bonds this wallet holds, plus the
   // distributor's cumulative figure, its precision, and its unprocessed WFLR.
-  const { data: base, refetch: refetchBase } = useReadContracts({
+  const { data: base, refetch: refetchBase, isLoading: baseLoading } = useReadContracts({
     contracts: PAID_TIERS.flatMap((t) => [
       {
         address: t.address,
         abi: bondLotAbi,
         functionName: "balanceOf" as const,
-        args: [address ?? zero] as const,
+        args: [owner ?? zero] as const,
         chainId: chain.id,
       },
       {
@@ -85,7 +102,11 @@ export function useBondClaims() {
         chainId: chain.id,
       },
     ]),
-    query: { enabled: !!address && PAID_TIERS.length > 0, refetchInterval: 30_000 },
+    query: {
+      enabled: !!owner && PAID_TIERS.length > 0,
+      refetchInterval: 30_000,
+      refetchOnWindowFocus: true,
+    },
   });
 
   const tierBase = useMemo(
@@ -111,19 +132,19 @@ export function useBondClaims() {
   const indexCalls = useMemo(
     () =>
       tierBase.flatMap(({ tier, held }) =>
-        Array.from({ length: Math.min(held, MAX_ENUMERATE) }, (_, idx) => ({ tier, idx })),
+        Array.from({ length: held }, (_, idx) => ({ tier, idx })),
       ),
     [tierBase],
   );
-  const { data: ids, refetch: refetchIds } = useReadContracts({
+  const { data: ids, refetch: refetchIds, isLoading: idsLoading } = useReadContracts({
     contracts: indexCalls.map((c) => ({
       address: c.tier.address,
       abi: bondLotAbi,
       functionName: "tokenOfOwnerByIndex" as const,
-      args: [address ?? zero, BigInt(c.idx)] as const,
+      args: [owner ?? zero, BigInt(c.idx)] as const,
       chainId: chain.id,
     })),
-    query: { enabled: !!address && indexCalls.length > 0 },
+    query: { enabled: !!owner && indexCalls.length > 0 },
   });
 
   const owned = useMemo(
@@ -138,7 +159,7 @@ export function useBondClaims() {
   );
 
   // Pass 3: what each id has already been credited, so claimable = cum - last.
-  const { data: lastClaimed, refetch: refetchLast } = useReadContracts({
+  const { data: lastClaimed, refetch: refetchLast, isLoading: lastLoading } = useReadContracts({
     contracts: owned.map((o) => ({
       address: o.tier.distributor,
       abi: distributorAbi,
@@ -146,25 +167,38 @@ export function useBondClaims() {
       args: [o.id, WFLR_ADDRESS] as const,
       chainId: chain.id,
     })),
-    query: { enabled: owned.length > 0, refetchInterval: 30_000 },
+    query: {
+      enabled: owned.length > 0,
+      refetchInterval: 30_000,
+      refetchOnWindowFocus: true,
+    },
   });
 
-  const perTier = useMemo(() => {
+  const perTier = useMemo<BondClaimTier[]>(() => {
     return tierBase.map((tb) => {
       const mine = owned.filter((o) => o.tier.key === tb.tier.key);
       let claimableWei = 0n;
       const tokenIds: bigint[] = [];
-      mine.forEach((o) => {
+      const payoutPerBondWei = tb.precision > 0n ? tb.cumulative / tb.precision : 0n;
+      const bonds = mine.map((o) => {
         const idx = owned.indexOf(o);
         const last = (lastClaimed?.[idx]?.result as bigint | undefined) ?? 0n;
         const owed = tb.precision > 0n ? (tb.cumulative - last) / tb.precision : 0n;
         if (owed > 0n) claimableWei += owed;
         tokenIds.push(o.id);
+        return {
+          tokenId: o.id,
+          earnedWei: payoutPerBondWei,
+          claimableWei: owed > 0n ? owed : 0n,
+        };
       });
       return {
         tier: tb.tier,
         held: tb.held,
         tokenIds,
+        bonds,
+        payoutPerBondWei,
+        lifetimeWei: payoutPerBondWei * BigInt(tb.held),
         claimableWei,
         // Funds sitting in the distributor that nobody has processed yet. The
         // wallet's share of this only becomes claimable after the poke.
@@ -180,6 +214,7 @@ export function useBondClaims() {
   // distributor this wallet holds bonds in.
   const mayClaim =
     isConnected &&
+    isViewingConnectedWallet &&
     heldPaid > 0 &&
     (claimableWei > 0n || perTier.some((t) => t.held > 0 && t.unprocessedWei > 0n));
 
@@ -189,92 +224,136 @@ export function useBondClaims() {
     await refetchLast();
   }, [refetchBase, refetchIds, refetchLast]);
 
-  /**
-   * Claim everything owed across every paid tier the wallet holds. One poke
-   * and one claim per tier. Stops at the first failure and says which step.
-   */
-  const claimAll = useCallback(async () => {
-    if (!address || !publicClient || phase === "processing" || phase === "claiming") return;
-    setLastTx(null);
-    try {
-      for (const t of perTier) {
-        if (t.held === 0) continue;
-        setPhase("processing");
-        const pokeHash = await writeContractAsync({
-          address: t.tier.distributor,
-          abi: distributorAbi,
-          functionName: "processAccumulatedERC20Payments",
-          args: [[WFLR_ADDRESS]],
-          chainId: chain.id,
-        });
-        await publicClient.waitForTransactionReceipt({ hash: pokeHash });
+  /** Poke and claim one exact tier. No other distributor or token ids enter this path. */
+  const claimTierRewards = useCallback(
+    async (t: BondClaimTier) => {
+      if (!publicClient) return;
+      setActiveTierKey(t.tier.key);
+      setPhase("processing");
+      const pokeHash = await writeContractAsync({
+        address: t.tier.distributor,
+        abi: distributorAbi,
+        functionName: "processAccumulatedERC20Payments",
+        args: [[WFLR_ADDRESS]],
+        chainId: chain.id,
+      });
+      await publicClient.waitForTransactionReceipt({ hash: pokeHash });
 
-        // Re-read after the poke: the claim reverts on zero, so the figure has
-        // to come from the chain, not from the pre-poke estimate.
-        const d = t.tier.distributor;
-        const [cum, precision, lasts] = await Promise.all([
-          publicClient.readContract({
-            address: d,
-            abi: distributorAbi,
-            functionName: "cumulativeRewardPerToken",
-            args: [WFLR_ADDRESS],
-          }),
-          publicClient.readContract({ address: d, abi: distributorAbi, functionName: "PRECISION" }),
-          Promise.all(
-            t.tokenIds.map((id) =>
-              publicClient.readContract({
-                address: d,
-                abi: distributorAbi,
-                functionName: "lastClaimedCumulativeReward",
-                args: [id, WFLR_ADDRESS],
-              }),
-            ),
-          ),
-        ]);
-        const owedIds = t.tokenIds.filter((_, i) => {
-          const last = lasts[i];
-          return precision > 0n && (cum - last) / precision > 0n;
-        });
-        if (owedIds.length === 0) {
-          toast.message(`${t.tier.name}: nothing owed to your bonds yet`);
-          continue;
-        }
-        setPhase("claiming");
-        const claimHash = await writeContractAsync({
-          address: t.tier.distributor,
+      // Re-read only this tier after its poke. A zero-value claim reverts, so
+      // the token list must come from the post-poke distributor state.
+      const distributor = t.tier.distributor;
+      const [cumulative, precision, lastClaimedByToken] = await Promise.all([
+        publicClient.readContract({
+          address: distributor,
           abi: distributorAbi,
-          functionName: "claimRewards",
-          args: [owedIds, [WFLR_ADDRESS]],
-          chainId: chain.id,
-        });
-        await publicClient.waitForTransactionReceipt({ hash: claimHash });
-        setLastTx(claimHash);
-        toast.success(`${t.tier.name}: rewards claimed as WFLR`);
-      }
-      setPhase("claimed");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/rejected|denied|User rejected/i.test(msg)) {
-        setPhase("idle");
+          functionName: "cumulativeRewardPerToken",
+          args: [WFLR_ADDRESS],
+        }),
+        publicClient.readContract({
+          address: distributor,
+          abi: distributorAbi,
+          functionName: "PRECISION",
+        }),
+        Promise.all(
+          t.tokenIds.map((tokenId) =>
+            publicClient.readContract({
+              address: distributor,
+              abi: distributorAbi,
+              functionName: "lastClaimedCumulativeReward",
+              args: [tokenId, WFLR_ADDRESS],
+            }),
+          ),
+        ),
+      ]);
+      const owedIds = t.tokenIds.filter((_, index) => {
+        const lastClaimed = lastClaimedByToken[index];
+        return precision > 0n && (cumulative - lastClaimed) / precision > 0n;
+      });
+      if (owedIds.length === 0) {
+        toast.message(`${t.tier.name}: nothing owed to your bonds yet`);
         return;
       }
-      setPhase("failed");
-      toast.error("Claim failed", { description: msg.slice(0, 160) });
-    } finally {
-      void refresh();
-    }
-  }, [address, publicClient, phase, perTier, writeContractAsync, refresh]);
+
+      setPhase("claiming");
+      const claimHash = await writeContractAsync({
+        address: distributor,
+        abi: distributorAbi,
+        functionName: "claimRewards",
+        args: [owedIds, [WFLR_ADDRESS]],
+        chainId: chain.id,
+      });
+      await publicClient.waitForTransactionReceipt({ hash: claimHash });
+      setLastTx(claimHash);
+      toast.success(`${t.tier.name}: rewards claimed as WFLR`);
+    },
+    [publicClient, writeContractAsync],
+  );
+
+  const canStartClaim =
+    !!address &&
+    isViewingConnectedWallet &&
+    !!publicClient &&
+    phase !== "processing" &&
+    phase !== "claiming";
+
+  const finishClaim = useCallback(
+    async (action: () => Promise<void>) => {
+      setLastTx(null);
+      try {
+        await action();
+        setPhase("claimed");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/rejected|denied|User rejected/i.test(msg)) {
+          setPhase("idle");
+          return;
+        }
+        setPhase("failed");
+        toast.error("Claim failed", { description: msg.slice(0, 160) });
+      } finally {
+        setActiveTierKey(null);
+        void refresh();
+      }
+    },
+    [refresh],
+  );
+
+  /** Claim one lot only, using only that tier's distributor and owned token ids. */
+  const claimTier = useCallback(
+    async (tierKey: string) => {
+      if (!canStartClaim) return;
+      const tier = perTier.find((candidate) => candidate.tier.key === tierKey);
+      if (!tier || tier.held === 0) return;
+      await finishClaim(() => claimTierRewards(tier));
+    },
+    [canStartClaim, claimTierRewards, finishClaim, perTier],
+  );
+
+  /** Claim everything owed across every paid tier, one isolated tier at a time. */
+  const claimAll = useCallback(async () => {
+    if (!canStartClaim) return;
+    await finishClaim(async () => {
+      for (const tier of perTier) {
+        if (tier.held > 0) await claimTierRewards(tier);
+      }
+    });
+  }, [canStartClaim, claimTierRewards, finishClaim, perTier]);
 
   return {
     isConnected,
+    isViewingConnectedWallet,
+    viewedAddress: owner,
     hasPaidTiers: PAID_TIERS.length > 0,
+    isLoading: !!owner && (baseLoading || idsLoading || lastLoading),
     heldPaid,
     perTier,
     claimableWei,
     unprocessedWei,
     mayClaim,
     phase,
+    activeTierKey,
     lastTx,
+    claimTier,
     claimAll,
     refresh,
   };

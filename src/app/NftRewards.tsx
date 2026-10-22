@@ -1,9 +1,6 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useReadContracts } from "wagmi";
-import { useRewards } from "../hooks/useRewards";
-import { settledRate } from "../lib/rewards";
 import { MintLot } from "./components/MintLot";
 import { MintTermLot } from "./components/MintTermLot";
 import {
@@ -18,47 +15,9 @@ import {
 import { EXPLORER_URL } from "../lib/flare";
 import { TERM_PREVIEW } from "../lib/termPreview";
 import { STARSHIP2_INTRO } from "../lib/starship2Copy";
-import { Starship1Timer, Starship2Timer, useStarship2 } from "./components/StarshipStrip";
-import { useValidatorStaking } from "../hooks/useValidatorStaking";
-import { Gem, Coins, TrendingUp, Landmark, Tag, Store, Activity, HeartHandshake, FileText, ExternalLink } from "lucide-react";
-
-/**
- * Measured bond performance, served by /api/bond-yield (worker/bondYield.ts).
- * Everything shown is observed — the only derived figure is annualization, a
- * labelled restatement of an observed epoch rate. No projections, ever: the
- * whole premise of FlareForward Bonds is that we publish what was measured.
- */
-const BOND_YIELD_URL = import.meta.env.VITE_BOND_YIELD_URL ?? "/api/bond-yield";
-
-interface Bucket {
-  label: string;
-  epoch_count: number;
-  bond_rate_annualized_pct: number | null;
-  provider_income_flr: number | null;
-}
-
-interface BondYield {
-  logged_epochs?: number;
-  total_epochs?: number;
-  current?: {
-    reward_epoch: number;
-    bond_rate_annualized_pct: number | null;
-    delegator_staking_pct: number | null;
-    delegation_fee_pct: number | null;
-    staking_component_pct: number | null;
-    pure_component_pct: number | null;
-    provider_income_flr: number | null;
-  } | null;
-  last_measured?: {
-    reward_epoch: number;
-    bond_rate_annualized_pct: number | null;
-    staking_component_pct: number | null;
-    pure_component_pct: number | null;
-    provider_income_flr: number | null;
-  } | null;
-  weeks?: Bucket[];
-  overall?: Bucket | null;
-}
+import { Gem, Coins, TrendingUp, Landmark, Tag, Activity, HeartHandshake, FileText, ExternalLink, ChevronDown } from "lucide-react";
+import { useBondApy } from "../hooks/useBondApy";
+import { fmtPct } from "../lib/rewards";
 
 interface TierStatus {
   key: string;
@@ -73,12 +32,8 @@ interface TierStatus {
  * unmeasured epoch used to render as "0.00%" on a page selling the bond.
  * Nothing measured means nothing to show.
  */
-function pct(v: number | null | undefined): string {
-  return typeof v === "number" && Number.isFinite(v) && v > 0 ? `${v.toFixed(2)}%` : "—";
-}
-
 function fmtCount(v: bigint | null | undefined): string {
-  return v != null ? v.toLocaleString("en-US") : "—";
+  return v != null ? v.toLocaleString("en-US") : "-";
 }
 
 function remainingFor(status: TierStatus): bigint | null {
@@ -182,180 +137,24 @@ function useTierStatuses(tiers: BondTier[]) {
   return { statuses, statusLoading: isLoading };
 }
 
-/**
- * One line under the title, read from the contracts. When every lot is closed
- * it says so and counts what was issued; "remaining" only means something
- * while a lot is open.
- */
-function LeadStatus({
-  statuses,
-  statusLoading,
-}: {
-  statuses: TierStatus[];
-  statusLoading: boolean;
-}) {
-  const liveStatuses = statuses.filter((s) => s.address);
-
-  if (liveStatuses.length === 0) {
-    return (
-      <p className="mt-4 text-sm text-amber-300">
-        No FTSO V1 lot is open. The next one is announced here first.
-      </p>
-    );
-  }
-
-  const allRead = liveStatuses.every(
-    (s) => s.maxSupply != null && s.sold != null && s.mintOpen != null,
-  );
-
-  if (statusLoading && !allRead) {
-    return <p className="mt-4 text-sm text-[#8FA0B8]">Reading the lot contracts…</p>;
-  }
-
-  const minted = liveStatuses.reduce((sum, s) => sum + (s.sold ?? 0n), 0n);
-  const openStatuses = liveStatuses.filter(isOpen);
-
-  if (openStatuses.length === 0) {
-    return (
-      <p className="mt-4 text-sm text-[#8FA0B8]">
-        Every FTSO V1 lot is closed.{" "}
-        <span className="text-[#FAFAFA]">{fmtCount(minted)} bonds</span> issued across{" "}
-        {liveStatuses.length} lots. The next FTSO V1 lot is announced here first.
-      </p>
-    );
-  }
-
-  const remaining = openStatuses.reduce((sum, s) => sum + (remainingFor(s) ?? 0n), 0n);
-  return (
-    <p className="mt-4 max-w-3xl rounded-xl border border-[#E85A95]/30 bg-[#E85A95]/10 px-4 py-3 text-sm font-medium text-[#FAFAFA]">
-      FTSO V1 mint open. {fmtCount(remaining)} remaining across {openStatuses.length}{" "}
-      {openStatuses.length === 1 ? "lot" : "lots"}.
-    </p>
-  );
-}
-
 function MeasuredPerformance() {
-  const { data, isLoading } = useQuery<BondYield>({
-    queryKey: ["bond-yield"],
-    queryFn: async () => {
-      const res = await fetch(BOND_YIELD_URL, { headers: { Accept: "application/json" } });
-      if (!res.ok) throw new Error(`bond-yield ${res.status}`);
-      return res.json();
-    },
-    staleTime: 15 * 60 * 1000,
-    refetchOnWindowFocus: false,
-  });
-
-  // The live epoch reads zero until it settles — 3.5 days of showing nothing on
-  // the page that sells the bond. Use it once it is real, else the last epoch
-  // that actually paid out, and let the epoch label say which one is on screen.
-  const live = data?.current;
-  const cur =
-    live && typeof live.bond_rate_annualized_pct === "number" && live.bond_rate_annualized_pct > 0
-      ? live
-      : data?.last_measured
-        ? { ...data.last_measured, delegator_staking_pct: null, delegation_fee_pct: null }
-        : live;
-
-  // Fallback for the delegator tile: the rewards API measures the same rate
-  // and is what the staking page already shows.
-  const { data: rewards } = useRewards();
-  const delegatorPct =
-    cur?.delegator_staking_pct ?? settledRate(rewards?.rates.staking_annual_pct);
+  const bondApy = useBondApy();
 
   return (
     <section className="mt-10">
       <div className="flex items-center gap-3">
         <Activity size={20} className="text-[#E85A95]" />
-        <h2 className="text-xl font-semibold">What the validator bond is earning</h2>
+        <h2 className="text-xl font-semibold">Bond earnings</h2>
       </div>
-      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        Measured from closed epochs, restated annually. It moves epoch to epoch and is not a
-        promised rate. No holder distribution has been paid yet; this is what the validator earns.
-      </p>
-
-      {isLoading && (
-        <div className="glass-panel mt-4 p-6 text-sm text-[#8FA0B8]">Reading the chain…</div>
-      )}
-
-      {!isLoading && cur && (
-        <>
-          {/* The comparison IS the point: the bond and P-chain staking are two
-              different rates on the same validator, and the difference is what
-              the Bonds product is actually selling. */}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div className="glass-panel border border-[#E85A95]/30 p-5">
-              <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                Bond rate, annualized
-              </p>
-              <p className="mt-1 text-3xl font-semibold text-[#FAFAFA]">
-                {pct(cur.bond_rate_annualized_pct)}
-              </p>
-              <p className="mt-1 text-xs text-[#8FA0B8]">
-                staking {pct(cur.staking_component_pct)} + pure {pct(cur.pure_component_pct)}
-              </p>
-            </div>
-            <div className="glass-panel p-5">
-              <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
-                Delegator staking rate, annualized
-              </p>
-              {/* The bond-yield fallback bucket nulls the delegator rate, which
-                  left this tile a dash for 3.5 days at a stretch — on the page
-                  whose whole argument is the gap between the two numbers. The
-                  rewards API publishes the same measured delegator rate, so use
-                  it whenever the primary read has nothing. */}
-              <p className="mt-1 text-3xl font-semibold">{pct(delegatorPct)}</p>
-              <p className="mt-1 text-xs text-[#8FA0B8]">
-                after our {cur.delegation_fee_pct ?? 20}% provider fee
-              </p>
-            </div>
-          </div>
-
-          <p className="mt-3 max-w-3xl text-xs leading-relaxed text-[#8FA0B8]/80">
-            The bond is our own stake, so no delegation fee comes off it, and it earns a second
-            component delegated stake does not. Epoch-by-epoch record on{" "}
-            <Link to="/analytics" className="text-[#E85A95] hover:underline">
-              Analytics
-            </Link>
-            .
-          </p>
-        </>
-      )}
+      <div className="glass-panel mt-4 p-5">
+        <p className="text-xs uppercase tracking-wide text-[#8FA0B8]">
+          APY so far, from real payouts
+        </p>
+        <p className="mt-1 text-3xl font-semibold tabular-nums text-emerald-400">
+          {fmtPct(bondApy.apyPct)}
+        </p>
+      </div>
     </section>
-  );
-}
-
-/**
- * When an open lot closes, tied to the thing that actually decides it: the
- * current bond period on FlareForward's validator. Only rendered while a lot
- * is open. Says nothing about when the NEXT lot opens — do not reintroduce a
- * "next lot opens then" claim here without confirming it first.
- */
-function LotCloseLine() {
-  const { data: validator } = useValidatorStaking();
-  const endUnix = validator?.active_end_unix ?? null;
-
-  if (!endUnix) {
-    return (
-      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-        The open FTSO V1 lot closes as the current bond period ends, when the raised capital is
-        bonded.
-      </p>
-    );
-  }
-
-  const end = new Date(endUnix * 1000);
-  const daysLeft = Math.max(0, Math.ceil((end.getTime() - Date.now()) / 86_400_000));
-
-  return (
-    <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-      The open FTSO V1 lot closes as the current bond period ends,{" "}
-      <span className="text-[#FAFAFA] font-medium">
-        {end.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}
-      </span>
-      {daysLeft > 0 && <> ({daysLeft} {daysLeft === 1 ? "day" : "days"} away)</>}. The mint
-      contract itself has no deadline.
-    </p>
   );
 }
 
@@ -375,6 +174,8 @@ function Lots({
   statusLoading: boolean;
   preview: boolean;
 }) {
+  const [v1Open, setV1Open] = useState(false);
+  const [v2Open, setV2Open] = useState(false);
   const statusFor = (tier: BondTier): TierStatus =>
     statuses.find((s) => s.key === tier.key) ?? { key: tier.key, address: tier.address };
 
@@ -383,122 +184,123 @@ function Lots({
   const openTiers = shareTiers.filter((t) => t.address && isOpen(statusFor(t)));
   const closedTiers = shareTiers.filter((t) => t.address && !isOpen(statusFor(t)));
   const anyOpen = openTiers.length > 0;
+  const v1BondCount = statuses.reduce((total, status) => total + (status.sold ?? 0n), 0n);
 
   return (
     <>
       <section className="mt-10" aria-labelledby="starship1-title">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-          <h2 id="starship1-title" className="text-xl font-semibold">
-            FTSO V1
-          </h2>
-          <div className="w-full sm:w-[min(320px,28%)] sm:min-w-[240px]">
-            <Starship1Timer />
+        <button
+          type="button"
+          onClick={() => setV1Open((open) => !open)}
+          aria-expanded={v1Open}
+          className="glass-panel flex w-full items-center justify-between gap-4 p-4 text-left"
+        >
+          <span>
+            <span id="starship1-title" className="block text-xl font-semibold">FTSO V1</span>
+            <span className="mt-0.5 block text-sm text-[#8FA0B8]">
+              {statusLoading ? "Reading bonds" : `${fmtCount(v1BondCount)} bonds`}
+            </span>
+          </span>
+          <ChevronDown
+            className={`transition-transform motion-reduce:transition-none ${v1Open ? "rotate-180" : ""}`}
+            size={18}
+          />
+        </button>
+
+        {v1Open && (
+          <div className="mt-3">
+            {anyOpen && (
+              <div className="grid gap-3 md:grid-cols-2">
+                {openTiers.map((tier) => (
+                  <TierOffer
+                    key={tier.key}
+                    tier={tier}
+                    status={statusFor(tier)}
+                    statusLoading={statusLoading}
+                    preview={preview}
+                  />
+                ))}
+              </div>
+            )}
+            {closedTiers.length > 0 && (
+              <ul className={`glass-panel ${anyOpen ? "mt-3" : ""} divide-y divide-white/8 p-0`}>
+                {closedTiers.map((tier) => {
+                  const status = statusFor(tier);
+                  return (
+                    <li key={tier.key} className="flex items-center gap-4 px-4 py-3">
+                      <img
+                        src={`${IPFS_GATEWAY}/${tier.imageCid}`}
+                        alt=""
+                        loading="lazy"
+                        className="h-10 w-10 shrink-0 rounded-lg object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[#FAFAFA]">{tier.name}</p>
+                        <p className="text-xs text-[#8FA0B8]">{fmtCount(status.sold)} bonds</p>
+                      </div>
+                      <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${mintStateTone(status, statusLoading)}`}>
+                        {mintStateLabel(status, statusLoading)}
+                      </span>
+                      {tier.address && (
+                        <a
+                          href={`${EXPLORER_URL}/address/${tier.address}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#8FA0B8] hover:text-[#FAFAFA]"
+                          aria-label={`${tier.name} contract on the explorer`}
+                        >
+                          <ExternalLink size={14} />
+                        </a>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
-        </div>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-          Perpetual share bonds. Your exit is selling the NFT, and holder distributions use each
-          lot&apos;s distributor after it closes.
-        </p>
-        {anyOpen && <LotCloseLine />}
-
-      {anyOpen && (
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
-          {openTiers.map((tier) => (
-            <TierOffer
-              key={tier.key}
-              tier={tier}
-              status={statusFor(tier)}
-              statusLoading={statusLoading}
-              preview={preview}
-            />
-          ))}
-        </div>
-      )}
-
-      {closedTiers.length > 0 && (
-        <div className={`glass-panel ${anyOpen ? "mt-6" : "mt-4"} p-0`}>
-          {anyOpen && (
-            <p className="border-b border-white/8 px-4 py-2 text-xs uppercase tracking-wide text-[#8FA0B8]">
-              Closed lots
-            </p>
-          )}
-          <ul className="divide-y divide-white/8">
-            {closedTiers.map((tier) => {
-              const status = statusFor(tier);
-              return (
-                <li key={tier.key} className="flex items-center gap-4 px-4 py-3">
-                  {tier.imageCid && (
-                    <img
-                      src={`${IPFS_GATEWAY}/${tier.imageCid}`}
-                      alt=""
-                      loading="lazy"
-                      className="h-10 w-10 shrink-0 rounded-lg object-cover"
-                    />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-[#FAFAFA]">{tier.name}</p>
-                    <p className="text-xs text-[#8FA0B8]">
-                      {fmtCount(status.sold)} / {fmtCount(status.maxSupply)} minted
-                    </p>
-                  </div>
-                  <span
-                    className={`inline-flex rounded-full border px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${mintStateTone(status, statusLoading)}`}
-                  >
-                    {mintStateLabel(status, statusLoading)}
-                  </span>
-                  {tier.address && (
-                    <a
-                      href={`${EXPLORER_URL}/address/${tier.address}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[#8FA0B8] hover:text-[#FAFAFA]"
-                      aria-label={`${tier.name} contract on the explorer`}
-                    >
-                      <ExternalLink size={14} />
-                    </a>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-
-      {!anyOpen && (
-        <p className="mt-3 text-sm text-[#8FA0B8]">
-          Closed FTSO V1 lots are capped at what sold and their capital is bonded. Bonds trade
-          on the secondary market.
-        </p>
-      )}
+        )}
       </section>
 
       <section className="mt-10" aria-labelledby="starship2-title">
-        <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <h2 id="starship2-title" className="text-xl font-semibold">
-              FTSO V2
-            </h2>
+        <button
+          type="button"
+          onClick={() => setV2Open((open) => !open)}
+          aria-expanded={v2Open}
+          className="glass-panel flex w-full items-center justify-between gap-4 p-4 text-left"
+        >
+          <span className="flex items-center gap-3">
+            <span>
+              <span id="starship2-title" className="block text-xl font-semibold">FTSO V2</span>
+              <span className="mt-0.5 block text-sm text-[#8FA0B8]">
+                {termTiers.length} {termTiers.length === 1 ? "tier" : "tiers"}
+              </span>
+            </span>
             {TERM_PREVIEW && (
               <span className="rounded-full border border-sky-300/40 bg-sky-300/10 px-2.5 py-0.5 text-[10px] font-medium text-sky-200">
                 TESTNET PREVIEW
               </span>
             )}
+          </span>
+          <ChevronDown
+            className={`transition-transform motion-reduce:transition-none ${v2Open ? "rotate-180" : ""}`}
+            size={18}
+          />
+        </button>
+        {v2Open && (
+          <div className="mt-3">
+            <p className="max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
+              {STARSHIP2_INTRO}{" "}
+              <Link to="/nft/redeem" className="font-medium text-[#E85A95] hover:underline">
+                How redemption works
+              </Link>
+            </p>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {termTiers.map((tier) => (
+                <MintTermLot key={tier.key} tier={tier} />
+              ))}
+            </div>
           </div>
-          <div className="w-full sm:w-[min(320px,28%)] sm:min-w-[240px]">
-            <Starship2HeadingTimer />
-          </div>
-        </div>
-        <p className="mt-2 max-w-3xl text-sm leading-relaxed text-[#8FA0B8]">
-          {STARSHIP2_INTRO}{" "}
-          <Link to="/nft/redeem" className="font-medium text-[#E85A95] hover:underline">
-            How redemption works
-          </Link>
-        </p>
-        <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {termTiers.map((tier) => (
-            <MintTermLot key={tier.key} tier={tier} />
-          ))}
-        </div>
+        )}
       </section>
     </>
   );
@@ -583,7 +385,6 @@ export default function NftRewards() {
           FTSO V1 bonds are perpetual shares of holder distributions. FTSO V2 bonds have a
           12 month term and redeem through their tier vault after maturity.
         </p>
-        <LeadStatus statuses={statuses} statusLoading={statusLoading} />
       </div>
 
       <Lots tiers={tiers} statuses={statuses} statusLoading={statusLoading} preview={preview} />
@@ -631,51 +432,25 @@ export default function NftRewards() {
         />
       </div>
 
-      {/* Giving, deliberately loose. Signal the intent before the details
-          exist while promising nothing: no cause named, no percentage, no
-          date. When the partner and the split are settled they get published
-          here, transactions and all. */}
       <section className="mt-10">
         <div className="glass-panel p-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <HeartHandshake size={18} className="text-[#E85A95]" />
-            <h3 className="font-semibold">Giving back</h3>
-            <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
-              In the works
+          <p className="flex items-start gap-3 text-sm leading-relaxed text-[#8FA0B8]">
+            <HeartHandshake size={18} className="mt-0.5 shrink-0 text-[#E85A95]" />
+            <span>
+              5% of the FTSO&apos;s profit goes straight to a{" "}
+              <a
+                href="https://flare-explorer.flare.network/address/0xD797c533f890F2f1ECf4f5D6e7d7BF3bBF6eeCfa"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#E85A95] hover:underline"
+              >
+                charity wallet
+              </a>
+              , automatically.
             </span>
-          </div>
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            We are shaping a way for part of what the infrastructure earns to go to a cause worth
-            backing. Nothing is promised yet; when it is settled, the details go here, transactions
-            and all. One thing works today: a bond can be given away. Send it to an address the
-            recipient controls. For FTSO V1, never burn it.
-          </p>
-        </div>
-      </section>
-
-      {/* One exit on the page, by operator call 2026-08-17: the marketplace.
-          Do NOT reinstate a redemption card without an operator decision. */}
-      <section className="mt-6">
-        <div className="glass-panel p-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <Store size={18} className="text-[#E85A95]" />
-            <h3 className="font-semibold">Marketplace</h3>
-            <span className="inline-flex rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
-              Coming soon
-            </span>
-          </div>
-          <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">
-            Buy a bond from another holder, or list yours at whatever price you choose. Listings
-            will show any unclaimed rewards a bond carries. In build now.
           </p>
         </div>
       </section>
     </div>
   );
-}
-
-function Starship2HeadingTimer() {
-  const s = useStarship2();
-  if (!s) return null;
-  return <Starship2Timer maturity={s.maturity} toMaturity={s.toMaturity} />;
 }

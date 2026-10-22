@@ -57,18 +57,11 @@ export function ClaimNoticeDialog({
           <X size={16} />
         </button>
         <h2 id="claim-notice-title" className="pr-6 text-lg font-semibold text-[#FAFAFA]">
-          Bond payouts are moving to the staking schedule
+          Bond payout schedule
         </h2>
         <div className="space-y-3 text-sm leading-relaxed text-[#8FA0B8]">
-          <p>
-            We will pay out the next mirror epoch as usual. After that, bond rewards are released after each Flare
-            staking payout, which comes every 14 days. Our goal is one business day after that release.
-          </p>
-          <p>
-            This keeps payouts steady and smooth. Flare releases mirror rewards at a different time every 3.5 days,
-            which makes a regular schedule hard to hold.
-          </p>
-          <p className="text-xs">You will only see this notice once.</p>
+          <p>Bond rewards are paid every 2 weeks, after each Flare staking payout.</p>
+          <p>You will only see this notice once.</p>
         </div>
         <div className="flex flex-wrap justify-end gap-2 pt-1">
           <Button variant="secondary" onClick={onCancel}>

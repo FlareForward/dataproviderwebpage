@@ -16,6 +16,8 @@
     "src/lib/fspRewards.ts",
     "src/lib/termPreview.ts",
     "src/lib/bondLot.ts",
+    "src/lib/bondApy.ts",
+    "worker/bondApy.test.ts",
     "worker/fspRewards.test.ts",
     "worker/index.ts",
     "worker/earned.ts",

@@ -60,7 +60,7 @@ export function YourPosition({
         <CardDescription>
           {compact
             ? "Check another C-chain (0x…) or P-chain (P-flare…) address. Read-only; no signature ever requested."
-            : "See where you stand with FlareForward — paste your C-chain (0x…) or P-chain (P-flare…) address, or connect your wallet. Read-only; no signature ever requested."}
+            : "See where you stand with FlareForward. Paste your C-chain (0x...) or P-chain (P-flare...) address, or connect your wallet. Read-only; no signature ever requested."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -99,7 +99,7 @@ export function YourPosition({
 
         {error && !isLoading && (
           <p className="mt-3 text-sm text-red-400">
-            Couldn't read that address right now — try again in a moment.
+            Couldn&apos;t read that address right now. Try again in a moment.
           </p>
         )}
 
@@ -131,11 +131,11 @@ export function YourPosition({
                 value={
                   delegationApy != null && position.ffDelegatedWflr > 0
                     ? `${fmtFlr((position.ffDelegatedWflr * delegationApy) / 100, 1)} FLR a year`
-                    : "—"
+                    : "-"
                 }
                 sub={
                   delegationApy != null
-                    ? `${fmtPct(delegationApy)} now — not a forecast`
+                    ? `${fmtPct(delegationApy)} now, not a forecast`
                     : undefined
                 }
               />
@@ -154,7 +154,7 @@ export function YourPosition({
                     </>
                   ) : (
                     <>
-                      You're not delegating to FlareForward yet — wrap FLR and
+                      You&apos;re not delegating to FlareForward yet. Wrap FLR and
                       delegate in two clicks.
                     </>
                   )}
@@ -202,11 +202,11 @@ export function YourPosition({
                     value={
                       stakingApy != null && position.stake.stake_flr != null
                         ? `${fmtFlr((position.stake.stake_flr * stakingApy) / 100, 0)} FLR a year`
-                        : "—"
+                        : "-"
                     }
                     sub={
                       stakingApy != null
-                        ? `${fmtPct(stakingApy)} now — not a forecast`
+                        ? `${fmtPct(stakingApy)} now, not a forecast`
                         : undefined
                     }
                   />
