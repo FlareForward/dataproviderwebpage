@@ -365,6 +365,7 @@ export function MyBonds({
             {groups.map((g) => {
               const open = openTier === g.tier.key;
               const reward = tiers.find((candidate) => candidate.tier.key === g.tier.key);
+              const hasUnclaimed = !rewardsLoading && !!reward && reward.claimableWei > 0n;
 
               return (
                 <article key={g.tier.key} className="asset-tile p-0 text-left">
@@ -393,8 +394,19 @@ export function MyBonds({
                         loading="lazy"
                         className="relative aspect-square w-full object-cover"
                       />
+                      {hasUnclaimed && (
+                        <div
+                          className="absolute inset-x-0 top-0 z-10 overflow-hidden whitespace-nowrap border-b border-[#EE1A58]/35 bg-[#6B1838]/90 px-3 py-1.5 text-[11px] font-semibold tabular-nums text-white backdrop-blur-sm lg:text-xs"
+                        >
+                          Unclaimed {fmtFlrTwoDecimals(reward.claimableWei)} WFLR
+                        </div>
+                      )}
                       {g.tokenIds.length > 1 && (
-                        <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-[#FAFAFA]">
+                        <span
+                          className={`absolute right-2 z-20 rounded-full bg-black/80 px-2.5 py-1 text-xs font-semibold text-[#FAFAFA] ${
+                            hasUnclaimed ? "top-9" : "top-2"
+                          }`}
+                        >
                           ×{g.tokenIds.length}
                         </span>
                       )}
@@ -610,13 +622,21 @@ function BondLotDialog({
                 const bond = reward?.bonds.find(
                   (candidate) => candidate.tokenId === BigInt(tokenId),
                 );
+                const hasUnclaimed = (bond?.claimableWei ?? 0n) > 0n;
                 return (
                   <li key={tokenId} className="py-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p className="font-semibold tabular-nums text-[#FAFAFA]">
-                          Bond #{tokenId}
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold tabular-nums text-[#FAFAFA]">
+                            Bond #{tokenId}
+                          </p>
+                          {hasUnclaimed && (
+                            <span className="rounded-full border border-[#EE1A58]/40 bg-[#6B1838]/80 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white">
+                              Unclaimed {fmtFlrTwoDecimals(bond?.claimableWei ?? 0n)} WFLR
+                            </span>
+                          )}
+                        </div>
                         <a
                           href={`https://flare-explorer.flare.network/token/${group.tier.address}/instance/${tokenId}`}
                           target="_blank"
@@ -626,19 +646,11 @@ function BondLotDialog({
                           Explorer <ExternalLink size={10} />
                         </a>
                       </div>
-                      <div className="grid grid-cols-2 gap-x-5 text-right text-xs">
-                        <div>
-                          <p className="text-[#8FA0B8]">Earned</p>
-                          <p className="mt-1 font-semibold tabular-nums text-[#FAFAFA]">
-                            {fmtFlrTwoDecimals(bond?.earnedWei ?? 0n)} FLR
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[#8FA0B8]">Claimable</p>
-                          <p className="mt-1 font-semibold tabular-nums text-emerald-400">
-                            {fmtFlrTwoDecimals(bond?.claimableWei ?? 0n)} WFLR
-                          </p>
-                        </div>
+                      <div className="text-right text-xs">
+                        <p className="text-[#8FA0B8]">Earned</p>
+                        <p className="mt-1 font-semibold tabular-nums text-[#FAFAFA]">
+                          {fmtFlrTwoDecimals(bond?.earnedWei ?? 0n)} FLR
+                        </p>
                       </div>
                     </div>
                     <BondPayoutHistory history={history} />
