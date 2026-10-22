@@ -15,6 +15,7 @@ import {
 import { EXPLORER_URL } from "../lib/flare";
 import { TERM_PREVIEW } from "../lib/termPreview";
 import { STARSHIP2_INTRO } from "../lib/starship2Copy";
+import { StakingBatchTimer } from "./components/StarshipStrip";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Activity, HeartHandshake, FileText, ExternalLink, ChevronDown } from "lucide-react";
 import { useBondApy } from "../hooks/useBondApy";
 import { fmtPct } from "../lib/rewards";
@@ -193,7 +194,7 @@ function Lots({
           type="button"
           onClick={() => setV1Open((open) => !open)}
           aria-expanded={v1Open}
-          className="glass-panel flex w-full items-center justify-between gap-4 p-4 text-left"
+          className="glass-panel flex w-full flex-wrap items-center justify-between gap-4 p-4 text-left"
         >
           <span>
             <span id="starship1-title" className="block text-xl font-semibold">FTSO V1</span>
@@ -201,8 +202,11 @@ function Lots({
               {statusLoading ? "Reading bonds" : `${fmtCount(v1BondCount)} bonds`}
             </span>
           </span>
+          <span className="order-3 w-full sm:order-none sm:ml-auto sm:w-[min(320px,28%)] sm:min-w-[240px]">
+            <StakingBatchTimer />
+          </span>
           <ChevronDown
-            className={`transition-transform motion-reduce:transition-none ${v1Open ? "rotate-180" : ""}`}
+            className={`order-2 transition-transform motion-reduce:transition-none sm:order-none ${v1Open ? "rotate-180" : ""}`}
             size={18}
           />
         </button>
