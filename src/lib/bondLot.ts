@@ -430,6 +430,8 @@ export const CURRENT_LOT: BondLotConfig = {
       kind: "share",
       name: "Lot 1 · 2,500 FLR",
       address: "0xbfa14e5949eae2180af20bb30511d9023c67daf9",
+      // Wired 2026-10-02 from the Bond Treasury Safe after close (21/21).
+      distributor: "0x43EFE3eC5084762f8ba0DDC6478a8C6b27810811",
       blurb: "The accessible entry.",
       imageCid: "bafkreidvawf44wunnoabyz3kr2q4llv34ayekmz4vj3o3ygjihlstni37a",
     },
@@ -442,6 +444,8 @@ export const CURRENT_LOT: BondLotConfig = {
       kind: "share",
       name: "Lot 2 · 10,000 FLR",
       address: "0xd7b8d7f436b4b30b94a12457615f872dc4d5895a",
+      // Wired 2026-10-02 from the Bond Treasury Safe after close (28/28).
+      distributor: "0xA7a2E4563bd19C3b987236D401174B3D87834712",
       blurb: "Second run of the larger position, 250 available.",
       imageCid: "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
     },
@@ -456,6 +460,8 @@ export const CURRENT_LOT: BondLotConfig = {
       kind: "share",
       name: "Lot 3 · 1,000,000 FLR",
       address: "0xf963b3d02d5b17f87a2caac6f6a388841cd58da6",
+      // Wired 2026-10-02 from the Bond Treasury Safe after close (2/2).
+      distributor: "0x86F3fE537B30257Bd9ad4f4D30300DF66DFdE22B",
       blurb: "The largest position, 10 available.",
       imageCid: "bafybeidn5n7ltt5qbaka3rjrzw6g3udwmqtracvnncqvudh2uhcgg4wgei",
     },
