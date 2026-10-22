@@ -20,9 +20,15 @@ import {
 import { Button } from "./components/Button";
 import { useReadContracts } from "wagmi";
 import { ConnectWallet } from "./components/ConnectWallet";
+import {
+  ClaimNoticeDialog,
+  hasSeenClaimNotice,
+  markClaimNoticeSeen,
+} from "./components/ClaimNoticeDialog";
 import { EarningsStrip } from "./components/EarningsStrip";
 import { RewardHistory } from "./components/RewardHistory";
 import { bondLotAbi, CURRENT_LOT, isShareTier, type BondTier } from "../lib/bondLot";
+import { useBondClaims } from "../hooks/useBondClaims";
 import { useDelegation } from "../hooks/useDelegation";
 import { actualRatePct, useEarned } from "../hooks/useEarned";
 import { useRewards } from "../hooks/useRewards";
@@ -38,13 +44,15 @@ const FLAREFORWARD_ADDRESS =
 
 /**
  * /rewards is the connected wallet's member page: delegation, staking, and
- * bond holdings in one place. Bond distributions are status-only here because
- * no claim contract exists yet.
+ * bond holdings in one place. Bonds claim through each lot's distributor via
+ * useBondClaims.
  */
 export default function Rewards() {
   const { data: rewards, isLoading, error } = useRewards();
   const delegation = useDelegation();
   const staking = useStaking();
+  const bondClaims = useBondClaims();
+  const [noticeOpen, setNoticeOpen] = useState(false);
   const [claimState, setClaimState] = useState<Record<ClaimSource, ClaimState>>(
     {
       delegation: "idle",
@@ -53,6 +61,7 @@ export default function Rewards() {
   );
 
   const isConnected = delegation.isConnected || staking.isConnected;
+  const walletAddress = delegation.address;
   const ffDelegationAddress =
     rewards?.delegation_address?.toLowerCase() ?? FLAREFORWARD_ADDRESS;
   const delegatedWflr = useMemo(() => {
@@ -82,11 +91,26 @@ export default function Rewards() {
     delegation.claimableReward +
     staking.claimableReward +
     (bondsClaimable ?? 0n);
+  const bondClaimState: ClaimState =
+    bondClaims.phase === "processing" || bondClaims.phase === "claiming"
+      ? "claiming"
+      : bondClaims.phase === "claimed" || bondClaims.phase === "failed"
+        ? bondClaims.phase
+        : "idle";
   const claimBusy =
     delegation.busy === "claim" ||
     staking.busy === "claim" ||
     claimState.delegation === "claiming" ||
-    claimState.staking === "claiming";
+    claimState.staking === "claiming" ||
+    bondClaimState === "claiming";
+
+  function onBondClaimClick() {
+    if (walletAddress && !hasSeenClaimNotice(walletAddress)) {
+      setNoticeOpen(true);
+      return;
+    }
+    void bondClaims.claimAll();
+  }
 
   function setSourceState(source: ClaimSource, state: ClaimState) {
     setClaimState((current) => ({ ...current, [source]: state }));
@@ -195,10 +219,13 @@ export default function Rewards() {
                   stakingState={
                     staking.busy === "claim" ? "claiming" : claimState.staking
                   }
+                  bondState={bondClaimState}
+                  bondMayClaim={bondClaims.mayClaim}
                   busy={claimBusy}
                   onClaimDelegation={() => claimSource("delegation")}
                   onClaimStaking={() => claimSource("staking")}
                   onClaimBoth={claimBoth}
+                  onClaimBond={onBondClaimClick}
                   address={delegation.address}
                   claimableReady={earned.data?.claimableReady === true}
                   claimableLoading={
@@ -212,6 +239,16 @@ export default function Rewards() {
                     staking.claimableRewardError
                   }
                 />
+                {noticeOpen && walletAddress && (
+                  <ClaimNoticeDialog
+                    onCancel={() => setNoticeOpen(false)}
+                    onContinue={() => {
+                      markClaimNoticeSeen(walletAddress);
+                      setNoticeOpen(false);
+                      void bondClaims.claimAll();
+                    }}
+                  />
+                )}
 
                 <RewardSection
                   title="Delegation"
@@ -388,10 +425,13 @@ function ClaimPanel({
   bondsLoading,
   delegationState,
   stakingState,
+  bondState,
+  bondMayClaim,
   busy,
   onClaimDelegation,
   onClaimStaking,
   onClaimBoth,
+  onClaimBond,
   address,
   claimableReady,
   claimableLoading,
@@ -404,10 +444,13 @@ function ClaimPanel({
   bondsLoading: boolean;
   delegationState: ClaimState;
   stakingState: ClaimState;
+  bondState: ClaimState;
+  bondMayClaim: boolean;
   busy: boolean;
   onClaimDelegation: () => void;
   onClaimStaking: () => void;
   onClaimBoth: () => void;
+  onClaimBond: () => void;
   address: `0x${string}` | undefined;
   claimableReady: boolean;
   claimableLoading: boolean;
@@ -482,18 +525,14 @@ function ClaimPanel({
             disabled={busy && stakingState !== "claiming"}
             onClaim={onClaimStaking}
           />
-          {/* Three holdings, three claim cards, three sections below — the
-              panel mirrors the page. Bonds pay through Jon's distribution
-              contract, which has nothing in it until a lot closes, so this
-              card states the condition rather than reading as a broken zero.
-              It stays inert until the lots are registered in the on-chain
-              CollectionRegistry; see BondsSection. */}
+          {/* Three holdings, three claim cards, three sections below. Bonds
+              claim through each lot's distributor via useBondClaims. */}
           <ClaimItem
             title="Bond distributions"
             amount={bondsClaimable}
-            state="idle"
-            disabled
-            onClaim={() => {}}
+            state={bondState}
+            disabled={!bondMayClaim || (busy && bondState !== "claiming")}
+            onClaim={onClaimBond}
             pending={bondsLoading}
             emptyNote="not tracked yet"
           />
