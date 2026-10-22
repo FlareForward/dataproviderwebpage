@@ -18,7 +18,7 @@ const PINNED_PROVIDER_ADDRESS =
   "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110".toLowerCase();
 
 function pct(v: number | null, digits = 1): string {
-  return v === null ? "—" : `${v.toFixed(digits)}%`;
+  return v === null ? "-" : `${v.toFixed(digits)}%`;
 }
 
 /** Submission reveal-participation rate for a box-pipeline point. */
@@ -69,9 +69,9 @@ export default function Analytics() {
 
   const latest = series.length > 0 ? series[series.length - 1] : null;
   const previous = series.length > 1 ? series[series.length - 2] : null;
-  // During a registration gap we don't present "current" figures as if live —
-  // the AccuracyBoard shows the missed-epoch notice + countdown instead, and we
-  // fall back to the historical trend only.
+  // During a registration gap we don't present "current" figures as if live.
+  // AccuracyBoard shows the missed-epoch notice and expected resume time, and
+  // this page falls back to the historical trend only.
   const gap = !!data?.status && !data.status.submitting;
 
   // Uptime reads the canonical Flare Systems Explorer trailing 24h availability
@@ -106,7 +106,7 @@ export default function Analytics() {
               Provider Analytics
             </h1>
             <p className="text-[#8FA0B8] text-sm mt-1">
-              Overall performance of the Flare Forward data provider — uptime,
+              Overall performance of the Flare Forward data provider: uptime,
               submissions, and reward-band accuracy from on-chain data.
               {data?.generated_at_unix ? (
                 <span className="ml-1 text-[#8FA0B8]/70">
@@ -119,8 +119,7 @@ export default function Analytics() {
           <Badge variant="rose">Flare Forward</Badge>
         </div>
 
-        {/* FTSO success rate — and, during a registration gap, the prominent
-            missed-epoch notice with a countdown to the next epoch. */}
+        {/* FTSO success rate, or the missed-epoch notice during a gap. */}
         <AccuracyBoard />
 
         {/* Data-provider performance — FTSO uptime & submissions plus Flare

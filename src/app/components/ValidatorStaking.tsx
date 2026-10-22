@@ -4,7 +4,7 @@ import { useValidatorStaking } from "../../hooks/useValidatorStaking";
 
 /** Compact FLR amount: 1_305_990 -> "1.31M FLR". null -> em dash. */
 function flr(v: number | null | undefined): string {
-  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  if (v === null || v === undefined || Number.isNaN(v)) return "-";
   if (v >= 1e9) return `${(v / 1e9).toFixed(2)}B FLR`;
   if (v >= 1e6) return `${(v / 1e6).toFixed(2)}M FLR`;
   if (v >= 1e3) return `${(v / 1e3).toFixed(2)}K FLR`;
@@ -12,12 +12,12 @@ function flr(v: number | null | undefined): string {
 }
 
 function pct(v: number | null | undefined, digits = 1): string {
-  if (v === null || v === undefined || Number.isNaN(v)) return "—";
+  if (v === null || v === undefined || Number.isNaN(v)) return "-";
   return `${v.toFixed(digits)}%`;
 }
 
 function count(v: number | null | undefined): string {
-  return v === null || v === undefined ? "—" : v.toLocaleString();
+  return v === null || v === undefined ? "-" : v.toLocaleString();
 }
 
 function Tile({
@@ -93,7 +93,7 @@ export function ValidatorStaking() {
               Validator Staking
             </h2>
             <p className="mt-0.5 text-[0.8125rem] text-[#8FA0B8]">
-              Flare Forward's P-chain validator — stake, capacity, and staking
+              Flare Forward&apos;s P-chain validator: stake, capacity, and staking
               rewards from the Flare Systems Explorer.
             </p>
           </div>
@@ -142,7 +142,7 @@ export function ValidatorStaking() {
             earned nothing — never render it as a real rate. */}
         <Tile
           title="Reward Rate"
-          value={r.reward_rate_annual_pct ? pct(r.reward_rate_annual_pct) : "—"}
+          value={r.reward_rate_annual_pct ? pct(r.reward_rate_annual_pct) : "-"}
           sub={
             r.reward_rate_epoch_pct
               ? `${pct(r.reward_rate_epoch_pct, 3)} per epoch · annualized`

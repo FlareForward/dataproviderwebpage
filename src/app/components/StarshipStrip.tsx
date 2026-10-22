@@ -5,20 +5,12 @@ import { useReadContracts } from "wagmi";
 import { formatEther } from "viem";
 import { CURRENT_LOT, isTermTier, termBondAbi } from "../../lib/bondLot";
 import { TERM_CHAIN } from "../../lib/flare";
-import { ProgressBar, fmtCountdown, fmtWhen, stakingBatch, useCountdown, useRewardEpoch, useRewardEpochState } from "./RewardEpochClock";
 
-/**
- * One layout for every Starship, so a visitor reads each one the same way:
- * name and status top left, the timer top right, the big bar and its numbers
- * below, and a link button to that Starship's NFTs. Operator, 2026-10-01: the
- * timer is the thing that moves, so it sits at the top, compact, about a
- * quarter of the width.
- */
+/** One compact layout for every Starship: status, progress, facts, and link. */
 export function StarshipStrip({
   name,
   label,
   badge,
-  timer,
   barPct,
   barTone,
   left,
@@ -29,7 +21,6 @@ export function StarshipStrip({
   name: string;
   label: string;
   badge?: { text: string; tone: "neutral" | "green" };
-  timer: ReactNode;
   barPct: number;
   barTone: "pink" | "green";
   left: ReactNode;
@@ -56,7 +47,6 @@ export function StarshipStrip({
             </span>
           )}
         </span>
-        <div className="w-full sm:w-[min(320px,28%)] sm:min-w-[240px]">{timer}</div>
       </div>
       <div className="h-2 rounded-full bg-white/5 overflow-hidden" aria-hidden="true">
         <div
@@ -83,86 +73,6 @@ export function StarshipStrip({
     </div>
   );
 }
-
-/** The compact timer that sits top right. Same shape for every Starship. */
-export function StarshipTimer({
-  heading,
-  secs,
-  pct,
-  tone,
-  note,
-}: {
-  heading: string;
-  secs: number;
-  pct: number;
-  tone: "pink" | "green";
-  note: string;
-}) {
-  return (
-    <div>
-      <div className="flex items-baseline justify-between gap-3 text-[11px] text-[#8FA0B8]">
-        <span className="uppercase tracking-wider">{heading}</span>
-        <span className="text-sm font-semibold tabular-nums text-[#FAFAFA]">
-          {secs > 0 ? fmtCountdown(secs) : "now"}
-        </span>
-      </div>
-      <ProgressBar pct={pct} tone={tone} label={`${heading} progress`} />
-      <p className="mt-1 text-[10px] leading-snug text-[#8FA0B8]">{note}</p>
-    </div>
-  );
-}
-
-/**
- * Flare pays a staking batch about a week after it ends. Measured on the
- * ValidatorRewardManager: batch 430-433 ended Sep 17, paid Sep 24; batch
- * 434-437 ended Oct 1, paid Oct 8 (operator, 2026-10-17: users must see the wait).
- */
-const STAKING_PAYOUT_LAG_SECONDS = 7 * 24 * 3600;
-
-const fmtDay = (ts: number) =>
-  new Date(ts * 1000).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
-
-/** FTSO V1: the 14-day staking batch on top, the current reward epoch under it. */
-export function Starship1Timer() {
-  const e = useRewardEpoch();
-  const { data } = useRewardEpochState();
-  const batch = data ? stakingBatch(data.epoch, data.endTs) : null;
-  const batchLeft = useCountdown(batch?.endTs);
-  if (!e) return null;
-  const batchSecs = batch ? batch.endTs - batch.startTs : 0;
-  // The batch before this one ended at batch.startTs; until it pays, say when.
-  const lastBatchPay = batch ? batch.startTs + STAKING_PAYOUT_LAG_SECONDS : 0;
-  const lastBatchNote =
-    batch && lastBatchPay > Date.now() / 1000
-      ? ` The last batch (${batch.startEpoch - 4} to ${batch.startEpoch - 1}) arrives around ${fmtDay(lastBatchPay)}.`
-      : "";
-  return (
-    <div className="space-y-3">
-      {batch && batchLeft != null && (
-        <StarshipTimer
-          heading="Staking payout batch ends in"
-          secs={batchLeft}
-          pct={((batchSecs - batchLeft) / batchSecs) * 100}
-          tone="green"
-          note={`Epochs ${batch.startEpoch} to ${batch.endEpoch}, end ${fmtWhen(batch.endTs)}. Flare pays each batch about a week after it ends, so expect these rewards around ${fmtDay(batch.endTs + STAKING_PAYOUT_LAG_SECONDS)}.${lastBatchNote}`}
-        />
-      )}
-      <StarshipTimer
-        heading={`Epoch ${e.epoch} ends in`}
-        secs={e.left}
-        pct={e.pct}
-        tone="pink"
-        note={`Ends ${fmtWhen(e.endTs)}. Rewards are ready to claim 11 to 31 hours later, once Flare publishes them.`}
-      />
-    </div>
-  );
-}
-
-/**
- * When the FTSO V2 sales opened: Bond Treasury Safe nonce 13, tx 0x41f64b13…,
- * block 70998062, 2026-09-30 16:41:56Z. The term bar runs from here to maturity.
- */
-const STARSHIP2_OPENED_AT = 1790786516;
 
 const STARSHIP2_TIERS = CURRENT_LOT.tiers.filter(
   (t): t is typeof t & { kind: "term"; address: `0x${string}` } => isTermTier(t) && !!t.address,
@@ -195,33 +105,11 @@ export function useStarship2() {
     if (max != null && price != null) capWei += max * price;
     if (exp && exp > 0n) maturity = Number(exp);
   }
-  const toMaturity = useCountdown(maturity);
   if (STARSHIP2_TIERS.length === 0 || !data) return null;
   return {
     anyOpen,
     raised: Number(formatEther(raisedWei)),
     cap: Number(formatEther(capWei)),
     maturity,
-    toMaturity,
   };
-}
-
-/** FTSO V2: counts down to maturity, when the bonds redeem. */
-export function Starship2Timer({ maturity, toMaturity }: { maturity: number | null; toMaturity: number | null }) {
-  if (maturity == null || toMaturity == null) return null;
-  const pct = ((maturity - toMaturity - STARSHIP2_OPENED_AT) / (maturity - STARSHIP2_OPENED_AT)) * 100;
-  const date = new Date(maturity * 1000).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  return (
-    <StarshipTimer
-      heading="Redeemable in"
-      secs={toMaturity}
-      pct={pct}
-      tone="green"
-      note={`${date}. Redeem once the vault is finalized.`}
-    />
-  );
 }

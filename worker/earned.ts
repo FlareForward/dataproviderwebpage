@@ -694,6 +694,7 @@ export async function loadEarnedResponse(
           bonds_tracked: bondRewards.tracked,
           bonds_wei: bondRewards.tracked ? bondClaimable.toString() : null,
         },
+        bond_lots: bondRewards.lots,
         claims: rated.claims,
       },
       status: 200,

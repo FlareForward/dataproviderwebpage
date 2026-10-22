@@ -252,8 +252,8 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
               number twice — and the blurb used to repeat the supply the minted
               counter already states. */}
           <div className="mt-4 text-sm font-medium">
-            {sold != null ? sold.toString() : "—"} /{" "}
-            {maxSupply != null ? maxSupply.toString() : "—"} minted
+            {sold != null ? sold.toString() : "-"} /{" "}
+            {maxSupply != null ? maxSupply.toString() : "-"} minted
           </div>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white/8">
             <div
@@ -283,7 +283,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                 {minted.tokenIds.length > 1
                   ? `Tokens #${minted.tokenIds.join(", #")} are yours`
                   : `Token #${minted.tokenIds[0] ?? "?"} is yours`}
-                , from the Genesis lot — the very first FlareForward Bonds ever issued. Nothing
+                , from the Genesis lot, the very first FlareForward Bonds ever issued. Nothing
                 about this works without people willing to go first, and you did. We&apos;re
                 genuinely grateful for this community and for the support that gets independent
                 infrastructure off the ground. You&apos;re part of the journey now, not a customer
@@ -304,7 +304,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                 <li>
                   <span className="font-medium text-[#FAFAFA]">From there.</span> Distributions
                   from what the validator earns, split equally per token and claimable by whoever
-                  holds it — measured after the fact, never promised in advance.
+                  holds it, measured after the fact and never promised in advance.
                 </li>
               </ol>
 
@@ -336,7 +336,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
               </div>
 
               <p className="mt-4 border-t border-white/10 pt-3 text-xs leading-relaxed text-[#8FA0B8]/80">
-                Your wallet app may take a day to show it — that is the wallet indexing a brand-new
+                Your wallet app may take a day to show it. That is the wallet indexing a brand-new
                 collection, not a problem with your token. It is on-chain and yours the moment this
                 transaction confirmed; &ldquo;See your bonds&rdquo; reads it straight from the
                 contract.
@@ -355,7 +355,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                 Your wallet is on another network
               </p>
               <p className="mt-2 text-sm leading-relaxed text-[#FAFAFA]/90">
-                These bonds exist only on Flare. Switch networks and the price will read in FLR —
+                These bonds exist only on Flare. Switch networks and the price will read in FLR.
                 if your wallet quotes you ETH or any other coin, do not sign it.
               </p>
               <Button className="mt-3 w-full" onClick={onSwitch} disabled={switching}>
@@ -405,7 +405,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                       <span className="font-medium text-[#FAFAFA] tabular-nums">
                         {fmtFlr(balance.value)} FLR
                       </span>{" "}
-                      in your wallet — enough for {affordable}
+                      in your wallet, enough for {affordable}
                       {affordable === 1 ? " bond" : " bonds"} at this tier.
                     </>
                   ) : (
@@ -417,7 +417,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                       {shortfall != null && shortfall > 0n && (
                         <>
                           {" "}
-                          — about{" "}
+                          , about{" "}
                           <span className="tabular-nums">{fmtFlr(shortfall)} FLR</span> short of one
                           bond here, allowing for gas
                         </>
@@ -455,7 +455,7 @@ export function MintLot({ tier, preview }: { tier: BondTier; preview?: boolean }
                   // something new — a multi-mint's combined cost.
                   "Mint 1 bond"
                 ) : (
-                  `Mint ${qty} · ${total != null ? fmtFlr(total) : "—"} FLR`
+                  `Mint ${qty} · ${total != null ? fmtFlr(total) : "-"} FLR`
                 )}
               </Button>
 

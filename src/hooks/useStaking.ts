@@ -114,7 +114,7 @@ export function useStaking() {
     if (!connector) throw new Error("No wallet connector available");
     const live = resolveLiveConnector(config, connector);
     if (!live) {
-      throw new Error("Wallet is still reconnecting — try again in a moment.");
+      throw new Error("Wallet is still reconnecting. Try again in a moment.");
     }
     const provider = wrapWalletProvider((await live.getProvider()) as any);
     const controller = new EIP1193WalletController(provider);
@@ -363,7 +363,7 @@ export function useStaking() {
   const enableP = useCallback(async () => {
     if (publicKey) return publicKey;
     setBusy("enableP");
-    const t = toast.loading("Enabling P-chain staking — approve the signature if your wallet prompts you...");
+    const t = toast.loading("Enabling P-chain staking. Approve the signature if your wallet prompts you...");
     try {
       const wallet = await getWallet();
       if (!wallet.getPublicKey) {

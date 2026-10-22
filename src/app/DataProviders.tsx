@@ -26,7 +26,7 @@ export function DataProviders() {
             Delegate &amp; Stake with FlareForward
           </h1>
           <p className="text-[#8FA0B8] text-sm mt-1">
-            Delegate or stake with the builders — non-custodial, reversible,
+            Delegate or stake with the builders. Non-custodial, reversible,
             and done in about a minute. Already with us? Your position and what
             it's earning are right below.
           </p>

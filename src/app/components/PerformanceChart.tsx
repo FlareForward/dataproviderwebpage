@@ -122,7 +122,7 @@ export function PerformanceChart({ series }: { series: PerformancePoint[] }) {
           {data.length < 1 || !hasMetricData ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center text-sm text-[#8FA0B8]">
               {metric === "uptime"
-                ? "Uptime accumulates from when the snapshot job started — no data for this range yet."
+                ? "Uptime accumulates from when the snapshot job started. No data for this range yet."
                 : metric === "band"
                   ? "No band-accuracy data for this range yet."
                   : "No submissions data for this range yet."}

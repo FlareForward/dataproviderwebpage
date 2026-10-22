@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import { useAccount, useReadContracts } from "wagmi";
-import { Gem, ExternalLink, Search } from "lucide-react";
+import { ExternalLink, Gem, Gift, Loader2, Search, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
-import { isAddress } from "viem";
+import { formatUnits, isAddress } from "viem";
 import { Button } from "./Button";
 import {
   bondLotAbi,
@@ -14,8 +15,9 @@ import {
   type BondTier,
 } from "../../lib/bondLot";
 import { TERM_CHAIN } from "../../lib/flare";
-import { useRewards } from "../../hooks/useRewards";
-import { settledRate } from "../../lib/rewards";
+import type { BondClaimTier, ClaimPhase } from "../../hooks/useBondClaims";
+import type { EarnedBondLot } from "../../hooks/useEarned";
+import { fmtDate as fmtPayoutDate, fmtPct } from "../../lib/rewards";
 
 /**
  * "Your bonds" — the holder's own tokens, read STRAIGHT FROM THE CONTRACT.
@@ -37,8 +39,10 @@ const LIVE_TERM_TIERS = CURRENT_LOT.tiers.filter(
   (t): t is BondTier & { kind: "term"; address: `0x${string}` } => isTermTier(t) && !!t.address,
 );
 
-/** Contract-side cap on how many tokens we enumerate per tier. */
-const MAX_ENUMERATE = 50;
+type BondGroup = {
+  tier: BondTier & { address: `0x${string}` };
+  tokenIds: number[];
+};
 
 function fmtDate(seconds: bigint | null | undefined): string {
   if (seconds == null || seconds === 0n) return "-";
@@ -57,9 +61,25 @@ function fmtDate(seconds: bigint | null | undefined): string {
 export function MyBonds({
   compact = false,
   bare = false,
+  tiers = [],
+  history = [],
+  apyPct = null,
+  rewardsLoading = false,
+  claimPhase = "idle",
+  activeTierKey = null,
+  canClaim = false,
+  onClaimTier,
 }: {
   compact?: boolean;
   bare?: boolean;
+  tiers?: BondClaimTier[];
+  history?: EarnedBondLot[];
+  apyPct?: number | null;
+  rewardsLoading?: boolean;
+  claimPhase?: ClaimPhase;
+  activeTierKey?: string | null;
+  canClaim?: boolean;
+  onClaimTier?: (tierKey: string) => void;
 }) {
   const { address: connectedAddress } = useAccount();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -102,23 +122,12 @@ export function MyBonds({
     query: { enabled: valid && LIVE_SHARE_TIERS.length > 0 },
   });
 
-  /**
-   * The rate staged capital actually earns right now.
-   *
-   * NOT the bond rate. Until the lot closes the raised FLR is not in the
-   * validator self-bond at all — it is wrapped WFLR delegated to our own
-   * provider, so it earns the DELEGATION rate. Showing the bond rate here would
-   * tell a holder their staged money is earning roughly six times what it is.
-   */
-  const { data: rewards } = useRewards();
-  const stagedRatePct = settledRate(rewards?.rates.delegation_annual_pct);
-
   // Pass 2: enumerate the actual token ids behind those balances.
   const indexCalls = useMemo(() => {
     const calls: { address: `0x${string}`; tierKey: string; index: number }[] = [];
     LIVE_SHARE_TIERS.forEach((t, i) => {
       const bal = Number((balances?.[i]?.result as bigint | undefined) ?? 0n);
-      for (let idx = 0; idx < Math.min(bal, MAX_ENUMERATE); idx++) {
+      for (let idx = 0; idx < bal; idx++) {
         calls.push({ address: t.address, tierKey: t.key, index: idx });
       }
     });
@@ -136,19 +145,8 @@ export function MyBonds({
   });
 
   const [openTier, setOpenTier] = useState<string | null>(null);
-  /**
-   * The open stack browses as a picker wheel, not a flat list — a hundred
-   * identical rows is a wall, a wheel is a book you thumb through. One bond in
-   * focus at full size; the wheel scroll-snaps through the ids.
-   */
-  const [focusIdx, setFocusIdx] = useState(0);
-  const wheelRef = useRef<HTMLDivElement>(null);
-  const WHEEL_ROW = 40;
-
-  useEffect(() => {
-    setFocusIdx(0);
-    wheelRef.current?.scrollTo({ top: 0 });
-  }, [openTier]);
+  const openTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const closeLotDialog = useCallback(() => setOpenTier(null), []);
 
   const held = useMemo(() => {
     return indexCalls
@@ -163,10 +161,7 @@ export function MyBonds({
 
   /** One entry per tier, holding every token id of that tier. */
   const groups = useMemo(() => {
-    const byTier = new Map<
-      string,
-      { tier: BondTier & { address: `0x${string}` }; tokenIds: number[] }
-    >();
+    const byTier = new Map<string, BondGroup>();
     for (const { tier, tokenId } of held) {
       const g = byTier.get(tier.key) ?? { tier, tokenIds: [] };
       g.tokenIds.push(tokenId);
@@ -175,7 +170,12 @@ export function MyBonds({
     return [...byTier.values()];
   }, [held]);
 
-  const openGroup = groups.find((g) => g.tier.key === openTier) ?? null;
+  const openGroup = groups.find((group) => group.tier.key === openTier);
+  const openReward = tiers.find((candidate) => candidate.tier.key === openTier);
+  const openHistory = history.find(
+    (lot) =>
+      openReward && lot.distributor.toLowerCase() === openReward.tier.distributor.toLowerCase(),
+  );
 
   const { data: termBalances, isLoading: loadingTermBalances } = useReadContracts({
     contracts: LIVE_TERM_TIERS.map((tier) => ({
@@ -202,7 +202,7 @@ export function MyBonds({
     const calls: { address: `0x${string}`; tierKey: string; index: number }[] = [];
     LIVE_TERM_TIERS.forEach((tier, i) => {
       const bal = Number((termBalances?.[i]?.result as bigint | undefined) ?? 0n);
-      for (let idx = 0; idx < Math.min(bal, MAX_ENUMERATE); idx++) {
+      for (let idx = 0; idx < bal; idx++) {
         calls.push({ address: tier.address, tierKey: tier.key, index: idx });
       }
     });
@@ -261,6 +261,7 @@ export function MyBonds({
   const loading =
     loadingBalances || loadingIds || loadingTermBalances || loadingTermIds || loadingTermMaturities;
   const totalHeld = held.length + termHeld.length;
+  const busy = claimPhase === "processing" || claimPhase === "claiming";
 
   if (LIVE_SHARE_TIERS.length === 0 && LIVE_TERM_TIERS.length === 0) return null;
 
@@ -325,7 +326,7 @@ export function MyBonds({
               artworks — thirty of them side by side is noise, and the only
               thing that distinguishes one from another is what it has earned.
               The stack opens into a compact grid for that. */}
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-4 grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {termGroups.map((g) => (
               <Link key={g.tier.key} to="/nft/redeem" className="asset-tile p-0 text-left">
                 <div className={`relative${g.tokenIds.length > 1 ? " pt-2" : ""}`}>
@@ -361,215 +362,401 @@ export function MyBonds({
                 </div>
               </Link>
             ))}
-            {groups.map((g) => (
-              <button
-                key={g.tier.key}
-                type="button"
-                onClick={() => setOpenTier(g.tier.key)}
-                className="group asset-tile p-0 text-left"
-              >
-                {/* The fanned edges used to hang ABOVE the card top -- and the
-                    card clips its overflow, so the book spine would have been
-                    invisible the day anyone held two. The wrapper now reserves
-                    headroom and the sheets peek inside it. */}
-                <div className={`relative${g.tokenIds.length > 1 ? " pt-2" : ""}`}>
-                  {g.tokenIds.length > 1 && (
-                    <>
-                      <div className="absolute inset-x-4 top-0 h-2 rounded-t-md border border-white/10 bg-white/[0.06]" />
-                      <div className="absolute inset-x-2 top-1 h-2 rounded-t-md border border-white/12 bg-white/[0.09]" />
-                    </>
-                  )}
-                  <img
-                    src={`${IPFS_GATEWAY}/${g.tier.imageCid}`}
-                    alt={`FlareForward Bonds ${g.tier.name}`}
-                    loading="lazy"
-                    className="relative aspect-square w-full object-cover"
-                  />
-                  {g.tokenIds.length > 1 && (
-                    <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-[#FAFAFA]">
-                      ×{g.tokenIds.length}
-                    </span>
-                  )}
-                </div>
-                <div className="p-4">
-                  <p className="font-semibold">
-                    {g.tier.name} tier
-                    <span className="ml-2 text-sm font-normal text-[#8FA0B8]">
-                      {g.tokenIds.length} bond{g.tokenIds.length === 1 ? "" : "s"}
-                    </span>
-                  </p>
-                  {/* This was a hardcoded "Earned 0.00 FLR", which read as a
-                      measurement of an idle asset. Nothing has been DISTRIBUTED
-                      yet -- true -- but the capital is not sitting still, so a
-                      flat zero told a holder their money is doing nothing.
-                      Show what it is doing, at the rate it is actually doing it. */}
-                  {/* The rate, not a per-year figure. The terms on this site
-                      say plainly "we do not publish projections", and an
-                      annualised FLR amount per holder is exactly that. The rate
-                      is an observed number; multiplying it out into what someone
-                      will receive is a forecast we promised not to make. */}
-                  <div className="mt-2 flex items-baseline justify-between gap-3">
-                    <span className="flex items-center gap-1.5 text-xs text-[#8FA0B8]">
-                      {/* Same live pulse the stake tiles carry — one visual
-                          language for money that is working. Still the RATE,
-                          never a per-year figure: this page's terms say we do
-                          not publish projections. */}
-                      <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            {groups.map((g) => {
+              const open = openTier === g.tier.key;
+              const reward = tiers.find((candidate) => candidate.tier.key === g.tier.key);
+
+              return (
+                <article key={g.tier.key} className="asset-tile p-0 text-left">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      openTriggerRef.current = event.currentTarget;
+                      setOpenTier(g.tier.key);
+                    }}
+                    aria-haspopup="dialog"
+                    aria-expanded={open}
+                    aria-controls={open ? `bond-lot-dialog-${g.tier.key}` : undefined}
+                    className="group block w-full text-left"
+                  >
+                    {/* The artwork stack stays byte-for-byte with the original card. */}
+                    <div className={`relative${g.tokenIds.length > 1 ? " pt-2" : ""}`}>
+                      {g.tokenIds.length > 1 && (
+                        <>
+                          <div className="absolute inset-x-4 top-0 h-2 rounded-t-md border border-white/10 bg-white/[0.06]" />
+                          <div className="absolute inset-x-2 top-1 h-2 rounded-t-md border border-white/12 bg-white/[0.09]" />
+                        </>
+                      )}
+                      <img
+                        src={`${IPFS_GATEWAY}/${g.tier.imageCid}`}
+                        alt={`FlareForward Bonds ${g.tier.name}`}
+                        loading="lazy"
+                        className="relative aspect-square w-full object-cover"
+                      />
+                      {g.tokenIds.length > 1 && (
+                        <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-[#FAFAFA]">
+                          ×{g.tokenIds.length}
+                        </span>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <p className="font-semibold">
+                        {g.tier.name} tier
+                        <span className="ml-2 text-sm font-normal text-[#8FA0B8]">
+                          {g.tokenIds.length} bond{g.tokenIds.length === 1 ? "" : "s"}
+                        </span>
+                      </p>
+                      <p className="mt-2 text-xs tabular-nums text-[#8FA0B8]">
+                        Earned{" "}
+                        <span className="text-[#FAFAFA]">
+                          {!rewardsLoading && reward ? (
+                            <AnimatedFlr value={reward.lifetimeWei} />
+                          ) : (
+                            "-"
+                          )}{" "}
+                          FLR
+                        </span>{" "}
+                        <span aria-hidden="true">·</span> {fmtPct(apyPct)} APY
+                      </p>
+                      <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[#E85A95] group-hover:underline">
+                        {g.tokenIds.length === 1 ? "View bond" : `View all ${g.tokenIds.length}`}
                       </span>
-                      Earning while staged
-                    </span>
-                    <span className="text-sm font-semibold tabular-nums text-emerald-400">
-                      {stagedRatePct != null ? `${stagedRatePct.toFixed(2)}%` : "—"}
-                    </span>
-                  </div>
-                  <span className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-[#E85A95] group-hover:underline">
-                    {g.tokenIds.length === 1 ? "View bond" : `View all ${g.tokenIds.length}`}
-                  </span>
-                </div>
-              </button>
-            ))}
+                    </div>
+                  </button>
+                </article>
+              );
+            })}
           </div>
           <p className="mt-3 text-xs text-[#8FA0B8]/80">
-            Holding {totalHeld} bond{totalHeld === 1 ? "" : "s"}. FTSO V1 distributions open
-            once the lot closes and its distribution contract is deployed. FTSO V2 redemption
-            opens on the redemption page after maturity and vault finalization.
+            <span>
+              Holding {totalHeld} bond{totalHeld === 1 ? "" : "s"}.
+            </span>
+            {termGroups.length > 0 && (
+              <span className="block">FTSO V2 redemption opens after maturity.</span>
+            )}
           </p>
         </>
       )}
-
-      {/* Expanded stack: small thumbnails, one row per token, with the only
-          thing that actually differs between them — what each has earned, and
-          the ability to claim just that one. */}
-      {openGroup && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label={`${openGroup.tier.name} bonds`}
-          onClick={() => setOpenTier(null)}
-        >
-          <div
-            className="glass-modal max-h-[80vh] w-full max-w-2xl overflow-y-auto p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="text-lg font-semibold">{openGroup.tier.name} tier</h3>
-                <p className="mt-0.5 text-sm text-[#8FA0B8]">
-                  {openGroup.tokenIds.length} bond
-                  {openGroup.tokenIds.length === 1 ? "" : "s"} · {openGroup.tier.series}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setOpenTier(null)}
-                className="rounded-lg px-2 py-1 text-sm text-[#8FA0B8] hover:bg-white/5 hover:text-[#FAFAFA]"
-              >
-                Close
-              </button>
-            </div>
-
-            {(() => {
-              const ids = openGroup.tokenIds;
-              const fIdx = Math.min(focusIdx, ids.length - 1);
-              const focused = ids[fIdx];
-              return (
-                <div className="mt-4 flex flex-col gap-5 sm:flex-row">
-                  {/* The focused bond, full size — the page of the book
-                      currently open. */}
-                  <div className="flex items-start gap-4 sm:w-1/2">
-                    <img
-                      src={`${IPFS_GATEWAY}/${openGroup.tier.imageCid}`}
-                      alt=""
-                      className="h-28 w-28 shrink-0 rounded-xl object-cover"
-                    />
-                    <div className="min-w-0">
-                      <p className="text-xl font-semibold tabular-nums">#{focused}</p>
-                      <a
-                        href={`https://flare-explorer.flare.network/token/${openGroup.tier.address}/instance/${focused}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-0.5 inline-flex items-center gap-1 text-xs text-[#E85A95] hover:underline"
-                      >
-                        Explorer <ExternalLink size={10} />
-                      </a>
-                      <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-400">
-                        <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                        </span>
-                        Earning while staged
-                      </div>
-                      <Button variant="action" size="sm" className="mt-3" disabled>
-                        Claim
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* The wheel: scroll-snapped ids, centre one in the window.
-                      Only when there is something to thumb through. */}
-                  {ids.length > 1 && (
-                    <div className="relative flex-1">
-                      <div
-                        ref={wheelRef}
-                        onScroll={(e) => {
-                          const idx = Math.max(
-                            0,
-                            Math.min(
-                              ids.length - 1,
-                              Math.round(e.currentTarget.scrollTop / WHEEL_ROW),
-                            ),
-                          );
-                          if (idx !== fIdx) setFocusIdx(idx);
-                        }}
-                        className="h-[200px] snap-y snap-mandatory overflow-y-auto overscroll-contain"
-                      >
-                        <div className="h-[80px]" aria-hidden="true" />
-                        {ids.map((tokenId, i) => {
-                          const dist = Math.abs(i - fIdx);
-                          return (
-                            <button
-                              key={tokenId}
-                              type="button"
-                              onClick={() =>
-                                wheelRef.current?.scrollTo({
-                                  top: i * WHEEL_ROW,
-                                  behavior: "smooth",
-                                })
-                              }
-                              className={`flex h-10 w-full snap-center items-center justify-center text-sm tabular-nums transition-all ${
-                                dist === 0
-                                  ? "font-semibold text-[#FAFAFA]"
-                                  : dist === 1
-                                    ? "text-[#8FA0B8]"
-                                    : "text-[#8FA0B8]/40"
-                              }`}
-                            >
-                              #{tokenId}
-                            </button>
-                          );
-                        })}
-                        <div className="h-[80px]" aria-hidden="true" />
-                      </div>
-                      {/* The picker window and the fade that sells the wheel. */}
-                      <div className="pointer-events-none absolute inset-x-6 top-1/2 h-10 -translate-y-1/2 rounded-lg border border-[#E85A95]/40 bg-[#E85A95]/5" />
-                      <div className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-[#152238] to-transparent" />
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#152238] to-transparent" />
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            <p className="mt-4 text-xs leading-relaxed text-[#8FA0B8]">
-              Per-bond claiming opens once the lot closes and its distribution contract is
-              deployed. Until then distribution tracking is pending.
-            </p>
-          </div>
-        </div>
-      )}
+      {openGroup &&
+        createPortal(
+          <BondLotDialog
+            group={openGroup}
+            reward={openReward}
+            history={openHistory}
+            apyPct={apyPct}
+            rewardsLoading={rewardsLoading}
+            claimPhase={claimPhase}
+            activeTierKey={activeTierKey}
+            canClaim={canClaim}
+            busy={busy}
+            onClaimTier={onClaimTier}
+            onClose={closeLotDialog}
+            returnFocusRef={openTriggerRef}
+          />,
+          document.body,
+        )}
     </section>
   );
+}
+
+function BondLotDialog({
+  group,
+  reward,
+  history,
+  apyPct,
+  rewardsLoading,
+  claimPhase,
+  activeTierKey,
+  canClaim,
+  busy,
+  onClaimTier,
+  onClose,
+  returnFocusRef,
+}: {
+  group: BondGroup;
+  reward: BondClaimTier | undefined;
+  history: EarnedBondLot | undefined;
+  apyPct: number | null;
+  rewardsLoading: boolean;
+  claimPhase: ClaimPhase;
+  activeTierKey: string | null;
+  canClaim: boolean;
+  busy: boolean;
+  onClaimTier: ((tierKey: string) => void) | undefined;
+  onClose: () => void;
+  returnFocusRef: RefObject<HTMLButtonElement>;
+}) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = `bond-lot-dialog-title-${group.tier.key}`;
+  const dialogId = `bond-lot-dialog-${group.tier.key}`;
+  const claimable = !!reward && (reward.claimableWei > 0n || reward.unprocessedWei > 0n);
+  const thisTierBusy = busy && activeTierKey === group.tier.key;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusFrame = requestAnimationFrame(() => dialog.focus());
+
+    function onKeyDown(event: KeyboardEvent) {
+      const openDialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (openDialogs[openDialogs.length - 1] !== dialog) return;
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        dialog.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.getAttribute("aria-hidden") !== "true");
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      } else if (!dialog.contains(document.activeElement)) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      const trigger = returnFocusRef.current;
+      if (trigger?.isConnected) trigger.focus();
+    };
+  }, [onClose, returnFocusRef]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 sm:items-center sm:p-4 animate-in fade-in duration-200 motion-reduce:animate-none"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        ref={dialogRef}
+        id={dialogId}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="glass-modal relative flex h-[100dvh] w-full flex-col overflow-hidden rounded-none border-x-0 outline-none animate-in slide-in-from-bottom-4 duration-200 motion-reduce:animate-none sm:h-auto sm:max-h-[85vh] sm:max-w-3xl sm:rounded-2xl sm:border-x sm:zoom-in-95"
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close bond details"
+          className="absolute right-4 top-4 z-10 rounded-lg p-2 text-[#8FA0B8] transition-colors hover:bg-white/10 hover:text-[#FAFAFA] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E85A95] motion-reduce:transition-none"
+        >
+          <X size={18} />
+        </button>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-6 pt-5 sm:px-6 sm:pt-6">
+          <img
+            src={`${IPFS_GATEWAY}/${group.tier.imageCid}`}
+            alt={`FlareForward Bonds ${group.tier.name}`}
+            className="h-20 w-20 rounded-xl object-cover sm:h-24 sm:w-24"
+          />
+          <div className="mt-4 pr-10">
+            <h2 id={titleId} className="text-xl font-semibold text-[#FAFAFA]">
+              {group.tier.name} tier
+            </h2>
+            <p className="mt-1 text-sm text-[#8FA0B8]">
+              {group.tokenIds.length} bond{group.tokenIds.length === 1 ? "" : "s"}
+            </p>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm">
+            <p className="tabular-nums text-[#8FA0B8]">
+              Earned{" "}
+              <span className="font-semibold text-[#FAFAFA]">
+                {!rewardsLoading && reward ? <AnimatedFlr value={reward.lifetimeWei} /> : "-"} FLR
+              </span>{" "}
+              <span aria-hidden="true">·</span> {fmtPct(apyPct)} APY
+            </p>
+            <p className="mt-1 tabular-nums text-[#8FA0B8]">
+              Ready to claim{" "}
+              <span className="font-semibold text-emerald-400">
+                {!rewardsLoading && reward ? fmtFlrTwoDecimals(reward.claimableWei) : "-"} WFLR
+              </span>
+            </p>
+          </div>
+
+          {rewardsLoading ? (
+            <p className="py-6 text-sm text-[#8FA0B8]">Reading bond rewards...</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-white/8">
+              {group.tokenIds.map((tokenId) => {
+                const bond = reward?.bonds.find(
+                  (candidate) => candidate.tokenId === BigInt(tokenId),
+                );
+                return (
+                  <li key={tokenId} className="py-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold tabular-nums text-[#FAFAFA]">
+                          Bond #{tokenId}
+                        </p>
+                        <a
+                          href={`https://flare-explorer.flare.network/token/${group.tier.address}/instance/${tokenId}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex items-center gap-1 text-xs text-[#8FA0B8] hover:text-[#FAFAFA]"
+                        >
+                          Explorer <ExternalLink size={10} />
+                        </a>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-5 text-right text-xs">
+                        <div>
+                          <p className="text-[#8FA0B8]">Earned</p>
+                          <p className="mt-1 font-semibold tabular-nums text-[#FAFAFA]">
+                            {fmtFlrTwoDecimals(bond?.earnedWei ?? 0n)} FLR
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[#8FA0B8]">Claimable</p>
+                          <p className="mt-1 font-semibold tabular-nums text-emerald-400">
+                            {fmtFlrTwoDecimals(bond?.claimableWei ?? 0n)} WFLR
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <BondPayoutHistory history={history} />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+
+        <div className="shrink-0 border-t border-white/10 bg-[#152238]/95 p-4 sm:px-6">
+          <Button
+            variant="action"
+            size="sm"
+            className="w-full gap-2"
+            disabled={rewardsLoading || !canClaim || !claimable || busy || !onClaimTier}
+            onClick={() => onClaimTier?.(group.tier.key)}
+          >
+            {thisTierBusy ? (
+              <Loader2 size={15} className="animate-spin motion-reduce:animate-none" />
+            ) : (
+              <Gift size={15} />
+            )}
+            {thisTierBusy && claimPhase === "processing"
+              ? "Updating payouts..."
+              : thisTierBusy && claimPhase === "claiming"
+                ? "Claiming..."
+                : `Claim ${group.tier.name}`}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BondPayoutHistory({ history }: { history: EarnedBondLot | undefined }) {
+  const [showAll, setShowAll] = useState(false);
+
+  if (!history || !history.payoutsAvailable) {
+    return <p className="mt-3 text-xs text-[#8FA0B8]">Payout history is unavailable.</p>;
+  }
+  if (history.payouts.length === 0) {
+    return <p className="mt-3 text-xs text-[#8FA0B8]">No payout releases yet.</p>;
+  }
+
+  const payouts = [...history.payouts].sort(
+    (a, b) => b.unix - a.unix || b.block - a.block,
+  );
+  const visiblePayouts = showAll ? payouts : payouts.slice(0, 3);
+
+  return (
+    <div className="mt-3 text-xs text-[#8FA0B8]">
+      <p>Payout history</p>
+      <ul className="mt-1 space-y-1">
+        {visiblePayouts.map((payout) => (
+          <li
+            key={`${payout.block}-${payout.unix}`}
+            className="flex items-baseline justify-between gap-3 tabular-nums"
+          >
+            <span>{fmtPayoutDate(payout.unix)}</span>
+            <span className="whitespace-nowrap">
+              {fmtFlrTwoDecimals(payout.perBondAmountWei)} FLR
+            </span>
+          </li>
+        ))}
+      </ul>
+      {payouts.length > 3 && (
+        <button
+          type="button"
+          className="mt-2 text-xs font-medium text-[#E85A95] hover:underline"
+          aria-expanded={showAll}
+          onClick={() => setShowAll((current) => !current)}
+        >
+          {showAll ? "Show latest 3" : `Show all ${payouts.length}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function fmtFlrTwoDecimals(wei: bigint): string {
+  const negative = wei < 0n;
+  const abs = negative ? -wei : wei;
+  const int = abs / 10n ** 18n;
+  const fraction = (abs % 10n ** 18n).toString().padStart(18, "0").slice(0, 2);
+  const value = Number(`${int}.${fraction}`);
+  return `${negative ? "-" : ""}${value.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function AnimatedFlr({ value }: { value: bigint }) {
+  const [shown, setShown] = useState(() => Number(formatUnits(value, 18)));
+  const previous = useRef(value);
+
+  useEffect(() => {
+    const from = Number(formatUnits(previous.current, 18));
+    const to = Number(formatUnits(value, 18));
+    previous.current = value;
+    if (from === to) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setShown(to);
+      return;
+    }
+    const started = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const progress = Math.min(1, (now - started) / 650);
+      setShown(from + (to - from) * (1 - Math.pow(1 - progress, 3)));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  return shown.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }

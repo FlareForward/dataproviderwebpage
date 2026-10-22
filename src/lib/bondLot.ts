@@ -227,6 +227,13 @@ export const WFLR_ADDRESS = "0x1D80c49BbBCd1C0911346656B529DF9E5c2F783d" as cons
 export const distributorAbi = [
   {
     type: "function",
+    name: "totalTokenSupply",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ type: "uint256" }],
+  },
+  {
+    type: "function",
     name: "PRECISION",
     stateMutability: "view",
     inputs: [],
@@ -446,7 +453,7 @@ export const CURRENT_LOT: BondLotConfig = {
       address: "0xd7b8d7f436b4b30b94a12457615f872dc4d5895a",
       // Wired 2026-10-02 from the Bond Treasury Safe after close (28/28).
       distributor: "0xA7a2E4563bd19C3b987236D401174B3D87834712",
-      blurb: "Second run of the larger position, 250 available.",
+      blurb: "Second run of the larger position. Sold out.",
       imageCid: "bafkreidevzhlpgczv3xt7nksocfigjckrshffwdtwmoejkyrxadkqezxie",
     },
     {
@@ -462,7 +469,7 @@ export const CURRENT_LOT: BondLotConfig = {
       address: "0xf963b3d02d5b17f87a2caac6f6a388841cd58da6",
       // Wired 2026-10-02 from the Bond Treasury Safe after close (2/2).
       distributor: "0x86F3fE537B30257Bd9ad4f4D30300DF66DFdE22B",
-      blurb: "The largest position, 10 available.",
+      blurb: "The largest position. Sold out.",
       imageCid: "bafybeidn5n7ltt5qbaka3rjrzw6g3udwmqtracvnncqvudh2uhcgg4wgei",
     },
     ...STARSHIP2_TERM_TIERS.map(withTermPreview),

@@ -24,6 +24,7 @@ import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { EarningsStrip } from "./components/EarningsStrip";
+import { SourceRewardHistory } from "./components/RewardHistory";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useStaking } from "../hooks/useStaking";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
@@ -203,7 +204,7 @@ export function Staking() {
   const withdrawUnavailableMessage =
     balance.availableOnP === 0n
       ? nextUnlockingStake
-        ? `Nothing available yet — ${formatFlr(nextUnlockingStake.amount)} FLR unlocks ${new Date(
+        ? `Nothing available yet. ${formatFlr(nextUnlockingStake.amount)} FLR unlocks ${new Date(
             Number(nextUnlockingStake.endTime) * 1000,
           ).toLocaleDateString()}`
         : "No FLR on the P-chain to move."
@@ -266,10 +267,16 @@ export function Staking() {
           onClaim={() => claimRewards()}
           claimBusy={busy === "claim"}
           claimLabel="Claim staking rewards"
-          earnedTotalWei={earned.data?.earned.stakingWei}
-          earnedTrackingStartUnix={earned.data?.trackingStartUnix}
-          earnedLoading={earned.isLoading || claimableRewardLoading}
-          earnedUnavailable={
+        />
+      )}
+
+      {isConnected && (
+        <SourceRewardHistory
+          kind="staking"
+          totalWei={earned.data?.earned.stakingWei}
+          claims={earned.data?.claims ?? []}
+          loading={earned.isLoading || claimableRewardLoading}
+          unavailable={
             !!earned.error ||
             claimableRewardError ||
             (earned.data != null && !earned.data.claimableReady)
@@ -340,7 +347,7 @@ export function Staking() {
                   <ShieldCheck size={32} className="opacity-20" />
                   <p className="text-sm">
                     P-chain staking needs your account's public key. If your
-                    wallet prompts you, sign the one-time message to enable it —
+                    wallet prompts you, sign the one-time message to enable it.
                     this never moves funds or submits a transaction. Wallets
                     whose account already has on-chain activity may be enabled
                     without any prompt.
@@ -482,7 +489,7 @@ export function Staking() {
                       )}
                     {busy === "moveToP" && (
                       <p className="text-xs text-[#8FA0B8]">
-                        This takes two wallet confirmations — export from your
+                        This takes two wallet confirmations: export from your
                         wallet, then import to the P-chain. Approve both and
                         keep this tab open until they complete.
                       </p>
@@ -498,7 +505,7 @@ export function Staking() {
                     )}
                     {busy === "withdraw" && (
                       <p className="text-xs text-[#8FA0B8]">
-                        This takes two wallet confirmations — export from the
+                        This takes two wallet confirmations: export from the
                         P-chain, then import to your wallet. Approve both and
                         keep this tab open until they complete.
                       </p>
@@ -800,7 +807,7 @@ function YourStakes({
                       <Clock size={12} />
                       {unlocked ? (
                         <span className="text-emerald-400">
-                          Unlocked — ready to withdraw
+                          Unlocked, ready to withdraw
                         </span>
                       ) : (
                         <span>
@@ -866,8 +873,8 @@ function YourStakes({
       {onchainFailed && (
         <div className="px-4 py-3 border-t border-white/8 text-xs text-[#8FA0B8] flex items-center gap-2">
           <Info size={12} className="shrink-0" />
-          Showing stakes recorded on this device. The P-chain is busy right now
-          — use refresh to reconcile with on-chain data.
+          Showing stakes recorded on this device. The P-chain is busy right now.
+          Use refresh to reconcile with on-chain data.
         </div>
       )}
     </Card>
@@ -942,7 +949,7 @@ function PendingImportNotice({
         <div className="text-[#FAFAFA]">
           <span className="font-semibold">{formatFlr(amount)} FLR</span> is
           part-way to {target}. The export step confirmed, but the import step
-          hasn't. Your FLR hasn't gone anywhere — it just needs one more confirmation to
+          hasn&apos;t. Your FLR hasn&apos;t gone anywhere. It just needs one more confirmation to
           land.
         </div>
       </div>

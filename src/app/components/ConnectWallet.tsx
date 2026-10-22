@@ -35,7 +35,7 @@ const WALLET_OPTIONS: WalletOption[] = [
   {
     id: "ledger",
     name: "Ledger",
-    description: "Hardware wallet — USB or Ledger Live",
+    description: "Hardware wallet: USB or Ledger Live",
     icon: Usb,
     color: "#D6D9DE",
     requiresWalletConnect: false,
@@ -307,7 +307,7 @@ export function ConnectWallet({ size = "sm" }: { size?: "sm" | "md" | "lg" }) {
                       </span>
                       <span className="block text-xs text-[#8FA0B8] truncate">
                         {option.requiresWalletConnect && !walletConnectEnabled
-                          ? "Unavailable — WalletConnect not configured"
+                          ? "Unavailable. WalletConnect not configured"
                           : option.description}
                       </span>
                     </span>

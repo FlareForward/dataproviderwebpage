@@ -27,6 +27,7 @@ import { Button } from "./components/Button";
 import { Badge } from "./components/Badge";
 import { ConnectWallet } from "./components/ConnectWallet";
 import { EarningsStrip } from "./components/EarningsStrip";
+import { SourceRewardHistory } from "./components/RewardHistory";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
 import { useProviders, type ProviderRow } from "../hooks/useProviders";
 import { useDelegation } from "../hooks/useDelegation";
@@ -168,14 +169,6 @@ export function Delegation() {
           onClaim={handleClaim}
           claimBusy={busy === "claim"}
           claimLabel="Claim rewards"
-          earnedTotalWei={earned.data?.earned.delegationWei}
-          earnedTrackingStartUnix={earned.data?.trackingStartUnix}
-          earnedLoading={earned.isLoading || claimableRewardLoading}
-          earnedUnavailable={
-            !!earned.error ||
-            claimableRewardError ||
-            (earned.data != null && !earned.data.claimableReady)
-          }
           /* Delegation state is one fact and one action — a percentage set
              once, undone once. It rides in the hero instead of spending a
              whole card on a single line. */
@@ -184,7 +177,7 @@ export function Delegation() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="flex items-center gap-2 text-sm text-emerald-400">
                   <CheckCircle2 size={15} className="shrink-0" />
-                  Vote power delegated — 100% to FlareForward
+                  Vote power delegated: 100% to FlareForward
                 </span>
                 {/* Quiet at rest, red only on hover: the escape hatch should be
                     findable, not the loudest thing in the hero. */}
@@ -205,6 +198,20 @@ export function Delegation() {
                 </Button>
               </div>
             ) : undefined
+          }
+        />
+      )}
+
+      {isConnected && (
+        <SourceRewardHistory
+          kind="delegation"
+          totalWei={earned.data?.earned.delegationWei}
+          claims={earned.data?.claims ?? []}
+          loading={earned.isLoading || claimableRewardLoading}
+          unavailable={
+            !!earned.error ||
+            claimableRewardError ||
+            (earned.data != null && !earned.data.claimableReady)
           }
         />
       )}
@@ -362,7 +369,7 @@ export function Delegation() {
                             />
                             <div className="text-[#FAFAFA]">
                               Your delegation is a standing instruction, not a
-                              balance — 100% of your vote power, set once. Any
+                              balance: 100% of your vote power, set once. Any
                               FLR you wrap from here follows it automatically,
                               with nothing further to sign. Your tokens never
                               leave your wallet.

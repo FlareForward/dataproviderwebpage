@@ -12,11 +12,12 @@ import {
   Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "./components/Card";
-import { StarshipStrip, Starship1Timer, Starship2Timer, useStarship2 } from "./components/StarshipStrip";
+import { StarshipStrip, useStarship2 } from "./components/StarshipStrip";
 import { Button } from "./components/Button";
 import { useRewards } from "../hooks/useRewards";
 import { settledRate, fmtFlrCompact, fmtPct } from "../lib/rewards";
 import { LINKS } from "../lib/links";
+import { useBondApy } from "../hooks/useBondApy";
 
 /**
  * / — the front door, built to sell. One job: a visitor who has never heard
@@ -27,6 +28,7 @@ import { LINKS } from "../lib/links";
  */
 export default function Home() {
   const { data: rewards, isLoading } = useRewards();
+  const bondApy = useBondApy();
 
   return (
     <div className="p-4 lg:p-8">
@@ -35,7 +37,7 @@ export default function Home() {
         <section className="pt-4 lg:pt-10 text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 glass-panel px-3.5 py-1.5 text-xs font-semibold text-[#8FA0B8]">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-            Flare FTSO data provider &amp; validator — live on Mainnet
+            Flare FTSO data provider &amp; validator, live on Mainnet
           </div>
           <h1 className="mt-5 text-4xl lg:text-6xl font-extrabold tracking-tight leading-[1.05]">
             Delegate to{" "}
@@ -47,7 +49,7 @@ export default function Home() {
           <p className="mt-5 text-base lg:text-lg text-[#8FA0B8] leading-relaxed">
             FlareForward is an education platform and a builder collective on the
             Flare network. Delegating your vote power to us backs people who ship
-            for this ecosystem every day — and your FLR stays under your own keys.
+            for this ecosystem every day, and your FLR stays under your own keys.
           </p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
             <Link to="/delegation">
@@ -67,7 +69,7 @@ export default function Home() {
             </Link>
           </div>
           <p className="mt-3 text-xs text-[#8FA0B8]">
-            Non-custodial. Delegation and staking never move your FLR — you stay
+            Non-custodial. Delegation and staking never move your FLR. You stay
             in control, always.
           </p>
         </section>
@@ -97,9 +99,9 @@ export default function Home() {
                     than a delegator does, and that difference is what the Bonds
                     series sells. */}
                 <ProofStat
-                  label="Bond rate"
-                  value={fmtPct(settledRate(rewards.rates.bond_annual_pct))}
-                  sub="What the validator bond earned, annualized"
+                  label="Bond APY"
+                  value={fmtPct(bondApy.apyPct)}
+                  sub="APY so far, from real payouts"
                   emphasize
                 />
               </div>
@@ -142,7 +144,7 @@ export default function Home() {
             <WhyCard
               icon={<Hammer size={20} />}
               title="We build here, every day"
-              body="We're a builder collective, not a passive node operator. Trading tools, payment rails, data infrastructure — shipped on Flare, by the same team signing your feeds."
+              body="We're a builder collective, not a passive node operator. Trading tools, payment rails, and data infrastructure are shipped on Flare by the same team signing your feeds."
               cta={{ label: "See what we've built", href: LINKS.site }}
             />
             <WhyCard
@@ -157,7 +159,7 @@ export default function Home() {
             <WhyCard
               icon={<Scale size={20} />}
               title="We're straight with you"
-              body="FIP.16 rebalanced how FTSO providers earn, network-wide. We won't pretend otherwise — the rates on this page are pulled live and shown as they are. No inflated promises, just the real number."
+              body="FIP.16 rebalanced how FTSO providers earn, network-wide. We won't pretend otherwise. The rates on this page are pulled live and shown as they are. No inflated promises, just the real number."
             />
           </div>
         </section>
@@ -169,7 +171,7 @@ export default function Home() {
               Support us in any of these ways
             </h2>
             <p className="mt-2 text-sm text-[#8FA0B8]">
-              Pick whichever suits you. Delegating and staking are non-custodial — your FLR
+              Pick whichever suits you. Delegating and staking are non-custodial. Your FLR
               stays yours. Minting a bond is a purchase: that FLR funds the validator bond and
               is not returned.
             </p>
@@ -203,7 +205,7 @@ export default function Home() {
               to="/rewards"
               icon={<Gift size={18} />}
               title="My Rewards"
-              body="Already backing us? Your delegation, staking and bonds in one place — and what's ready to claim."
+              body="Already backing us? See your delegation, staking, bonds, and what is ready to claim."
             />
           </div>
         </section>
@@ -290,10 +292,7 @@ function XGlyph() {
   );
 }
 
-/**
- * FTSO V1 is the FlareForward validator. The bar is how full it is; the
- * timer is the current reward epoch, when delegation and staking rewards land.
- */
+/** FTSO V1 validator capacity, with no repeating payout countdown. */
 function StakingCapacityStrip({
   staked,
   capacity,
@@ -311,7 +310,6 @@ function StakingCapacityStrip({
       label="Validator capacity"
       // Under 1 FLR open is full in practice: the node reports dust like 0.29 FLR.
       badge={open < 1 ? { text: "Full", tone: "neutral" } : undefined}
-      timer={<Starship1Timer />}
       barPct={capacity > 0 ? (staked / capacity) * 100 : 0}
       barTone="pink"
       left={`${fmtFlrCompact(staked)} FLR staked`}
@@ -321,7 +319,7 @@ function StakingCapacityStrip({
   );
 }
 
-/** FTSO V2: the 12 month bond NFTs. Bar is FLR raised; timer is time to redemption. */
+/** FTSO V2: the 12 month bond NFTs. Bar is FLR raised. */
 function Starship2Strip() {
   const s = useStarship2();
   if (!s) return null;
@@ -331,10 +329,18 @@ function Starship2Strip() {
       name="FTSO V2"
       label="12 month bond"
       badge={s.anyOpen ? { text: "Mint open", tone: "green" } : { text: "Closed", tone: "neutral" }}
-      timer={<Starship2Timer maturity={s.maturity} toMaturity={s.toMaturity} />}
       barPct={s.cap > 0 ? (s.raised / s.cap) * 100 : 0}
       barTone="green"
       left={`${fmtFlrCompact(s.raised)} FLR raised of ${fmtFlrCompact(s.cap)} FLR`}
+      right={
+        s.maturity
+          ? `Matures ${new Date(s.maturity * 1000).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })}`
+          : undefined
+      }
       link={{ to: "/nft", text: s.anyOpen ? "Mint FTSO V2" : "FTSO V2 NFTs" }}
     />
   );

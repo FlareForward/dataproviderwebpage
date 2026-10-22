@@ -26,6 +26,26 @@ export interface EarnedClaim extends BaseEarnedClaim {
   rateAnnualizedPct: number | null;
 }
 
+export interface BondPayoutRelease {
+  block: number;
+  unix: number;
+  amountWei: bigint;
+  perBondAmountWei: bigint;
+}
+
+export interface EarnedBondLot {
+  lotSlug: string;
+  lotName: string;
+  distributor: string;
+  collection: string;
+  held: number;
+  lifetimePerBondWei: bigint;
+  lifetimeAmountWei: bigint;
+  claimableAmountWei: bigint;
+  payoutsAvailable: boolean;
+  payouts: BondPayoutRelease[];
+}
+
 export type { ClaimableEarnedInput, EarnedKind, EarnedTotals };
 export { combineEarnedTotals, sumClaims } from "../lib/earned.js";
 
@@ -76,6 +96,7 @@ export interface EarnedData {
   earned: EarnedTotals;
   claimableReady: boolean;
   claims: EarnedClaim[];
+  bondLots: EarnedBondLot[];
 }
 
 interface EarnedBaseData {
@@ -84,6 +105,7 @@ interface EarnedBaseData {
   epochsPerYear: number;
   ratesPartial: boolean;
   claims: EarnedClaim[];
+  bondLots: EarnedBondLot[];
   workerBondsTracked: boolean;
   workerBondsClaimedWei: bigint | null;
   workerBondsWei: bigint | null;
@@ -102,6 +124,23 @@ interface EarnedPayload {
     amount_wei: string;
     principal_wei?: string | null;
     rate_annualized_pct?: number | null;
+  }>;
+  bond_lots?: Array<{
+    lot_slug: string;
+    lot_name: string;
+    distributor: string;
+    collection: string;
+    held: number;
+    lifetime_per_bond_wei: string;
+    lifetime_amount_wei: string;
+    claimable_amount_wei: string;
+    payouts_available?: boolean;
+    payouts?: Array<{
+      block: number;
+      unix: number;
+      amount_wei: string;
+      per_bond_amount_wei: string;
+    }>;
   }>;
   claimable?: {
     bonds_tracked?: boolean;
@@ -148,6 +187,23 @@ export function useEarned(
             c.principal_wei != null ? BigInt(c.principal_wei) : null,
           rateAnnualizedPct: c.rate_annualized_pct ?? null,
         })),
+        bondLots: (data.bond_lots ?? []).map((lot) => ({
+          lotSlug: lot.lot_slug,
+          lotName: lot.lot_name,
+          distributor: lot.distributor,
+          collection: lot.collection,
+          held: lot.held,
+          lifetimePerBondWei: BigInt(lot.lifetime_per_bond_wei),
+          lifetimeAmountWei: BigInt(lot.lifetime_amount_wei),
+          claimableAmountWei: BigInt(lot.claimable_amount_wei),
+          payoutsAvailable: lot.payouts_available !== false,
+          payouts: (lot.payouts ?? []).map((payout) => ({
+            block: payout.block,
+            unix: payout.unix,
+            amountWei: BigInt(payout.amount_wei),
+            perBondAmountWei: BigInt(payout.per_bond_amount_wei),
+          })),
+        })),
         workerBondsTracked: data.claimable?.bonds_tracked === true,
         workerBondsClaimedWei:
           data.claimed?.bonds_wei != null ? BigInt(data.claimed.bonds_wei) : null,
@@ -175,6 +231,7 @@ export function useEarned(
       epochsPerYear: query.data.epochsPerYear,
       ratesPartial: query.data.ratesPartial,
       claims: query.data.claims,
+      bondLots: query.data.bondLots,
       ...composed,
     };
   }, [

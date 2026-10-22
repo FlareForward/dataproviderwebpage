@@ -1,11 +1,8 @@
 import type { ReactNode } from "react";
-import { formatUnits } from "viem";
 import { Gift, Loader2 } from "lucide-react";
 import { Card, CardContent } from "./Card";
 import { Button } from "./Button";
-import { fmtUtcDate, fmtPct, fmtFlrWei } from "../../lib/rewards";
-
-const DASH = "—";
+import { fmtPct, fmtFlrWei } from "../../lib/rewards";
 
 interface EarningsStripProps {
   rateLabel: "Delegation APY" | "Staking APY";
@@ -36,10 +33,6 @@ interface EarningsStripProps {
   onClaim?: () => void;
   claimBusy?: boolean;
   claimLabel?: string;
-  earnedTotalWei?: bigint | null;
-  earnedTrackingStartUnix?: number;
-  earnedLoading?: boolean;
-  earnedUnavailable?: boolean;
   /**
    * Optional row under the hero's claim line — for state that is one fact and
    * one action, like delegation's "100% to FlareForward · Undelegate". Lets a
@@ -47,24 +40,6 @@ interface EarningsStripProps {
    * a single line.
    */
   heroExtra?: ReactNode;
-}
-
-/**
- * Amount only — "per year" moved to the sub-line. Carrying it in the value made
- * the string long enough to wrap at a big stake ("36,128 FLR per year"), which
- * stretched that one tile and, because the row is height-matched, every tile
- * beside it: the Staking row stood 28px taller than the Delegation row for no
- * reason but a line break.
- */
-function formatAnnualAtRate(
-  amountWei: bigint,
-  ratePct: number | null | undefined,
-): string {
-  if (ratePct == null || !Number.isFinite(ratePct)) return DASH;
-  const amount = Number(formatUnits(amountWei, 18));
-  return `${((amount * ratePct) / 100).toLocaleString(undefined, {
-    maximumFractionDigits: 0,
-  })} FLR`;
 }
 
 /**
@@ -119,10 +94,6 @@ export function EarningsStrip({
   onClaim,
   claimBusy,
   claimLabel = "Claim rewards",
-  earnedTotalWei,
-  earnedTrackingStartUnix,
-  earnedLoading,
-  earnedUnavailable,
   heroExtra,
 }: EarningsStripProps) {
   const hasPosition = positionAmount > 0n;
@@ -132,8 +103,6 @@ export function EarningsStrip({
   const shownRateLabel = hasActual ? "Your actual rate" : rateLabel;
   const shownRateSub = hasActual ? "what you've earned, annualized" : "current rate";
   const hero = onClaim != null;
-  const showEarnedLine =
-    hero && (earnedLoading || earnedUnavailable || earnedTotalWei != null);
 
   const body = (
     <>
@@ -179,17 +148,9 @@ export function EarningsStrip({
               )}
             </div>
           )}
-          {showEarnedLine && (
-            <EarnedLine
-              amountWei={earnedTotalWei}
-              startUnix={earnedTrackingStartUnix}
-              loading={earnedLoading}
-              unavailable={earnedUnavailable}
-            />
-          )}
           <div
             className={`grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch ${
-              hero ? "xl:grid-cols-3" : "xl:grid-cols-4"
+              hero ? "xl:grid-cols-2" : "xl:grid-cols-3"
             }`}
           >
             <EarningsStat
@@ -214,23 +175,10 @@ export function EarningsStrip({
                 accent={claimableReward > 0n}
               />
             )}
-            <EarningsStat
-              label="If this rate held"
-              value={formatAnnualAtRate(positionAmount, shownRatePct)}
-              sub="over a year — not a forecast"
-            />
           </div>
         </>
       ) : (
         <div className="space-y-3">
-          {showEarnedLine && (
-            <EarnedLine
-              amountWei={earnedTotalWei}
-              startUnix={earnedTrackingStartUnix}
-              loading={earnedLoading}
-              unavailable={earnedUnavailable}
-            />
-          )}
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,220px)_1fr] gap-3 items-stretch">
             <EarningsStat
               label={rateLabel}
@@ -266,46 +214,5 @@ export function EarningsStrip({
     <Card>
       <CardContent className="p-4 sm:p-5 space-y-3">{body}</CardContent>
     </Card>
-  );
-}
-
-function EarnedLine({
-  amountWei,
-  startUnix,
-  loading,
-  unavailable,
-}: {
-  amountWei: bigint | null | undefined;
-  startUnix?: number;
-  loading?: boolean;
-  unavailable?: boolean;
-}) {
-  const hasAmount = !loading && !unavailable && amountWei != null;
-
-  return (
-    <div className="glass-panel border-l-2 border-[#E85A95]/60 px-4 py-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <div className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">
-            What we&apos;ve earned you
-          </div>
-          <div className="mt-0.5 text-xs text-[#8FA0B8]">
-            {startUnix
-              ? `Since ${fmtUtcDate(startUnix)}`
-              : "Claimed plus currently claimable"}
-          </div>
-        </div>
-        <div className="text-xl font-bold tabular-nums text-[#FAFAFA]">
-          {hasAmount ? (
-            <>
-              {fmtFlrWei(amountWei, 2)}{" "}
-              <span className="text-sm font-semibold text-[#8FA0B8]">FLR</span>
-            </>
-          ) : (
-            "—"
-          )}
-        </div>
-      </div>
-    </div>
   );
 }

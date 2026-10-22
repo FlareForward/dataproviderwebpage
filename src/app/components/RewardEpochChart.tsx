@@ -76,7 +76,7 @@ export function RewardEpochChart({ address }: { address: string }) {
         </ResponsiveContainer>
       </div>
       <p className="mt-2 text-[11px] text-[#8FA0B8]">
-        Epochs you've already claimed (or that expired) no longer appear here —
+        Epochs you&apos;ve already claimed (or that expired) no longer appear here.
         this is the pending pot, not lifetime earnings.
       </p>
     </div>

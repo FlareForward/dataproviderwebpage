@@ -70,7 +70,7 @@ export function Root() {
 
           <div className="hidden lg:flex items-center gap-2 text-sm text-[#8FA0B8]">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" />
-            FlareForward — FTSO data provider &amp; validator on Flare Mainnet
+            FlareForward, FTSO data provider &amp; validator on Flare Mainnet
           </div>
 
           <div className="flex items-center gap-3">
