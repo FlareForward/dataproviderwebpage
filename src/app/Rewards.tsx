@@ -26,11 +26,19 @@ import {
   markClaimNoticeSeen,
 } from "./components/ClaimNoticeDialog";
 import { EarningsStrip } from "./components/EarningsStrip";
-import { RewardHistory, SourceRewardHistory } from "./components/RewardHistory";
+import {
+  BondRewardHistory,
+  RewardHistory,
+  SourceRewardHistory,
+} from "./components/RewardHistory";
 import { bondLotAbi, CURRENT_LOT, isShareTier, type BondTier } from "../lib/bondLot";
 import { useBondClaims } from "../hooks/useBondClaims";
 import { useDelegation } from "../hooks/useDelegation";
-import { actualRatePct, useEarned } from "../hooks/useEarned";
+import {
+  actualRatePct,
+  useEarned,
+  type EarnedBondLot,
+} from "../hooks/useEarned";
 import { useRewards } from "../hooks/useRewards";
 import { useStaking } from "../hooks/useStaking";
 import { settledRate, fmtPct, fmtFlrWei } from "../lib/rewards";
@@ -372,6 +380,10 @@ export default function Rewards() {
 
                 <BondsSection
                   address={delegation.address ?? undefined}
+                  earnedWei={earned.data?.earned.bondsWei}
+                  lots={earned.data?.bondLots ?? []}
+                  earnedLoading={earned.isLoading}
+                  earnedUnavailable={!!earned.error}
                 />
                 {/* The address-lookup card that sat here is gone by operator
                     call: My Rewards is about the connected wallet, and /bonds
@@ -689,8 +701,16 @@ function RewardSection({
 /** Bond position summary; realized APY shares the site's one bond APY source. */
 function BondsSection({
   address,
+  earnedWei,
+  lots,
+  earnedLoading,
+  earnedUnavailable,
 }: {
   address: `0x${string}` | undefined;
+  earnedWei: bigint | null | undefined;
+  lots: EarnedBondLot[];
+  earnedLoading: boolean;
+  earnedUnavailable: boolean;
 }) {
   const bondApy = useBondApy();
   const tiers = CURRENT_LOT.tiers.filter(
@@ -738,6 +758,12 @@ function BondsSection({
         />
         <BondStat label="Bonds held" value={`${held}`} sub="your position" />
       </div>
+      <BondRewardHistory
+        totalWei={earnedWei}
+        lots={lots}
+        loading={earnedLoading}
+        unavailable={earnedUnavailable || earnedWei == null}
+      />
     </RewardSection>
   );
 }

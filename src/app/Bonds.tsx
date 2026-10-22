@@ -9,7 +9,9 @@ import { ClaimNoticeDialog, hasSeenClaimNotice, markClaimNoticeSeen } from "./co
 import { useEarned } from "../hooks/useEarned";
 import { useBondClaims } from "../hooks/useBondClaims";
 import { useBondApy } from "../hooks/useBondApy";
+import { shortAddress } from "../lib/flare";
 import { fmtPct, fmtFlrWei } from "../lib/rewards";
+import { BondRewardHistory } from "./components/RewardHistory";
 
 const PAYOUT_NOTE_VISIBLE_AT = Date.parse("2026-11-05T00:00:00Z");
 
@@ -50,6 +52,13 @@ export default function Bonds() {
     const next = new URLSearchParams(searchParams);
     next.set("address", value);
     setSearchParams(next, { replace: true });
+  }
+
+  function backToConnectedWallet() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("address");
+    setSearchParams(next, { replace: true });
+    setInput(connectedAddress ?? "");
   }
 
   function runClaim(tierKey: string | null) {
@@ -97,22 +106,52 @@ export default function Bonds() {
           </Link>
         </div>
 
-        <div className="flex max-w-2xl flex-wrap items-center gap-2">
-          <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2">
-            <Search size={14} className="shrink-0 text-[#8FA0B8]" />
-            <input
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => event.key === "Enter" && lookUp()}
-              placeholder="0x... any Flare address"
-              spellCheck={false}
-              className="w-full border-none bg-transparent font-mono text-sm text-[#FAFAFA] outline-none placeholder:text-[#8FA0B8]"
-            />
+        {!connectedAddress && (
+          <div className="max-w-2xl">
+            <label htmlFor="bond-wallet-lookup" className="text-sm font-medium text-[#FAFAFA]">
+              View any wallet&apos;s bonds
+            </label>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="flex min-w-[260px] flex-1 items-center gap-2 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2">
+                <Search size={14} className="shrink-0 text-[#8FA0B8]" />
+                <input
+                  id="bond-wallet-lookup"
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  onKeyDown={(event) => event.key === "Enter" && lookUp()}
+                  placeholder="0x... Flare address"
+                  spellCheck={false}
+                  className="w-full border-none bg-transparent font-mono text-sm text-[#FAFAFA] outline-none placeholder:text-[#8FA0B8]"
+                />
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={lookUp}
+                disabled={!isAddress(input.trim())}
+              >
+                Look up
+              </Button>
+            </div>
           </div>
-          <Button variant="primary" size="sm" onClick={lookUp} disabled={!isAddress(input.trim())}>
-            Look up
-          </Button>
-        </div>
+        )}
+
+        {connectedAddress &&
+          queryAddress &&
+          isAddress(queryAddress) &&
+          queryAddress.toLowerCase() !== connectedAddress.toLowerCase() && (
+            <p className="text-xs text-[#8FA0B8]">
+              Viewing <span className="font-mono">{shortAddress(queryAddress)}</span>{" "}
+              <span aria-hidden="true">·</span>{" "}
+              <button
+                type="button"
+                onClick={backToConnectedWallet}
+                className="font-medium text-[#E85A95] hover:underline"
+              >
+                Back to my bonds
+              </button>
+            </p>
+          )}
 
         {Date.now() >= PAYOUT_NOTE_VISIBLE_AT && (
           <p className="text-xs text-[#8FA0B8]">
@@ -165,6 +204,14 @@ export default function Bonds() {
                     </a>
                   )}
                 </div>
+              </div>
+              <div className="mt-4 sm:ml-auto sm:max-w-md">
+                <BondRewardHistory
+                  lots={earned.data?.bondLots ?? []}
+                  loading={earned.isLoading}
+                  unavailable={!!earned.error}
+                  showTotal={false}
+                />
               </div>
             </section>
 

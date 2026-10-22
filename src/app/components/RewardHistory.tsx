@@ -7,7 +7,9 @@ import {
   type ClaimableEarnedInput,
   type EarnedClaim,
   type EarnedKind,
+  type EarnedBondLot,
 } from "../../hooks/useEarned";
+import { bondPayoutHistoryRows } from "../../lib/bondHistory";
 import { fmtDate, fmtFlrWei, fmtUtcDate } from "../../lib/rewards";
 
 interface RangeOption {
@@ -84,6 +86,90 @@ export function SourceRewardHistory({
             />
           ))}
         </ul>
+      )}
+    </div>
+  );
+}
+
+export function BondRewardHistory({
+  totalWei,
+  lots,
+  loading = false,
+  unavailable = false,
+  showTotal = true,
+}: {
+  totalWei?: bigint | null;
+  lots: EarnedBondLot[];
+  loading?: boolean;
+  unavailable?: boolean;
+  showTotal?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rows = useMemo(() => bondPayoutHistoryRows(lots), [lots]);
+  const payoutsUnavailable = lots.some((lot) => !lot.payoutsAvailable);
+  const disabled = loading || unavailable || rows.length === 0;
+
+  return (
+    <div className={showTotal ? "glass-panel px-4 py-3" : "border-t border-white/8 pt-3"}>
+      <div
+        className={`flex flex-wrap items-center gap-3 ${
+          showTotal ? "justify-between" : "justify-end"
+        }`}
+      >
+        {showTotal && (
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-[#8FA0B8]">Earned</p>
+            <p className="mt-1 text-xl font-bold tabular-nums text-[#FAFAFA]">
+              {loading || unavailable || totalWei == null ? "-" : fmtFlrWei(totalWei, 2)}{" "}
+              {!loading && !unavailable && totalWei != null && (
+                <span className="text-sm font-semibold text-[#8FA0B8]">FLR</span>
+              )}
+            </p>
+            <p className="mt-1 text-xs text-[#8FA0B8]">
+              Claimed plus currently claimable
+            </p>
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          disabled={disabled}
+          aria-expanded={open}
+          className="inline-flex items-center gap-2 text-sm font-medium text-[#E85A95] hover:underline disabled:cursor-default disabled:text-[#8FA0B8] disabled:no-underline"
+        >
+          <History size={15} /> History
+          <ChevronDown
+            size={14}
+            className={`transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+          />
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-3 border-t border-white/8">
+          {payoutsUnavailable && (
+            <p className="py-2 text-xs text-[#8FA0B8]">
+              Some payout releases are unavailable right now.
+            </p>
+          )}
+          <ul className="divide-y divide-white/8">
+            {rows.map((row) => (
+              <li
+                key={row.date}
+                className="flex items-center justify-between gap-3 py-2.5 first:pt-3"
+              >
+                <div>
+                  <p className="text-sm font-medium text-[#FAFAFA]">Bond payout</p>
+                  <p className="text-[11px] text-[#8FA0B8]">{fmtDate(row.unix)}</p>
+                </div>
+                <p className="text-sm font-semibold tabular-nums text-[#FAFAFA]">
+                  {fmtFlrWei(row.amountWei, 2)}{" "}
+                  <span className="text-xs font-normal text-[#8FA0B8]">FLR</span>
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

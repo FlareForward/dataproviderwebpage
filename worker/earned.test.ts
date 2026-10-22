@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { bondPayoutHistoryRows } from "../src/lib/bondHistory.js";
 import { combineEarnedTotals, type EarnedClaim } from "../src/lib/earned.js";
 
 const NEGATIVE_OWNER = "0x4ebb057d0a2382959aa5b0a310a24c450f8c061f";
@@ -749,6 +750,31 @@ test("bond earned totals keep claimed and claimable distributor rewards", () => 
   assert.equal(totals.claimable.bondsWei, flr("2"));
   assert.equal(totals.earned.bondsWei, flr("7"));
   assert.equal(totals.earned.totalWei, flr("7"));
+});
+
+test("bond payout history sums held lots by release date newest first", () => {
+  const rows = bondPayoutHistoryRows([
+    {
+      held: 2,
+      payoutsAvailable: true,
+      payouts: [
+        { block: 10, unix: 1_800_000_000, perBondAmountWei: flr("3") },
+        { block: 8, unix: 1_799_913_600, perBondAmountWei: flr("1") },
+      ],
+    },
+    {
+      held: 1,
+      payoutsAvailable: true,
+      payouts: [
+        { block: 11, unix: 1_800_000_100, perBondAmountWei: flr("4") },
+      ],
+    },
+  ]);
+
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].amountWei, flr("10"));
+  assert.equal(rows[1].amountWei, flr("2"));
+  assert.ok(rows[0].unix > rows[1].unix);
 });
 
 test("a full 1000-row Blockscout page marks the scan partial", async () => {
