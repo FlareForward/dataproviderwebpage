@@ -24,6 +24,8 @@ export function StarshipStrip({
   left,
   right,
   link,
+  mark,
+  note,
   className = "",
 }: {
   name: string;
@@ -34,8 +36,13 @@ export function StarshipStrip({
   left: ReactNode;
   right?: ReactNode;
   link: { to: string; text: string };
+  /** A milestone on the bar, e.g. the FTSO V2 launch amount: a tick plus a label under it. */
+  mark?: { pct: number; label: string };
+  /** One plain sentence under the facts row. */
+  note?: ReactNode;
   className?: string;
 }) {
+  const markPct = mark ? Math.max(0, Math.min(100, mark.pct)) : null;
   return (
     <div className={`glass-panel p-4 space-y-3 ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
@@ -56,15 +63,32 @@ export function StarshipStrip({
           )}
         </span>
       </div>
-      <div className="h-2 rounded-full bg-white/5 overflow-hidden" aria-hidden="true">
-        <div
-          className={`h-full rounded-full ${
-            barTone === "pink"
-              ? "bg-gradient-to-r from-[#EE1A58] to-[#E85A95]"
-              : "bg-gradient-to-r from-emerald-500 to-emerald-300"
-          }`}
-          style={{ width: `${barPct > 0 ? Math.max(1, Math.min(100, barPct)) : 0}%` }}
-        />
+      <div aria-hidden="true">
+        <div className="relative">
+          <div className="h-2 rounded-full bg-white/5 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${
+                barTone === "pink"
+                  ? "bg-gradient-to-r from-[#EE1A58] to-[#E85A95]"
+                  : "bg-gradient-to-r from-emerald-500 to-emerald-300"
+              }`}
+              style={{ width: `${barPct > 0 ? Math.max(1, Math.min(100, barPct)) : 0}%` }}
+            />
+          </div>
+          {markPct != null && (
+            <span
+              className="absolute -bottom-1 -top-1 w-0.5 -translate-x-1/2 rounded-full bg-white/80"
+              style={{ left: `${markPct}%` }}
+            />
+          )}
+        </div>
+        {mark && markPct != null && (
+          <div className="relative mt-1 h-4 text-[10px] font-semibold uppercase tracking-wider text-[#FAFAFA]/80">
+            <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${markPct}%` }}>
+              {mark.label}
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
         <span className="text-[#FAFAFA] font-medium tabular-nums">{left}</span>
@@ -78,6 +102,7 @@ export function StarshipStrip({
           </Link>
         </span>
       </div>
+      {note && <p className="text-xs leading-snug text-[#8FA0B8]">{note}</p>}
     </div>
   );
 }

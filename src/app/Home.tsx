@@ -18,6 +18,7 @@ import { useRewards } from "../hooks/useRewards";
 import { settledRate, fmtFlrCompact, fmtPct } from "../lib/rewards";
 import { LINKS } from "../lib/links";
 import { useBondApy } from "../hooks/useBondApy";
+import { FTSO_V2_LAUNCH_FLR } from "../lib/starship2Copy";
 
 /**
  * / — the front door, built to sell. One job: a visitor who has never heard
@@ -319,10 +320,14 @@ function StakingCapacityStrip({
   );
 }
 
-/** FTSO V2: the 12 month bond NFTs. Bar is FLR raised. */
+/**
+ * FTSO V2: the 12 month bond NFTs. Bar is FLR raised toward the goal, with the
+ * mark where the new validator launches (operator 2026-10-23, same as /nft).
+ */
 function Starship2Strip() {
   const s = useStarship2();
   if (!s) return null;
+  const launchFlr = Number(FTSO_V2_LAUNCH_FLR);
   return (
     <StarshipStrip
       className="mt-3"
@@ -331,7 +336,17 @@ function Starship2Strip() {
       badge={s.anyOpen ? { text: "Mint open", tone: "green" } : { text: "Closed", tone: "neutral" }}
       barPct={s.cap > 0 ? (s.raised / s.cap) * 100 : 0}
       barTone="green"
-      left={`${fmtFlrCompact(s.raised)} FLR raised of ${fmtFlrCompact(s.cap)} FLR`}
+      left={`${fmtFlrCompact(s.raised)} FLR raised of ${fmtFlrCompact(s.cap)} FLR goal`}
+      mark={
+        s.cap > 0
+          ? { pct: (launchFlr / s.cap) * 100, label: `Launch ${launchFlr.toLocaleString("en-US")}` }
+          : undefined
+      }
+      note={
+        s.raised >= launchFlr
+          ? `${launchFlr.toLocaleString("en-US")} FLR reached, the launch amount for the new FlareForward validator. The raise continues to the goal.`
+          : `The new FlareForward validator launches the moment we reach ${launchFlr.toLocaleString("en-US")} FLR.`
+      }
       right={
         s.maturity
           ? `Matures ${new Date(s.maturity * 1000).toLocaleDateString(undefined, {
