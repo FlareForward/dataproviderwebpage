@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useAccount, useReadContracts } from "wagmi";
-import { ExternalLink, Gem, Gift, Loader2, Search, Sparkles, X } from "lucide-react";
+import { ExternalLink, Gem, Gift, Loader2, Search, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import { formatUnits, isAddress } from "viem";
 import { Button } from "./Button";
@@ -394,21 +394,13 @@ export function MyBonds({
                         loading="lazy"
                         className="relative aspect-square w-full object-cover"
                       />
-                      {hasUnclaimed && (
-                        <div className="absolute left-3 top-3 z-10 max-w-[calc(100%-4.5rem)]">
-                          <UnclaimedRibbon wei={reward.claimableWei} />
-                        </div>
-                      )}
                       {g.tokenIds.length > 1 && (
-                        <span
-                          className={`absolute right-3 z-20 rounded-full bg-black/80 px-2.5 py-1 text-xs font-semibold text-[#FAFAFA] ${
-                            hasUnclaimed ? "top-4" : "top-3"
-                          }`}
-                        >
+                        <span className="absolute right-3 top-3 z-20 rounded-full bg-black/80 px-2.5 py-1 text-xs font-semibold text-[#FAFAFA]">
                           ×{g.tokenIds.length}
                         </span>
                       )}
                     </div>
+                    {hasUnclaimed && <UnclaimedRibbon wei={reward.claimableWei} />}
                     <div className="p-4">
                       <p className="font-semibold">
                         {g.tier.name} tier
@@ -683,26 +675,24 @@ function BondLotDialog({
 }
 
 /**
- * Money waiting in a lot. A rose capsule floating inside the card instead of
- * slicing across it (operator 2026-10-23: the flat bar had no elegance). The
- * compact form marks the exact bond inside the lot dialog.
+ * Money waiting in a lot. On the card it is a band built into the card itself,
+ * edge to edge at the seam between the art and the text, its rose glow
+ * spilling up into the art (operator 2026-10-23: first the flat bar had no
+ * elegance, then the floating capsule sat on top of the card instead of being
+ * part of it). The compact form marks the exact bond inside the lot dialog.
  */
 function UnclaimedRibbon({ wei, compact = false }: { wei: bigint; compact?: boolean }) {
   const amount = fmtFlrTwoDecimals(wei);
   if (compact) {
     return (
       <span className="claim-ribbon claim-ribbon--compact">
-        <Sparkles size={11} className="claim-ribbon__spark" aria-hidden="true" />
         <span className="claim-ribbon__amount">{amount}</span>
         <span className="claim-ribbon__unit">WFLR unclaimed</span>
       </span>
     );
   }
   return (
-    <span className="claim-ribbon">
-      <span className="claim-ribbon__gem" aria-hidden="true">
-        <Sparkles size={12} />
-      </span>
+    <span className="claim-band">
       <span className="min-w-0">
         <span className="claim-ribbon__label">Unclaimed</span>
         <span className="block truncate">
