@@ -15,7 +15,7 @@ import {
 } from "../lib/bondLot";
 import { EXPLORER_URL, TERM_CHAIN } from "../lib/flare";
 import { TERM_PREVIEW } from "../lib/termPreview";
-import { STARSHIP2_INTRO } from "../lib/starship2Copy";
+import { FTSO_V2_GOAL_FLR, FTSO_V2_LAUNCH_FLR, STARSHIP2_INTRO } from "../lib/starship2Copy";
 import { StakingBatchTimer } from "./components/StarshipStrip";
 import { Gem, Coins, TrendingUp, Landmark, Tag, Activity, HeartHandshake, FileText, ExternalLink, ChevronDown } from "lucide-react";
 import { useBondApy } from "../hooks/useBondApy";
@@ -140,11 +140,12 @@ function useTierStatuses(tiers: BondTier[]) {
 }
 
 /**
- * Whether any FTSO V2 tier is selling right now, read from the same four
- * calls each MintTermLot makes (wagmi dedupes them). null until measured, so
- * the bar never claims a state it has not read.
+ * FTSO V2 as a series: whether any tier is selling right now, and the FLR
+ * raised so far (bonds sold x mint price, summed over the tiers). Read from
+ * the tier contracts; wagmi dedupes these against MintTermLot's own calls.
+ * Both are null until measured, so the bar never shows a figure it has not read.
  */
-function useTermSeriesOpen(termTiers: BondTier[]): boolean | null {
+function useTermSeries(termTiers: BondTier[]): { selling: boolean | null; raisedWei: bigint | null } {
   const contracts = useMemo(
     () =>
       termTiers
@@ -156,6 +157,7 @@ function useTermSeriesOpen(termTiers: BondTier[]): boolean | null {
             { ...contract, functionName: "totalSupply" as const },
             { ...contract, functionName: "isMintOpen" as const },
             { ...contract, functionName: "saleClosed" as const },
+            { ...contract, functionName: "mintPrice" as const },
           ];
         }),
     [termTiers],
@@ -166,17 +168,79 @@ function useTermSeriesOpen(termTiers: BondTier[]): boolean | null {
     query: { enabled: contracts.length > 0, refetchInterval: 30_000 },
   });
 
-  if (contracts.length === 0) return false;
-  if (isLoading || !data) return null;
-  for (let i = 0; i < data.length; i += 4) {
+  if (contracts.length === 0) return { selling: false, raisedWei: 0n };
+  if (isLoading || !data) return { selling: null, raisedWei: null };
+  let selling = false;
+  let raisedWei: bigint | null = 0n;
+  for (let i = 0; i < data.length; i += 5) {
     const maxSupply = data[i]?.result as bigint | undefined;
     const sold = data[i + 1]?.result as bigint | undefined;
     const mintOpen = data[i + 2]?.result as boolean | undefined;
     const saleClosed = data[i + 3]?.result as boolean | undefined;
+    const price = data[i + 4]?.result as bigint | undefined;
     const soldOut = maxSupply != null && sold != null && sold >= maxSupply;
-    if (mintOpen === true && saleClosed !== true && !soldOut) return true;
+    if (mintOpen === true && saleClosed !== true && !soldOut) selling = true;
+    raisedWei = raisedWei != null && sold != null && price != null ? raisedWei + sold * price : null;
   }
-  return false;
+  return { selling, raisedWei };
+}
+
+/**
+ * Raise progress on the FTSO V2 bar (operator 2026-10-23): the 10M goal, what
+ * is raised so far, and the 3M mark where the new validator launches. The goal
+ * matches the three tiers sold out; the launch mark is a FlareForward call,
+ * not a contract value, so it lives in starship2Copy.
+ */
+function RaiseProgress({ raisedWei }: { raisedWei: bigint | null }) {
+  const WEI = 10n ** 18n;
+  const goal = FTSO_V2_GOAL_FLR * WEI;
+  const launch = FTSO_V2_LAUNCH_FLR * WEI;
+  const raised = raisedWei ?? 0n;
+  const pct = (wei: bigint) => Math.min(100, Number((wei * 10000n) / goal) / 100);
+  const launched = raisedWei != null && raised >= launch;
+  const flr = (wei: bigint) => (wei / WEI).toLocaleString("en-US");
+
+  return (
+    <span className="block">
+      <span className="flex items-baseline justify-between gap-3 text-xs">
+        <span className="uppercase tracking-wide text-[#8FA0B8]">Raised</span>
+        <span className="tabular-nums text-[#8FA0B8]">
+          <span className="text-sm font-semibold text-[#FAFAFA]">
+            {raisedWei == null ? "-" : flr(raised)}
+          </span>{" "}
+          / {flr(goal)} FLR goal
+        </span>
+      </span>
+      <span
+        className="relative mt-2 block h-2 rounded-full bg-white/10"
+        role="progressbar"
+        aria-label="FTSO V2 raised toward the goal"
+        aria-valuemin={0}
+        aria-valuemax={Number(FTSO_V2_GOAL_FLR)}
+        aria-valuenow={Number(raised / WEI)}
+      >
+        <span
+          className="block h-full rounded-full bg-gradient-to-r from-[#EE1A58] to-[#E85A95] transition-[width] duration-700 motion-reduce:transition-none"
+          style={{ width: `${pct(raised)}%`, minWidth: raised > 0n ? "0.5rem" : undefined }}
+        />
+        <span
+          className="absolute -bottom-1 -top-1 w-0.5 rounded-full bg-white/80"
+          style={{ left: `${pct(launch)}%` }}
+          aria-hidden="true"
+        />
+      </span>
+      <span className="relative mt-1 block h-4 text-[10px] font-semibold uppercase tracking-wide text-[#FAFAFA]/80">
+        <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${pct(launch)}%` }}>
+          Launch {flr(launch)}
+        </span>
+      </span>
+      <span className="mt-1 block text-xs leading-snug text-[#8FA0B8]">
+        {launched
+          ? `${flr(launch)} FLR reached, the launch amount for the new FlareForward validator. The raise continues to the ${flr(goal)} FLR goal.`
+          : `The new FlareForward validator launches the moment we reach ${flr(launch)} FLR.`}
+      </span>
+    </span>
+  );
 }
 
 /** "Bond open" / "Bond closed" on a series bar, so the state reads before the click. */
@@ -253,7 +317,7 @@ function Lots({
   const anyOpen = openTiers.length > 0;
   const v1BondCount = statuses.reduce((total, status) => total + (status.sold ?? 0n), 0n);
   const v1Selling = statusLoading ? null : anyOpen;
-  const v2Selling = useTermSeriesOpen(termTiers);
+  const { selling: v2Selling, raisedWei: v2RaisedWei } = useTermSeries(termTiers);
   const v1Open = v1Choice ?? v1Selling === true;
   const v2Open = v2Choice ?? v2Selling === true;
 
@@ -343,7 +407,7 @@ function Lots({
           type="button"
           onClick={() => setV2Choice(!v2Open)}
           aria-expanded={v2Open}
-          className="glass-panel flex w-full items-center justify-between gap-4 p-4 text-left"
+          className="glass-panel flex w-full flex-wrap items-center justify-between gap-4 p-4 text-left"
         >
           <span className="flex items-center gap-3">
             <span>
@@ -361,8 +425,11 @@ function Lots({
               </span>
             )}
           </span>
+          <span className="order-3 w-full sm:order-none sm:ml-auto sm:w-[min(360px,34%)] sm:min-w-[260px]">
+            <RaiseProgress raisedWei={v2RaisedWei} />
+          </span>
           <ChevronDown
-            className={`transition-transform motion-reduce:transition-none ${v2Open ? "rotate-180" : ""}`}
+            className={`order-2 transition-transform motion-reduce:transition-none sm:order-none ${v2Open ? "rotate-180" : ""}`}
             size={18}
           />
         </button>

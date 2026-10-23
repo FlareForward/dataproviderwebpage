@@ -23,3 +23,12 @@ export const STARSHIP2_SECURITY_NOTES = [
   "The vault contract that holds redemption funds cannot be upgraded.",
   "The Bond Treasury Safe owns each FTSO V2 bond contract, manages each vault, and is the only emergency signer. No single key can act alone, and the key that deployed the contracts holds no role.",
 ];
+
+/**
+ * FTSO V2 raise targets in whole FLR (operator 2026-10-23). The goal is the
+ * three tiers sold out (250 x 10K + 50 x 50K + 50 x 100K). The launch mark is
+ * FlareForward's call: the new validator launches the moment the raise
+ * reaches it. Neither is enforced by a contract.
+ */
+export const FTSO_V2_GOAL_FLR = 10_000_000n;
+export const FTSO_V2_LAUNCH_FLR = 3_000_000n;
