@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useAccount, useReadContracts } from "wagmi";
-import { ExternalLink, Gem, Gift, Loader2, Search, X } from "lucide-react";
+import { ExternalLink, Gem, Gift, Loader2, Search, Sparkles, X } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import { formatUnits, isAddress } from "viem";
 import { Button } from "./Button";
@@ -395,16 +395,14 @@ export function MyBonds({
                         className="relative aspect-square w-full object-cover"
                       />
                       {hasUnclaimed && (
-                        <div
-                          className="absolute inset-x-0 top-0 z-10 overflow-hidden whitespace-nowrap border-b border-[#EE1A58]/35 bg-[#6B1838]/90 px-3 py-1.5 text-[11px] font-semibold tabular-nums text-white backdrop-blur-sm lg:text-xs"
-                        >
-                          Unclaimed {fmtFlrTwoDecimals(reward.claimableWei)} WFLR
+                        <div className="absolute left-3 top-3 z-10 max-w-[calc(100%-4.5rem)]">
+                          <UnclaimedRibbon wei={reward.claimableWei} />
                         </div>
                       )}
                       {g.tokenIds.length > 1 && (
                         <span
-                          className={`absolute right-2 z-20 rounded-full bg-black/80 px-2.5 py-1 text-xs font-semibold text-[#FAFAFA] ${
-                            hasUnclaimed ? "top-9" : "top-2"
+                          className={`absolute right-3 z-20 rounded-full bg-black/80 px-2.5 py-1 text-xs font-semibold text-[#FAFAFA] ${
+                            hasUnclaimed ? "top-4" : "top-3"
                           }`}
                         >
                           ×{g.tokenIds.length}
@@ -632,9 +630,7 @@ function BondLotDialog({
                             Bond #{tokenId}
                           </p>
                           {hasUnclaimed && (
-                            <span className="rounded-full border border-[#EE1A58]/40 bg-[#6B1838]/80 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white">
-                              Unclaimed {fmtFlrTwoDecimals(bond?.claimableWei ?? 0n)} WFLR
-                            </span>
+                            <UnclaimedRibbon wei={bond?.claimableWei ?? 0n} compact />
                           )}
                         </div>
                         <a
@@ -683,6 +679,38 @@ function BondLotDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Money waiting in a lot. A rose capsule floating inside the card instead of
+ * slicing across it (operator 2026-10-23: the flat bar had no elegance). The
+ * compact form marks the exact bond inside the lot dialog.
+ */
+function UnclaimedRibbon({ wei, compact = false }: { wei: bigint; compact?: boolean }) {
+  const amount = fmtFlrTwoDecimals(wei);
+  if (compact) {
+    return (
+      <span className="claim-ribbon claim-ribbon--compact">
+        <Sparkles size={11} className="claim-ribbon__spark" aria-hidden="true" />
+        <span className="claim-ribbon__amount">{amount}</span>
+        <span className="claim-ribbon__unit">WFLR unclaimed</span>
+      </span>
+    );
+  }
+  return (
+    <span className="claim-ribbon">
+      <span className="claim-ribbon__gem" aria-hidden="true">
+        <Sparkles size={12} />
+      </span>
+      <span className="min-w-0">
+        <span className="claim-ribbon__label">Unclaimed</span>
+        <span className="block truncate">
+          <span className="claim-ribbon__amount">{amount}</span>{" "}
+          <span className="claim-ribbon__unit">WFLR</span>
+        </span>
+      </span>
+    </span>
   );
 }
 
