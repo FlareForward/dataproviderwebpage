@@ -5,6 +5,7 @@ import { MintLot } from "./components/MintLot";
 import { MintTermLot } from "./components/MintTermLot";
 import {
   bondLotAbi,
+  termBondAbi,
   CURRENT_LOT,
   ADDRESS_RE,
   IPFS_GATEWAY,
@@ -12,7 +13,7 @@ import {
   isTermTier,
   type BondTier,
 } from "../lib/bondLot";
-import { EXPLORER_URL } from "../lib/flare";
+import { EXPLORER_URL, TERM_CHAIN } from "../lib/flare";
 import { TERM_PREVIEW } from "../lib/termPreview";
 import { STARSHIP2_INTRO } from "../lib/starship2Copy";
 import { StakingBatchTimer } from "./components/StarshipStrip";
@@ -138,6 +139,67 @@ function useTierStatuses(tiers: BondTier[]) {
   return { statuses, statusLoading: isLoading };
 }
 
+/**
+ * Whether any FTSO V2 tier is selling right now, read from the same four
+ * calls each MintTermLot makes (wagmi dedupes them). null until measured, so
+ * the bar never claims a state it has not read.
+ */
+function useTermSeriesOpen(termTiers: BondTier[]): boolean | null {
+  const contracts = useMemo(
+    () =>
+      termTiers
+        .filter((t): t is BondTier & { address: `0x${string}` } => !!t.address)
+        .flatMap((tier) => {
+          const contract = { address: tier.address, abi: termBondAbi, chainId: TERM_CHAIN.id } as const;
+          return [
+            { ...contract, functionName: "maxSupply" as const },
+            { ...contract, functionName: "totalSupply" as const },
+            { ...contract, functionName: "isMintOpen" as const },
+            { ...contract, functionName: "saleClosed" as const },
+          ];
+        }),
+    [termTiers],
+  );
+
+  const { data, isLoading } = useReadContracts({
+    contracts,
+    query: { enabled: contracts.length > 0, refetchInterval: 30_000 },
+  });
+
+  if (contracts.length === 0) return false;
+  if (isLoading || !data) return null;
+  for (let i = 0; i < data.length; i += 4) {
+    const maxSupply = data[i]?.result as bigint | undefined;
+    const sold = data[i + 1]?.result as bigint | undefined;
+    const mintOpen = data[i + 2]?.result as boolean | undefined;
+    const saleClosed = data[i + 3]?.result as boolean | undefined;
+    const soldOut = maxSupply != null && sold != null && sold >= maxSupply;
+    if (mintOpen === true && saleClosed !== true && !soldOut) return true;
+  }
+  return false;
+}
+
+/** "Bond open" / "Bond closed" on a series bar, so the state reads before the click. */
+function SeriesState({ open }: { open: boolean | null }) {
+  if (open == null) return null;
+  if (open) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-300">
+        <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60 motion-reduce:animate-none" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+        </span>
+        Bond open
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-[#8FA0B8]">
+      Bond closed
+    </span>
+  );
+}
+
 function MeasuredPerformance() {
   const bondApy = useBondApy();
 
@@ -163,6 +225,10 @@ function MeasuredPerformance() {
  * The lots. Closed lots collapse to one row each; only a lot that is actually
  * on sale gets the full storefront card. Every figure is read from the tier
  * contract, so when the next lot deploys its card appears on its own.
+ *
+ * Each series bar starts expanded while that series is selling and collapsed
+ * once it closes (operator 2026-10-23): a buyer lands on the open bond, and a
+ * closed one stays one click away. A visitor's own click always wins.
  */
 function Lots({
   tiers,
@@ -175,8 +241,8 @@ function Lots({
   statusLoading: boolean;
   preview: boolean;
 }) {
-  const [v1Open, setV1Open] = useState(false);
-  const [v2Open, setV2Open] = useState(false);
+  const [v1Choice, setV1Choice] = useState<boolean | null>(null);
+  const [v2Choice, setV2Choice] = useState<boolean | null>(null);
   const statusFor = (tier: BondTier): TierStatus =>
     statuses.find((s) => s.key === tier.key) ?? { key: tier.key, address: tier.address };
 
@@ -186,18 +252,25 @@ function Lots({
   const closedTiers = shareTiers.filter((t) => t.address && !isOpen(statusFor(t)));
   const anyOpen = openTiers.length > 0;
   const v1BondCount = statuses.reduce((total, status) => total + (status.sold ?? 0n), 0n);
+  const v1Selling = statusLoading ? null : anyOpen;
+  const v2Selling = useTermSeriesOpen(termTiers);
+  const v1Open = v1Choice ?? v1Selling === true;
+  const v2Open = v2Choice ?? v2Selling === true;
 
   return (
     <>
       <section className="mt-10" aria-labelledby="starship1-title">
         <button
           type="button"
-          onClick={() => setV1Open((open) => !open)}
+          onClick={() => setV1Choice(!v1Open)}
           aria-expanded={v1Open}
           className="glass-panel flex w-full flex-wrap items-center justify-between gap-4 p-4 text-left"
         >
           <span>
-            <span id="starship1-title" className="block text-xl font-semibold">FTSO V1</span>
+            <span className="flex flex-wrap items-center gap-2.5">
+              <span id="starship1-title" className="text-xl font-semibold">FTSO V1</span>
+              <SeriesState open={v1Selling} />
+            </span>
             <span className="mt-0.5 block text-sm text-[#8FA0B8]">
               {statusLoading ? "Reading bonds" : `${fmtCount(v1BondCount)} bonds`}
             </span>
@@ -268,13 +341,16 @@ function Lots({
       <section className="mt-10" aria-labelledby="starship2-title">
         <button
           type="button"
-          onClick={() => setV2Open((open) => !open)}
+          onClick={() => setV2Choice(!v2Open)}
           aria-expanded={v2Open}
           className="glass-panel flex w-full items-center justify-between gap-4 p-4 text-left"
         >
           <span className="flex items-center gap-3">
             <span>
-              <span id="starship2-title" className="block text-xl font-semibold">FTSO V2</span>
+              <span className="flex flex-wrap items-center gap-2.5">
+                <span id="starship2-title" className="text-xl font-semibold">FTSO V2</span>
+                <SeriesState open={v2Selling} />
+              </span>
               <span className="mt-0.5 block text-sm text-[#8FA0B8]">
                 {termTiers.length} {termTiers.length === 1 ? "tier" : "tiers"}
               </span>
