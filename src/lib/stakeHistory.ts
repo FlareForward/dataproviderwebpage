@@ -11,8 +11,11 @@
  * which scale with the size of the validator set.
  *
  * Once the user moves the returned FLR out of the P-chain, that output is
- * spent and the chain no longer points at the stake, so every stake we see
- * (live or ended) is also remembered on this device.
+ * spent and no longer shows in the balance. The chain still remembers: the
+ * transaction that spent it names the stake transaction as an input. So the
+ * walk goes backwards from every unspent output through each transaction's
+ * inputs, newest first, and keeps every stake transaction it meets. Every
+ * stake seen live is also remembered on this device.
  *
  * No viem or SDK imports here, so this file also compiles under the worker
  * unit-test config.
@@ -43,9 +46,9 @@ export interface StoredStake {
 }
 
 const SEEN_PREFIX = "flareforward:pstakehist:";
-const TX_PREFIX = "flareforward:ptx:";
+const TX_PREFIX = "flareforward:ptx2:";
 /** Most uncached transaction lookups made in one refresh, to spare the public RPC. */
-const MAX_TX_LOOKUPS = 24;
+const MAX_TX_LOOKUPS = 60;
 
 export function toStored(s: PastStake): StoredStake {
   return {
@@ -151,26 +154,87 @@ export function rememberStakes(address: string, stakes: readonly PastStake[]): v
   }
 }
 
+/** What one P-chain transaction tells us: the stake it is (if any) and what funded it. */
+export interface TxInfo {
+  stake: PastStake | null;
+  /** Transactions whose outputs this one spent. */
+  parents: string[];
+}
+
+/** Read a `platform.getTx` (json) result into a {@link TxInfo}. */
+export function parseTxInfo(txId: string, tx: any): TxInfo {
+  const u = tx?.unsignedTx ?? tx;
+  const inputs: any[] = Array.isArray(u?.inputs) ? u.inputs : [];
+  const parents = [
+    ...new Set(inputs.map((i) => i?.txID).filter((t): t is string => typeof t === "string")),
+  ];
+  return { stake: parseStakeTx(txId, tx), parents };
+}
+
 /**
- * A transaction never changes once accepted, so each lookup is cached for good
- * (including "this is not a stake", stored as null).
+ * Walk backwards from `roots` through each transaction's inputs, nearest
+ * first, collecting stake transactions. `getInfo` resolves one transaction
+ * (cache first, then the network) and returns undefined when it cannot, which
+ * just leaves that branch for a later refresh. `budget` caps how many
+ * transactions are resolved in one run so a long history never floods the
+ * public RPC; cached ones are free and the walk resumes where it stopped.
  */
-function loadCachedTx(txId: string): PastStake | null | undefined {
+export async function walkStakeAncestry(
+  roots: readonly string[],
+  getInfo: (txId: string) => Promise<TxInfo | undefined>,
+  budget: { remaining: number },
+  concurrency = 4
+): Promise<PastStake[]> {
+  const found: PastStake[] = [];
+  const seen = new Set<string>(roots);
+  let level = [...roots];
+  while (level.length > 0 && budget.remaining > 0) {
+    const next: string[] = [];
+    for (let i = 0; i < level.length && budget.remaining > 0; i += concurrency) {
+      const chunk = level.slice(i, i + concurrency);
+      const infos = await Promise.all(chunk.map((id) => getInfo(id)));
+      for (const info of infos) {
+        if (!info) continue;
+        if (info.stake) found.push(info.stake);
+        for (const p of info.parents) {
+          if (!seen.has(p)) {
+            seen.add(p);
+            next.push(p);
+          }
+        }
+      }
+    }
+    level = next;
+  }
+  return found;
+}
+
+/**
+ * A transaction never changes once accepted, so each lookup is cached for good.
+ * (Key v2: the first version cached only the stake, not the parents.)
+ */
+function loadCachedTx(txId: string): TxInfo | undefined {
   if (typeof localStorage === "undefined") return undefined;
   try {
     const raw = localStorage.getItem(TX_PREFIX + txId);
     if (raw == null) return undefined;
-    const parsed = JSON.parse(raw);
-    return parsed === null ? null : fromStored(parsed);
+    const parsed = JSON.parse(raw) as { stake: StoredStake | null; parents: string[] };
+    return {
+      stake: parsed.stake ? fromStored(parsed.stake) : null,
+      parents: Array.isArray(parsed.parents) ? parsed.parents : [],
+    };
   } catch {
     return undefined;
   }
 }
 
-function saveCachedTx(txId: string, stake: PastStake | null): void {
+function saveCachedTx(txId: string, info: TxInfo): void {
   if (typeof localStorage === "undefined") return;
   try {
-    localStorage.setItem(TX_PREFIX + txId, JSON.stringify(stake ? toStored(stake) : null));
+    localStorage.setItem(
+      TX_PREFIX + txId,
+      JSON.stringify({ stake: info.stake ? toStored(info.stake) : null, parents: info.parents })
+    );
   } catch {
     // Best-effort only.
   }
@@ -189,9 +253,10 @@ async function rpc<T>(apiOrigin: string, method: string, params: unknown): Promi
 }
 
 /**
- * Ended stakes found on the chain for a P-address. Reads the unspent outputs
- * once, then looks up each distinct transaction not already known. A failed
- * lookup is skipped (and retried next refresh) rather than failing the list.
+ * Ended stakes found on the chain for a P-address: every stake transaction
+ * behind the wallet's current unspent outputs, including ones whose returned
+ * FLR has since been moved on. A failed lookup is skipped and retried on the
+ * next refresh rather than failing the list.
  */
 export async function fetchPastStakes(
   apiOrigin: string,
@@ -202,29 +267,26 @@ export async function fetchPastStakes(
   const bal = await rpc<{ utxoIDs?: Array<{ txID: string }> }>(apiOrigin, "platform.getBalance", {
     addresses: [addr],
   });
-  const txIds = [...new Set((bal.utxoIDs ?? []).map((u) => u.txID))];
+  const roots = [...new Set((bal.utxoIDs ?? []).map((u) => u.txID))];
+  const budget = { remaining: MAX_TX_LOOKUPS };
 
-  const found: PastStake[] = [];
-  let lookups = 0;
-  for (const txId of txIds) {
+  const getInfo = async (txId: string): Promise<TxInfo | undefined> => {
     const cached = loadCachedTx(txId);
-    if (cached !== undefined) {
-      if (cached) found.push(cached);
-      continue;
-    }
-    if (lookups >= MAX_TX_LOOKUPS) continue;
-    lookups++;
+    if (cached) return cached;
+    if (budget.remaining <= 0) return undefined;
+    budget.remaining--;
     try {
       const r = await rpc<{ tx: unknown }>(apiOrigin, "platform.getTx", {
         txID: txId,
         encoding: "json",
       });
-      const stake = parseStakeTx(txId, r.tx);
-      saveCachedTx(txId, stake);
-      if (stake) found.push(stake);
+      const info = parseTxInfo(txId, r.tx);
+      saveCachedTx(txId, info);
+      return info;
     } catch {
-      // Leave uncached so the next refresh tries again.
+      return undefined;
     }
-  }
-  return mergePastStakes([found], now);
+  };
+
+  return mergePastStakes([await walkStakeAncestry(roots, getInfo, budget)], now);
 }

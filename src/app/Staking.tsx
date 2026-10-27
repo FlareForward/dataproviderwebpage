@@ -12,6 +12,8 @@ import {
   Clock,
   RefreshCw,
   Landmark,
+  History,
+  ChevronDown,
 } from "lucide-react";
 import {
   Card,
@@ -750,11 +752,11 @@ function YourStakes({
           unlock. Someone with three stakes should see three engines. */}
       <div className="p-4 space-y-3">
         {stakes.length === 0 && (
-          <div className="p-6 text-center text-sm text-[#8FA0B8]">
+          <div className="p-4 text-center text-sm text-[#8FA0B8]">
             {fetching
               ? "Loading your stakes from the P-chain..."
               : pastStakes.length > 0
-                ? "No active stakes right now. Your earlier stakes are listed below."
+                ? "No active stakes."
                 : "No active stakes yet. Stake to a validator below to get started."}
           </div>
         )}
@@ -909,10 +911,10 @@ function fmtDay(secs: bigint): string {
 }
 
 /**
- * Stakes that have finished. The chain stops listing a stake the moment it
- * ends, so without this a member who stakes, waits out the term and comes back
- * sees "No active stakes" and reasonably wonders where their FLR went. Every
- * row answers that: how much, with whom, when, and that it came back.
+ * Stakes that have finished, kept behind a quiet History row (same pattern as
+ * the Earned panel). The chain stops listing a stake the moment it ends, so
+ * this is where a member checks that an old stake really did come back, but
+ * it is history, not the headline, so it stays closed until asked for.
  */
 function PastStakes({
   pastStakes,
@@ -923,50 +925,59 @@ function PastStakes({
   ourNodeId: string | null;
   availableOnP: bigint;
 }) {
+  const [open, setOpen] = useState(false);
   return (
-    <div className="border-t border-white/8 p-4 space-y-3">
-      <div>
-        <h3 className="text-sm font-semibold text-[#FAFAFA]">Past stakes</h3>
-        <p className="mt-0.5 text-xs text-[#8FA0B8]">
-          Stakes that have finished. The FLR came back to you when each one
-          ended.
-        </p>
-      </div>
-      {pastStakes.map((s) => {
-        const isUs = ourNodeId != null && s.nodeId === ourNodeId;
-        return (
-          <div
-            key={s.txId}
-            className="rounded-lg border border-white/8 bg-white/[0.02] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-          >
-            <div className="min-w-0">
-              <div className="text-sm text-[#FAFAFA]">
-                {isUs ? (
-                  "FlareForward"
-                ) : (
-                  <span className="font-mono" title={s.nodeId}>
-                    {shortNodeId(s.nodeId, 10)}
+    <div className="border-t border-white/8 px-4 py-3">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-2 text-sm font-medium text-[#E85A95] hover:underline"
+      >
+        <History size={15} /> History
+        <span className="text-xs font-normal text-[#8FA0B8]">
+          {pastStakes.length} past {pastStakes.length === 1 ? "stake" : "stakes"}
+        </span>
+        <ChevronDown
+          size={14}
+          className={`transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <>
+          <ul className="mt-2 divide-y divide-white/8">
+            {pastStakes.map((s) => {
+              const isUs = ourNodeId != null && s.nodeId === ourNodeId;
+              return (
+                <li
+                  key={s.txId}
+                  className="py-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5 text-sm"
+                >
+                  <span className="text-[#FAFAFA] tabular-nums">
+                    {formatFlr(s.amount, 0)} FLR
+                    <span className="ml-2 text-[#8FA0B8]">
+                      {isUs ? (
+                        "FlareForward"
+                      ) : (
+                        <span className="font-mono text-xs" title={s.nodeId}>
+                          {shortNodeId(s.nodeId, 6)}
+                        </span>
+                      )}
+                    </span>
                   </span>
-                )}
-              </div>
-              <div className="mt-0.5 text-xs text-[#8FA0B8]">
-                {fmtDay(s.startTime)} to {fmtDay(s.endTime)}
-              </div>
-            </div>
-            <div className="flex items-center gap-3 sm:justify-end">
-              <div className="text-base font-semibold tabular-nums text-[#FAFAFA]">
-                {formatFlr(s.amount, 0)} FLR
-              </div>
-              <Badge variant="dark">Returned to your wallet</Badge>
-            </div>
-          </div>
-        );
-      })}
-      {availableOnP > 0n && (
-        <p className="text-xs text-[#8FA0B8]">
-          {formatFlr(availableOnP)} FLR is waiting on the P-chain. Use "To
-          wallet" above to move it to your main balance.
-        </p>
+                  <span className="text-xs text-[#8FA0B8]">
+                    {fmtDay(s.startTime)} to {fmtDay(s.endTime)} · returned to your wallet
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {availableOnP > 0n && (
+            <p className="mt-2 text-xs text-[#8FA0B8]">
+              {formatFlr(availableOnP)} FLR is waiting on the P-chain. Use "To wallet" above to move it.
+            </p>
+          )}
+        </>
       )}
     </div>
   );

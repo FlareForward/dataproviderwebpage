@@ -26,6 +26,7 @@ export function StarshipStrip({
   link,
   mark,
   note,
+  footer,
   className = "",
 }: {
   name: string;
@@ -40,6 +41,8 @@ export function StarshipStrip({
   mark?: { pct: number; label: string };
   /** One plain sentence under the facts row. */
   note?: ReactNode;
+  /** A second, separate block under the strip, e.g. the 14-day payout window. */
+  footer?: ReactNode;
   className?: string;
 }) {
   const markPct = mark ? Math.max(0, Math.min(100, mark.pct)) : null;
@@ -103,6 +106,7 @@ export function StarshipStrip({
         </span>
       </div>
       {note && <p className="text-xs leading-snug text-[#8FA0B8]">{note}</p>}
+      {footer && <div className="border-t border-white/8 pt-3">{footer}</div>}
     </div>
   );
 }
