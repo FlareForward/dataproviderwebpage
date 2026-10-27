@@ -26,6 +26,7 @@ import { ConnectWallet } from "./components/ConnectWallet";
 import { EarningsStrip } from "./components/EarningsStrip";
 import { SourceRewardHistory } from "./components/RewardHistory";
 import { ImageWithFallback } from "./components/figma/ImageWithFallback";
+import type { PastStake } from "../lib/stakeHistory";
 import { useStaking } from "../hooks/useStaking";
 import { useValidatorStaking } from "../hooks/useValidatorStaking";
 import { actualRatePct, useEarned } from "../hooks/useEarned";
@@ -66,6 +67,7 @@ export function Staking() {
     stakes,
     stakesFetching,
     stakesOnchainFailed,
+    pastStakes,
     claimableReward,
     claimableRewardReady,
     claimableRewardLoading,
@@ -296,6 +298,8 @@ export function Staking() {
           fetching={stakesFetching}
           onchainFailed={stakesOnchainFailed}
           onRefresh={refetchStakes}
+          pastStakes={pastStakes}
+          availableOnP={balance.availableOnP}
         />
       )}
 
@@ -697,6 +701,8 @@ function YourStakes({
   fetching,
   onchainFailed,
   onRefresh,
+  pastStakes,
+  availableOnP,
 }: {
   stakes: DisplayStake[];
   ourNodeId: string | null;
@@ -707,6 +713,10 @@ function YourStakes({
   fetching: boolean;
   onchainFailed: boolean;
   onRefresh: () => void;
+  /** Stakes that have ended, newest first. */
+  pastStakes: PastStake[];
+  /** FLR sitting unlocked on the P-chain (where ended stakes return to). */
+  availableOnP: bigint;
 }) {
   const nowSecs = Math.floor(Date.now() / 1000);
 
@@ -743,7 +753,9 @@ function YourStakes({
           <div className="p-6 text-center text-sm text-[#8FA0B8]">
             {fetching
               ? "Loading your stakes from the P-chain..."
-              : "No active stakes yet. Stake to a validator below to get started."}
+              : pastStakes.length > 0
+                ? "No active stakes right now. Your earlier stakes are listed below."
+                : "No active stakes yet. Stake to a validator below to get started."}
           </div>
         )}
         {stakes.map((s) => {
@@ -870,6 +882,13 @@ function YourStakes({
           );
         })}
       </div>
+      {pastStakes.length > 0 && (
+        <PastStakes
+          pastStakes={pastStakes}
+          ourNodeId={ourNodeId}
+          availableOnP={availableOnP}
+        />
+      )}
       {onchainFailed && (
         <div className="px-4 py-3 border-t border-white/8 text-xs text-[#8FA0B8] flex items-center gap-2">
           <Info size={12} className="shrink-0" />
@@ -878,6 +897,78 @@ function YourStakes({
         </div>
       )}
     </Card>
+  );
+}
+
+function fmtDay(secs: bigint): string {
+  return new Date(Number(secs) * 1000).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * Stakes that have finished. The chain stops listing a stake the moment it
+ * ends, so without this a member who stakes, waits out the term and comes back
+ * sees "No active stakes" and reasonably wonders where their FLR went. Every
+ * row answers that: how much, with whom, when, and that it came back.
+ */
+function PastStakes({
+  pastStakes,
+  ourNodeId,
+  availableOnP,
+}: {
+  pastStakes: PastStake[];
+  ourNodeId: string | null;
+  availableOnP: bigint;
+}) {
+  return (
+    <div className="border-t border-white/8 p-4 space-y-3">
+      <div>
+        <h3 className="text-sm font-semibold text-[#FAFAFA]">Past stakes</h3>
+        <p className="mt-0.5 text-xs text-[#8FA0B8]">
+          Stakes that have finished. The FLR came back to you when each one
+          ended.
+        </p>
+      </div>
+      {pastStakes.map((s) => {
+        const isUs = ourNodeId != null && s.nodeId === ourNodeId;
+        return (
+          <div
+            key={s.txId}
+            className="rounded-lg border border-white/8 bg-white/[0.02] p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+          >
+            <div className="min-w-0">
+              <div className="text-sm text-[#FAFAFA]">
+                {isUs ? (
+                  "FlareForward"
+                ) : (
+                  <span className="font-mono" title={s.nodeId}>
+                    {shortNodeId(s.nodeId, 10)}
+                  </span>
+                )}
+              </div>
+              <div className="mt-0.5 text-xs text-[#8FA0B8]">
+                {fmtDay(s.startTime)} to {fmtDay(s.endTime)}
+              </div>
+            </div>
+            <div className="flex items-center gap-3 sm:justify-end">
+              <div className="text-base font-semibold tabular-nums text-[#FAFAFA]">
+                {formatFlr(s.amount, 0)} FLR
+              </div>
+              <Badge variant="dark">Returned to your wallet</Badge>
+            </div>
+          </div>
+        );
+      })}
+      {availableOnP > 0n && (
+        <p className="text-xs text-[#8FA0B8]">
+          {formatFlr(availableOnP)} FLR is waiting on the P-chain. Use "To
+          wallet" above to move it to your main balance.
+        </p>
+      )}
+    </div>
   );
 }
 

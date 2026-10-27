@@ -103,10 +103,14 @@ export function EarningsStrip({
   const shownRateLabel = hasActual ? "Your actual rate" : rateLabel;
   const shownRateSub = hasActual ? "what you've earned, annualized" : "current rate";
   const hero = onClaim != null;
+  // A claim must never hide because nothing is staked right now. Rewards from
+  // a stake that has ended are still the member's to collect, so a claimable
+  // balance shows the claim box even with no active position.
+  const showPosition = hasPosition || (hero && claimableReward > 0n);
 
   const body = (
     <>
-      {hasPosition ? (
+      {showPosition ? (
         <>
           {hero && (
             <div className="glass-panel p-4 sm:p-5">
@@ -125,6 +129,12 @@ export function EarningsStrip({
                     {fmtFlrWei(claimableReward)}{" "}
                     <span className="text-lg text-[#8FA0B8]">FLR</span>
                   </div>
+                  {!hasPosition && (
+                    <p className="mt-1 text-xs text-[#8FA0B8]">
+                      Nothing is earning right now, but these rewards are still
+                      yours to claim.
+                    </p>
+                  )}
                 </div>
                 <Button
                   variant="action"

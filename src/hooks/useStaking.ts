@@ -25,6 +25,13 @@ import {
   type ValidatorMeta,
   type ValidatorRow,
 } from "../lib/staking";
+import {
+  fetchPastStakes,
+  loadSeenStakes,
+  mergePastStakes,
+  rememberStakes,
+  type PastStake,
+} from "../lib/stakeHistory";
 import { loadCachedStats, saveCachedStats } from "../lib/statsCache";
 import { fetchProviderMetadata } from "./useProviders";
 import {
@@ -321,6 +328,40 @@ export function useStaking() {
     return mergeStakes(onchainStakes.data ?? [], loadTrackedStakes(address));
   }, [onchainStakes.data, address, trackedVersion]);
 
+  // Remember every stake the chain lists while it is live, so it is still in
+  // the history after it ends and the returned FLR has been moved on.
+  useEffect(() => {
+    if (!address || !onchainStakes.data) return;
+    rememberStakes(
+      address,
+      onchainStakes.data.map((s) => ({
+        txId: s.txId,
+        nodeId: s.nodeId,
+        amount: s.amount,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        type: s.type === "validator" ? "validator" : "delegator",
+      }))
+    );
+  }, [onchainStakes.data, address]);
+
+  // Ended stakes, rebuilt from the wallet's own P-chain outputs (see
+  // lib/stakeHistory). A couple of light calls, cached per transaction, so
+  // it does not compete with the live-stake read for the public RPC.
+  const pastStakesQuery = useQuery({
+    queryKey: ["pastStakes", publicKey],
+    enabled: !!publicKey,
+    retry: 1,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async (): Promise<PastStake[]> =>
+      fetchPastStakes(API_ORIGIN, network.getPAddress(publicKey!)),
+  });
+  const pastStakes: PastStake[] = useMemo(
+    () => mergePastStakes([pastStakesQuery.data ?? [], loadSeenStakes(address)]),
+    [pastStakesQuery.data, onchainStakes.data, address]
+  );
+
   // Staking rewards arrive from two contracts:
   //  - the FSP RewardManager (MIRROR claim type) — where every current epoch's
   //    staking reward lands, shared with the delegation hook because one claim
@@ -345,6 +386,7 @@ export function useStaking() {
     queryClient.invalidateQueries({ queryKey: ["claimableStakingReward"] });
     queryClient.invalidateQueries({ queryKey: ["claimableFtsoReward"] });
     queryClient.invalidateQueries({ queryKey: ["stakesOnP"] });
+    queryClient.invalidateQueries({ queryKey: ["pastStakes"] });
   }, [queryClient]);
 
   const refetchStakes = useCallback(() => onchainStakes.refetch(), [onchainStakes]);
@@ -598,6 +640,8 @@ export function useStaking() {
     stakes,
     stakesFetching: onchainStakes.isFetching,
     stakesOnchainFailed: onchainStakes.isError,
+    pastStakes,
+    pastStakesLoading: pastStakesQuery.isLoading,
     claimableReward: claimableFspWei + claimableLegacyWei,
     claimableFspWei,
     claimableLegacyWei,

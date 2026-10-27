@@ -14,6 +14,8 @@
     "src/vite-env.d.ts",
     "src/lib/earned.ts",
     "src/lib/fspRewards.ts",
+    "src/lib/stakeHistory.ts",
+    "worker/stakeHistory.test.ts",
     "src/lib/termPreview.ts",
     "src/lib/bondLot.ts",
     "src/lib/bondApy.ts",
