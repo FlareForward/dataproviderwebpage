@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mergePastStakes, parseStakeTx, type PastStake } from "../src/lib/stakeHistory.js";
+import {
+  mergePastStakes,
+  parseStakeTx,
+  parseTxInfo,
+  walkStakeAncestry,
+  type PastStake,
+  type TxInfo,
+} from "../src/lib/stakeHistory.js";
 
 /**
  * Shape read live from the P-chain (platform.getTx, json) on 2026-10-27 for
@@ -63,4 +70,46 @@ test("history keeps ended stakes only, one per transaction, newest first", () =>
     merged.map((s) => s.txId),
     ["b", "a"]
   );
+});
+
+test("a spent stake is found through the transaction that spent it", async () => {
+  // Shape of the 2026-10 case: the export that moved the returned FLR names
+  // both stake transactions as inputs, and a stake funds the next one.
+  const exportTx = { unsignedTx: { inputs: [{ txID: "stakeB" }, { txID: "stakeA" }] } };
+  assert.deepEqual(parseTxInfo("exp", exportTx).parents, ["stakeB", "stakeA"]);
+
+  const graph: Record<string, TxInfo> = {
+    exp: { stake: null, parents: ["stakeB", "stakeA"] },
+    stakeB: { stake: mk("stakeB", 1500), parents: ["stakeOld"] },
+    stakeA: { stake: mk("stakeA", 1400), parents: [] },
+    stakeOld: { stake: mk("stakeOld", 900), parents: [] },
+  };
+  const budget = { remaining: 10 };
+  const found = await walkStakeAncestry(["exp"], async (id) => graph[id], budget);
+  assert.deepEqual(
+    found.map((s) => s.txId).sort(),
+    ["stakeA", "stakeB", "stakeOld"]
+  );
+});
+
+test("the walk stops at its budget and never loops", async () => {
+  const graph: Record<string, TxInfo> = {
+    a: { stake: null, parents: ["b"] },
+    b: { stake: null, parents: ["a", "c"] },
+    c: { stake: mk("c", 10), parents: [] },
+  };
+  const budget = { remaining: 2 };
+  let calls = 0;
+  const found = await walkStakeAncestry(
+    ["a"],
+    async (id) => {
+      calls++;
+      budget.remaining--;
+      return graph[id];
+    },
+    budget,
+    1
+  );
+  assert.equal(calls, 2);
+  assert.equal(found.length, 0);
 });

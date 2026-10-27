@@ -12,7 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Card, CardContent } from "./components/Card";
-import { StarshipStrip, useStarship2 } from "./components/StarshipStrip";
+import { StakingBatchTimer, StarshipStrip, useStarship2 } from "./components/StarshipStrip";
 import { Button } from "./components/Button";
 import { useRewards } from "../hooks/useRewards";
 import { settledRate, fmtFlrCompact, fmtPct } from "../lib/rewards";
@@ -293,7 +293,11 @@ function XGlyph() {
   );
 }
 
-/** FTSO V1 validator capacity, with no repeating payout countdown. */
+/**
+ * FTSO V1 validator capacity, with the 14-day staking payout window under it:
+ * when the current batch of four reward epochs ends and about when Flare pays
+ * it. The per-epoch timer stays out; the batch is the date that matters.
+ */
 function StakingCapacityStrip({
   staked,
   capacity,
@@ -316,6 +320,7 @@ function StakingCapacityStrip({
       left={`${fmtFlrCompact(staked)} FLR staked`}
       right={`${fmtFlrCompact(open)} FLR open of ${fmtFlrCompact(capacity)} FLR`}
       link={{ to: "/nft", text: "FTSO V1 NFTs" }}
+      footer={<StakingBatchTimer />}
     />
   );
 }
