@@ -194,7 +194,7 @@ export default function Home() {
               to="/nft"
               icon={<Flame size={18} />}
               title="FlareForward Bonds"
-              body="FTSO V1 bonds fund the validator self-bond; the FLR is not returned and every lot is closed today. FTSO V2, a 12 month bond you redeem at maturity, is coming soon."
+              body="FTSO V1 bonds fund the validator self-bond; the FLR is not returned and every lot is closed today. FTSO V2 is open now: a 12 month bond that pays rewards every two weeks once the new validator launches, then redeems at maturity."
             />
             {/* The odd one out: the first three are ways to back us, this one
                 is where you go once you have. It keeps its slot in the row, but
