@@ -1,5 +1,5 @@
 export const STARSHIP2_INTRO =
-  "A 12 month bond. Your FLR backs the FlareForward validator for the term. When the bond matures, you redeem it here for your share of what the treasury has returned to the bond vault. The bond does not renew. Returns are not guaranteed.";
+  "A 12 month bond. Your FLR backs the FlareForward validator for the term. Once the validator launches, rewards are paid every two weeks after each Flare staking payout, and you claim them here, the same as staking. When the bond matures, you redeem it here for your share of what the treasury has returned to the bond vault. The bond does not renew. Returns are not guaranteed.";
 
 export const REDEMPTION_STEPS = [
   "Each FTSO V2 bond has one maturity date, set when the bond was created. It is the same for every bond in that tier and it cannot be changed.",

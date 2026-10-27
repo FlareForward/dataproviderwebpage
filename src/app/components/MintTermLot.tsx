@@ -401,8 +401,8 @@ export function MintTermLot({ tier }: { tier: BondTier }) {
                 )}
 
                 <p className="mt-3 text-xs leading-relaxed text-amber-300/90">
-                  Your FLR backs the validator for this term. At maturity, redeem the bond for its
-                  share of the bond vault. Returns are not guaranteed.
+                  Your FLR backs the validator for this term. Once the validator launches, rewards are
+                  paid every two weeks. At maturity, redeem the bond for its share of the bond vault. Returns are not guaranteed.
                 </p>
 
                 <Button

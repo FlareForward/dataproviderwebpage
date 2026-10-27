@@ -529,8 +529,9 @@ export default function NftRewards() {
           <h1 className="text-2xl font-bold tracking-tight">FlareForward Bonds</h1>
         </div>
         <p className="mt-3 text-lg leading-relaxed text-[#FAFAFA]/90">
-          FTSO V1 bonds are perpetual shares of holder distributions. FTSO V2 bonds have a
-          12 month term and redeem through their tier vault after maturity.
+          FTSO V1 bonds are perpetual shares of holder distributions. FTSO V2 bonds pay rewards
+          every two weeks once the new validator launches, and redeem through their tier vault
+          after their 12 month term.
         </p>
       </div>
 
