@@ -113,6 +113,7 @@ export default function Home() {
                     staked={rewards.staking.total_stake_flr}
                     capacity={rewards.staking.capacity_flr}
                     spaceLeft={rewards.staking.space_left_flr}
+                    termEnd={rewards.staking.active_end_unix}
                   />
                 )}
               <Starship2Strip />
@@ -302,10 +303,12 @@ function StakingCapacityStrip({
   staked,
   capacity,
   spaceLeft,
+  termEnd,
 }: {
   staked: number;
   capacity: number;
   spaceLeft: number | null;
+  termEnd: number | null;
 }) {
   const open = spaceLeft ?? Math.max(0, capacity - staked);
   return (
@@ -320,8 +323,44 @@ function StakingCapacityStrip({
       left={`${fmtFlrCompact(staked)} FLR staked`}
       right={`${fmtFlrCompact(open)} FLR open of ${fmtFlrCompact(capacity)} FLR`}
       link={{ to: "/nft", text: "FTSO V1 NFTs" }}
+      note={termEnd ? <ValidatorTermNote endUnix={termEnd} /> : undefined}
       footer={<StakingBatchTimer />}
     />
+  );
+}
+
+/**
+ * When the validator's current term ends, read live from the P-chain through
+ * /api/rewards (operator 2026-11-09: "everybody can kind of see it so they
+ * understand"). Shown in the visitor's own time zone.
+ */
+function ValidatorTermNote({ endUnix }: { endUnix: number }) {
+  const endMs = endUnix * 1000;
+  const days = Math.max(0, Math.ceil((endMs - Date.now()) / 86_400_000));
+  const when = new Date(endMs).toLocaleString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+  if (endMs <= Date.now()) {
+    return (
+      <>
+        <span className="font-semibold text-[#FAFAFA]">This validator term has ended.</span>{" "}
+        A new term starts once we renew the validator. You can stake again then.
+      </>
+    );
+  }
+  return (
+    <>
+      <span className="font-semibold text-[#FAFAFA]">
+        Current validator term ends {when} ({days === 1 ? "1 day" : `${days} days`} left).
+      </span>{" "}
+      P-chain stakes end with it, and the FLR goes back to your P-chain balance.
+      We renew the validator for a new term, and you can stake again once it is live.
+    </>
   );
 }
 
