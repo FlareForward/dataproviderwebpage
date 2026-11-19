@@ -8,7 +8,6 @@ import { TERM_CHAIN } from "../../lib/flare";
 import {
   ProgressBar,
   fmtCountdown,
-  fmtWhen,
   stakingBatch,
   useCountdown,
   useRewardEpochState,
@@ -145,8 +144,7 @@ export function StakingBatchTimer() {
         label={`${heading} progress`}
       />
       <span className="mt-1 block text-[10px] leading-snug text-[#8FA0B8]">
-        Epochs {batch.startEpoch} to {batch.endEpoch}, end {fmtWhen(batch.endTs)}. Flare pays
-        each batch about a week after it ends, so expect these rewards around{" "}
+        Epochs {batch.startEpoch} to {batch.endEpoch}. Paid around{" "}
         {fmtDay(batch.endTs + STAKING_PAYOUT_LAG_SECONDS)}.
       </span>
     </span>
