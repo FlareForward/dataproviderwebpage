@@ -348,18 +348,14 @@ function ValidatorTermNote({ endUnix }: { endUnix: number }) {
   if (endMs <= Date.now()) {
     return (
       <>
-        <span className="font-semibold text-[#FAFAFA]">This validator term has ended.</span>{" "}
-        A new term starts once we renew the validator. You can stake again then.
+        <span className="font-semibold text-[#FAFAFA]">Term ended.</span> Renewing now.
       </>
     );
   }
   return (
     <>
-      <span className="font-semibold text-[#FAFAFA]">
-        Current validator term ends {when} ({days === 1 ? "1 day" : `${days} days`} left).
-      </span>{" "}
-      P-chain stakes end with it, and the FLR goes back to your P-chain balance.
-      We renew the validator for a new term, and you can stake again once it is live.
+      <span className="font-semibold text-[#FAFAFA]">Term ends {when}</span>{" "}
+      ({days === 1 ? "1 day" : `${days} days`} left)
     </>
   );
 }
