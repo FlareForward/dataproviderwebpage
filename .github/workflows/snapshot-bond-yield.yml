@@ -92,3 +92,75 @@ jobs:
           fi
           git commit -m "data: bond-yield-history.json $(date -u +%Y-%m-%dT%H:%M:%SZ)"
           git push origin HEAD:bond-yield
+
+      # Runs AFTER the row is committed, and deliberately as its own step: an
+      # alert must never be able to cost us an epoch row, which is the one
+      # irreplaceable thing this job produces. `always()` so it still fires on
+      # the "no changes to commit" early exit above.
+      #
+      # There is no Discord/Slack webhook wired to this repo, so the alert
+      # channel is job failure — GitHub emails on that, and it needs no new
+      # secret. Tune ALERT_UNSWEPT_FLR rather than deleting the step.
+      #
+      # Why this exists: on 2026-09-02 Tier A sold out and 1,690,000 FLR sat
+      # unswept in the mint contracts, earning nothing, while this job recorded
+      # `lot_unswept_flr` faithfully every run and told no one. It happened again
+      # on 2026-09-14 with 277,500 FLR across Lot 1 Tier B and Lot 2.
+      - name: Alert on idle capital or lost delegation
+        if: always()
+        env:
+          ALERT_UNSWEPT_FLR: "100000"
+        run: |
+          set -euo pipefail
+          FILE=bond-data/bond-yield-history.json
+          if [ ! -f "$FILE" ]; then
+            echo "::warning::no history file to check"
+            exit 0
+          fi
+          node -e '
+            const fs = require("fs");
+            const limit = Number(process.env.ALERT_UNSWEPT_FLR);
+            const doc = JSON.parse(fs.readFileSync("bond-data/bond-yield-history.json", "utf8"));
+
+            // The history file keys its array under `epochs`. An earlier draft of
+            // this step looked for `rows`, found nothing, printed "no rows yet"
+            // and exited 0 — a detector that could never fire. So: look under the
+            // known keys, and if the document has content but no array we can
+            // recognise, FAIL LOUDLY. Silent schema drift is the whole bug class.
+            const list = Array.isArray(doc)
+              ? doc
+              : (doc.epochs ?? doc.rows ?? null);
+            if (list === null) {
+              console.log(`::error::bond-yield-history.json has no recognised row array (top-level keys: ${Object.keys(doc).join(", ")}). The schema moved and this alert is blind — fix the accessor.`);
+              process.exit(1);
+            }
+            const last = list[list.length - 1];
+            if (!last) { console.log("no rows yet"); process.exit(0); }
+
+            const unswept = last.lot_unswept_flr;
+            const bips = last.treasury_delegated_bips_to_us;
+            let bad = false;
+
+            // null means the chain read failed this hour, not that it is zero.
+            // Staying quiet on null is deliberate: a false alarm every time an
+            // RPC hiccups would train us to ignore this.
+            if (unswept === null || unswept === undefined) {
+              console.log("unswept unavailable this run — not alerting");
+            } else if (unswept >= limit) {
+              console.log(`::error::${unswept.toLocaleString()} FLR is sitting unswept in the lot contracts (threshold ${limit.toLocaleString()}). Native FLR in a lot earns NOTHING. Run: cd ~/nft-bond-series && source .venv/bin/activate && python3 script/sweep_lots.py sweep --execute --confirm sweep`);
+              bad = true;
+            } else {
+              console.log(`unswept ${unswept.toLocaleString()} FLR — under the ${limit.toLocaleString()} threshold`);
+            }
+
+            if (bips === null || bips === undefined) {
+              console.log("delegation unavailable this run — not alerting");
+            } else if (bips < 10000) {
+              console.log(`::error::treasury delegation to our provider is ${bips} bips, not 10000. Wrapped FLR has stopped earning and lost vote power.`);
+              bad = true;
+            }
+
+            if (bad) {
+              process.exit(1);
+            }
+          '
