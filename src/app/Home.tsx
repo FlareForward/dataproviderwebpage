@@ -195,7 +195,7 @@ export default function Home() {
               to="/nft"
               icon={<Flame size={18} />}
               title="FlareForward Bonds"
-              body="FTSO V1 bonds fund the validator self-bond; the FLR is not returned and every lot is closed today. FTSO V2 is open now: a 12 month bond that pays rewards every two weeks once the new validator launches, then redeems at maturity."
+              body="FTSO V1 bonds fund the validator self-bond; the FLR is not returned and every lot is closed today. FTSO V2 closed Nov 25, 2026: a 12 month bond, now bonded to the FlareForward validator, that pays rewards every two weeks and redeems at maturity. The next lot is announced here when it opens."
             />
             {/* The odd one out: the first three are ways to back us, this one
                 is where you go once you have. It keeps its slot in the row, but
@@ -383,9 +383,11 @@ function Starship2Strip() {
           : undefined
       }
       note={
-        s.raised >= launchFlr
-          ? `${launchFlr.toLocaleString("en-US")} FLR reached, the launch amount for the new FlareForward validator. The raise continues to the goal.`
-          : `The new FlareForward validator launches the moment we reach ${launchFlr.toLocaleString("en-US")} FLR.`
+        s.anyOpen === false
+          ? `Lot closed Nov 25, 2026 with ${s.raised.toLocaleString("en-US", { maximumFractionDigits: 0 })} FLR raised. The FLR is bonded to the FlareForward validator. Holders redeem at maturity.`
+          : s.raised >= launchFlr
+            ? `${launchFlr.toLocaleString("en-US")} FLR reached, the launch amount for the new FlareForward validator. The raise continues to the goal.`
+            : `The new FlareForward validator launches the moment we reach ${launchFlr.toLocaleString("en-US")} FLR.`
       }
       right={
         s.maturity
