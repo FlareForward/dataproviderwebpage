@@ -10,15 +10,16 @@ import {
   GraduationCap,
   ExternalLink,
   Loader2,
+  HeartHandshake,
 } from "lucide-react";
 import { Card, CardContent } from "./components/Card";
-import { StakingBatchTimer, StarshipStrip, useStarship2 } from "./components/StarshipStrip";
+import { StakingBatchTimer, StarshipStrip } from "./components/StarshipStrip";
+import { useCharity } from "../hooks/useCharity";
 import { Button } from "./components/Button";
 import { useRewards } from "../hooks/useRewards";
 import { settledRate, fmtFlrCompact, fmtPct } from "../lib/rewards";
 import { LINKS } from "../lib/links";
 import { useBondApy } from "../hooks/useBondApy";
-import { FTSO_V2_LAUNCH_FLR } from "../lib/starship2Copy";
 
 /**
  * / — the front door, built to sell. One job: a visitor who has never heard
@@ -116,7 +117,7 @@ export default function Home() {
                     termEnd={rewards.staking.active_end_unix}
                   />
                 )}
-              <Starship2Strip />
+              <CharityStrip />
               <p className="mt-2 text-[11px] text-[#8FA0B8] text-center">
                 Sourced live from the Flare Systems Explorer and Flare RPC. Rates
                 vary epoch to epoch and are not a guarantee of future rewards.
@@ -323,7 +324,7 @@ function StakingCapacityStrip({
       left={`${fmtFlrCompact(staked)} FLR staked`}
       right={`${fmtFlrCompact(open)} FLR open of ${fmtFlrCompact(capacity)} FLR`}
       link={{ to: "/nft", text: "FTSO V1 NFTs" }}
-      note={termEnd ? <ValidatorTermNote endUnix={termEnd} /> : undefined}
+      corner={termEnd ? <ValidatorTermNote endUnix={termEnd} /> : undefined}
       footer={<StakingBatchTimer />}
     />
   );
@@ -348,58 +349,65 @@ function ValidatorTermNote({ endUnix }: { endUnix: number }) {
   if (endMs <= Date.now()) {
     return (
       <>
-        <span className="font-semibold text-[#FAFAFA]">Term ended.</span> Renewing now.
+        <span className="font-medium text-[#FAFAFA]">Term ended.</span> Renewing now.
       </>
     );
   }
   return (
     <>
-      <span className="font-semibold text-[#FAFAFA]">Term ends {when}</span>{" "}
-      ({days === 1 ? "1 day" : `${days} days`} left)
+      Term ends <span className="font-medium text-[#FAFAFA]">{when}</span>
+      <span className="block text-[11px]">{days === 1 ? "1 day" : `${days} days`} left</span>
     </>
   );
 }
 
 /**
- * FTSO V2: the 12 month bond NFTs. Bar is FLR raised toward the goal, with the
- * mark where the new validator launches (operator 2026-10-23, same as /nft).
+ * The charity Safe: what 5% of FTSO profit has sent it so far, read live
+ * through /api/charity (operator 2026-11-26: "funds raised from profits",
+ * on the home page where the FTSO V2 strip was).
  */
-function Starship2Strip() {
-  const s = useStarship2();
-  if (!s) return null;
-  const launchFlr = Number(FTSO_V2_LAUNCH_FLR);
+function CharityStrip() {
+  const { data } = useCharity();
+  if (!data) return null;
+  const total = data.received_flr ?? data.balance_flr;
+  if (total == null) return null;
+  const last = data.last_received_unix
+    ? new Date(data.last_received_unix * 1000).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
   return (
-    <StarshipStrip
-      className="mt-3"
-      name="FTSO V2"
-      label="12 month bond"
-      badge={s.anyOpen ? { text: "Mint open", tone: "green" } : { text: "Closed", tone: "neutral" }}
-      barPct={s.cap > 0 ? (s.raised / s.cap) * 100 : 0}
-      barTone="green"
-      left={`${fmtFlrCompact(s.raised)} FLR raised of ${fmtFlrCompact(s.cap)} FLR goal`}
-      mark={
-        s.cap > 0
-          ? { pct: (launchFlr / s.cap) * 100, label: `Launch ${launchFlr.toLocaleString("en-US")}` }
-          : undefined
-      }
-      note={
-        s.anyOpen === false
-          ? `Lot closed Nov 25, 2026 with ${s.raised.toLocaleString("en-US", { maximumFractionDigits: 0 })} FLR raised. The FLR is bonded to the FlareForward validator. Holders redeem at maturity.`
-          : s.raised >= launchFlr
-            ? `${launchFlr.toLocaleString("en-US")} FLR reached, the launch amount for the new FlareForward validator. The raise continues to the goal.`
-            : `The new FlareForward validator launches the moment we reach ${launchFlr.toLocaleString("en-US")} FLR.`
-      }
-      right={
-        s.maturity
-          ? `Matures ${new Date(s.maturity * 1000).toLocaleDateString(undefined, {
-              month: "short",
-              day: "numeric",
-              year: "numeric",
-            })}`
-          : undefined
-      }
-      link={{ to: "/nft", text: s.anyOpen ? "Mint FTSO V2" : "FTSO V2 NFTs" }}
-    />
+    <div className="mt-3 glass-panel p-4 space-y-2">
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <span className="flex items-center gap-2 pt-0.5 text-[11px] uppercase tracking-wider text-[#8FA0B8]">
+          <HeartHandshake size={14} className="text-[#E85A95]" aria-hidden="true" />
+          <span className="font-semibold text-[#FAFAFA]">Charity wallet</span>
+          <span aria-hidden="true">·</span>
+          5% of FTSO profit
+        </span>
+        <a
+          href={`https://flare-explorer.flare.network/address/${data.address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 rounded-lg border border-white/12 bg-white/5 px-2.5 py-1 text-xs font-medium text-[#FAFAFA] transition hover:bg-white/10"
+        >
+          View wallet <ExternalLink size={12} />
+        </a>
+      </div>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <span className="text-sm font-medium text-[#FAFAFA] tabular-nums">
+          {total.toLocaleString("en-US", { maximumFractionDigits: 0 })} FLR{" "}
+          {data.received_flr != null ? "raised from profits" : "in the charity wallet"}
+        </span>
+        {data.payouts != null && last && (
+          <span className="text-xs text-[#8FA0B8] tabular-nums">
+            {data.payouts} payouts · last {last}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }
 

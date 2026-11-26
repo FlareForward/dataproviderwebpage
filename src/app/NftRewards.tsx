@@ -16,8 +16,7 @@ import {
 import { EXPLORER_URL, TERM_CHAIN } from "../lib/flare";
 import { TERM_PREVIEW } from "../lib/termPreview";
 import { FTSO_V2_GOAL_FLR, FTSO_V2_LAUNCH_FLR, STARSHIP2_INTRO } from "../lib/starship2Copy";
-import { StakingBatchTimer } from "./components/StarshipStrip";
-import { Gem, Coins, TrendingUp, Landmark, Tag, Activity, HeartHandshake, FileText, ExternalLink, ChevronDown } from "lucide-react";
+import { Gem, Activity, HeartHandshake, FileText, ExternalLink, ChevronDown } from "lucide-react";
 import { useBondApy } from "../hooks/useBondApy";
 import { fmtPct } from "../lib/rewards";
 
@@ -27,6 +26,7 @@ interface TierStatus {
   maxSupply?: bigint;
   sold?: bigint;
   mintOpen?: boolean;
+  price?: bigint;
 }
 
 /**
@@ -108,6 +108,7 @@ function useTierStatuses(tiers: BondTier[]) {
           { ...contract, functionName: "maxSupply" as const },
           { ...contract, functionName: "totalSupply" as const },
           { ...contract, functionName: "mintOpen" as const },
+          { ...contract, functionName: "mintPrice" as const },
         ];
       }),
     [liveTiers],
@@ -121,13 +122,14 @@ function useTierStatuses(tiers: BondTier[]) {
   const statuses = useMemo(() => {
     const byKey = new Map<string, TierStatus>();
     liveTiers.forEach((tier, index) => {
-      const offset = index * 3;
+      const offset = index * 4;
       byKey.set(tier.key, {
         key: tier.key,
         address: tier.address,
         maxSupply: data?.[offset]?.result as bigint | undefined,
         sold: data?.[offset + 1]?.result as bigint | undefined,
         mintOpen: data?.[offset + 2]?.result as boolean | undefined,
+        price: data?.[offset + 3]?.result as bigint | undefined,
       });
     });
 
@@ -191,7 +193,7 @@ function useTermSeries(termTiers: BondTier[]): { selling: boolean | null; raised
  * matches the three tiers sold out; the launch mark is a FlareForward call,
  * not a contract value, so it lives in starship2Copy.
  */
-function RaiseProgress({ raisedWei }: { raisedWei: bigint | null }) {
+function RaiseProgress({ raisedWei, closed }: { raisedWei: bigint | null; closed: boolean }) {
   const WEI = 10n ** 18n;
   const goal = FTSO_V2_GOAL_FLR * WEI;
   const launch = FTSO_V2_LAUNCH_FLR * WEI;
@@ -199,6 +201,19 @@ function RaiseProgress({ raisedWei }: { raisedWei: bigint | null }) {
   const pct = (wei: bigint) => Math.min(100, Number((wei * 10000n) / goal) / 100);
   const launched = raisedWei != null && raised >= launch;
   const flr = (wei: bigint) => (wei / WEI).toLocaleString("en-US");
+
+  // A closed series only needs its final total: the bar and launch copy were
+  // for the raise while it ran (operator 2026-11-26, "taking up too much room").
+  if (closed) {
+    return (
+      <span className="flex items-baseline justify-end gap-2 text-xs">
+        <span className="uppercase tracking-wide text-[#8FA0B8]">Raised</span>
+        <span className="text-sm font-semibold tabular-nums text-[#FAFAFA]">
+          {raisedWei == null ? "-" : flr(raised)} FLR
+        </span>
+      </span>
+    );
+  }
 
   return (
     <span className="block">
@@ -317,6 +332,11 @@ function Lots({
   const anyOpen = openTiers.length > 0;
   const v1BondCount = statuses.reduce((total, status) => total + (status.sold ?? 0n), 0n);
   const v1Selling = statusLoading ? null : anyOpen;
+  // FLR raised = bonds sold x mint price per lot, read from each contract.
+  // Null until every lot is read, so a partial sum never shows.
+  const v1RaisedWei = statuses.every((st) => st.sold != null && st.price != null)
+    ? statuses.reduce((total, st) => total + st.sold! * st.price!, 0n)
+    : null;
   const { selling: v2Selling, raisedWei: v2RaisedWei } = useTermSeries(termTiers);
   const v1Open = v1Choice ?? v1Selling === true;
   const v2Open = v2Choice ?? v2Selling === true;
@@ -339,11 +359,16 @@ function Lots({
               {statusLoading ? "Reading bonds" : `${fmtCount(v1BondCount)} bonds`}
             </span>
           </span>
-          <span className="order-3 w-full sm:order-none sm:ml-auto sm:w-[min(320px,28%)] sm:min-w-[240px]">
-            <StakingBatchTimer />
-          </span>
+          {v1RaisedWei != null && (
+            <span className="ml-auto flex items-baseline gap-2 text-xs">
+              <span className="uppercase tracking-wide text-[#8FA0B8]">Raised</span>
+              <span className="text-sm font-semibold tabular-nums text-[#FAFAFA]">
+                {(v1RaisedWei / 10n ** 18n).toLocaleString("en-US")} FLR
+              </span>
+            </span>
+          )}
           <ChevronDown
-            className={`order-2 transition-transform motion-reduce:transition-none sm:order-none ${v1Open ? "rotate-180" : ""}`}
+            className={`${v1RaisedWei != null ? "" : "ml-auto "}transition-transform motion-reduce:transition-none ${v1Open ? "rotate-180" : ""}`}
             size={18}
           />
         </button>
@@ -426,7 +451,7 @@ function Lots({
             )}
           </span>
           <span className="order-3 w-full sm:order-none sm:ml-auto sm:w-[min(360px,34%)] sm:min-w-[260px]">
-            <RaiseProgress raisedWei={v2RaisedWei} />
+            <RaiseProgress raisedWei={v2RaisedWei} closed={v2Selling === false} />
           </span>
           <ChevronDown
             className={`order-2 transition-transform motion-reduce:transition-none sm:order-none ${v2Open ? "rotate-180" : ""}`}
@@ -486,36 +511,6 @@ function TierOffer({
   );
 }
 
-function Step({
-  n,
-  icon,
-  title,
-  body,
-}: {
-  n: number;
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-}) {
-  return (
-    <div className="glass-panel p-5">
-      <div className="flex items-center gap-3">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#EE1A58]/15 text-sm font-bold text-[#E85A95]">
-          {n}
-        </span>
-        <span className="text-[#E85A95]">{icon}</span>
-        <h3 className="font-semibold">{title}</h3>
-      </div>
-      <p className="mt-3 text-sm leading-relaxed text-[#8FA0B8]">{body}</p>
-    </div>
-  );
-}
-
-/**
- * /nft — FlareForward Bonds. Short by operator call (2026-09-26): the lots,
- * what the bond earns, how a lot works, and a pointer to the disclosures.
- * Custody, risks, terms and wallet footnotes live at /nft/disclosures.
- */
 export default function NftRewards() {
   const { tiers, preview } = useDisplayedLot();
   const shareTiers = useMemo(() => tiers.filter(isShareTier), [tiers]);
@@ -551,34 +546,6 @@ export default function NftRewards() {
       </Link>
 
       <MeasuredPerformance />
-
-      <h2 className="mt-10 text-xl font-semibold">How FTSO V1 works</h2>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <Step
-          n={1}
-          icon={<Coins size={18} />}
-          title="Mint"
-          body="Buy while a lot is open. Price, minted count, and remaining supply are read from the contract."
-        />
-        <Step
-          n={2}
-          icon={<Landmark size={18} />}
-          title="Bond"
-          body="As the bond period ends, the lot closes and the raised FLR moves into the validator self-bond."
-        />
-        <Step
-          n={3}
-          icon={<TrendingUp size={18} />}
-          title="Measure"
-          body="After closed epochs, we measure what the validator earned and deposit holder rewards into the lot's distribution contract. Equal share per NFT."
-        />
-        <Step
-          n={4}
-          icon={<Tag size={18} />}
-          title="Sell"
-          body="The exit is selling the NFT to another buyer. Unclaimed rewards travel with it. FTSO V1 has no redemption window open or scheduled."
-        />
-      </div>
 
       <section className="mt-10">
         <div className="glass-panel p-5">
