@@ -26,6 +26,7 @@ interface TierStatus {
   maxSupply?: bigint;
   sold?: bigint;
   mintOpen?: boolean;
+  price?: bigint;
 }
 
 /**
@@ -107,6 +108,7 @@ function useTierStatuses(tiers: BondTier[]) {
           { ...contract, functionName: "maxSupply" as const },
           { ...contract, functionName: "totalSupply" as const },
           { ...contract, functionName: "mintOpen" as const },
+          { ...contract, functionName: "mintPrice" as const },
         ];
       }),
     [liveTiers],
@@ -120,13 +122,14 @@ function useTierStatuses(tiers: BondTier[]) {
   const statuses = useMemo(() => {
     const byKey = new Map<string, TierStatus>();
     liveTiers.forEach((tier, index) => {
-      const offset = index * 3;
+      const offset = index * 4;
       byKey.set(tier.key, {
         key: tier.key,
         address: tier.address,
         maxSupply: data?.[offset]?.result as bigint | undefined,
         sold: data?.[offset + 1]?.result as bigint | undefined,
         mintOpen: data?.[offset + 2]?.result as boolean | undefined,
+        price: data?.[offset + 3]?.result as bigint | undefined,
       });
     });
 
@@ -329,6 +332,11 @@ function Lots({
   const anyOpen = openTiers.length > 0;
   const v1BondCount = statuses.reduce((total, status) => total + (status.sold ?? 0n), 0n);
   const v1Selling = statusLoading ? null : anyOpen;
+  // FLR raised = bonds sold x mint price per lot, read from each contract.
+  // Null until every lot is read, so a partial sum never shows.
+  const v1RaisedWei = statuses.every((st) => st.sold != null && st.price != null)
+    ? statuses.reduce((total, st) => total + st.sold! * st.price!, 0n)
+    : null;
   const { selling: v2Selling, raisedWei: v2RaisedWei } = useTermSeries(termTiers);
   const v1Open = v1Choice ?? v1Selling === true;
   const v2Open = v2Choice ?? v2Selling === true;
@@ -351,8 +359,16 @@ function Lots({
               {statusLoading ? "Reading bonds" : `${fmtCount(v1BondCount)} bonds`}
             </span>
           </span>
+          {v1RaisedWei != null && (
+            <span className="ml-auto flex items-baseline gap-2 text-xs">
+              <span className="uppercase tracking-wide text-[#8FA0B8]">Raised</span>
+              <span className="text-sm font-semibold tabular-nums text-[#FAFAFA]">
+                {(v1RaisedWei / 10n ** 18n).toLocaleString("en-US")} FLR
+              </span>
+            </span>
+          )}
           <ChevronDown
-            className={`ml-auto transition-transform motion-reduce:transition-none ${v1Open ? "rotate-180" : ""}`}
+            className={`${v1RaisedWei != null ? "" : "ml-auto "}transition-transform motion-reduce:transition-none ${v1Open ? "rotate-180" : ""}`}
             size={18}
           />
         </button>
