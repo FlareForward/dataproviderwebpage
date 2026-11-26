@@ -18,6 +18,7 @@ import { CURRENT_LOT, tierKind, type BondTier } from "../src/lib/bondLot.js";
 import { handleNftRewards } from "./nftRewards.js";
 import { handleBondYield, loadLastMeasuredEpoch } from "./bondYield.js";
 import { handleEarned } from "./earned.js";
+import { handleCharity } from "./charity.js";
 
 /** Flare Forward identity (pinned) — mirrors PINNED_PROVIDER_ADDRESS in the app. */
 const IDENTITY_ADDRESS = "0x1FBB55a1877817A0f90cAE60c1ab22FC94f97110";
@@ -860,6 +861,9 @@ export default {
     }
     if (pathname === "/api/earned" || pathname === "/api/earned/") {
       return withSecurityHeaders(await handleEarned(request));
+    }
+    if (pathname === "/api/charity" || pathname === "/api/charity/") {
+      return withSecurityHeaders(await handleCharity());
     }
     if (pathname.startsWith("/api/")) {
       return jsonResponse({ error: "Not found" }, 404);

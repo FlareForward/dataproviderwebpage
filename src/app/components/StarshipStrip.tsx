@@ -25,6 +25,7 @@ export function StarshipStrip({
   link,
   mark,
   note,
+  corner,
   footer,
   className = "",
 }: {
@@ -38,6 +39,8 @@ export function StarshipStrip({
   link: { to: string; text: string };
   /** A milestone on the bar, e.g. the FTSO V2 launch amount: a tick plus a label under it. */
   mark?: { pct: number; label: string };
+  /** A quiet fact in the top-right corner of the box, e.g. when the term ends. */
+  corner?: ReactNode;
   /** One plain sentence under the facts row. */
   note?: ReactNode;
   /** A second, separate block under the strip, e.g. the 14-day payout window. */
@@ -64,6 +67,7 @@ export function StarshipStrip({
             </span>
           )}
         </span>
+        {corner && <span className="text-right text-xs text-[#8FA0B8] tabular-nums">{corner}</span>}
       </div>
       <div aria-hidden="true">
         <div className="relative">

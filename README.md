@@ -54,3 +54,7 @@ provider. Every on-chain action requires explicit confirmation in your wallet.
 npm run build     # type-check + production build into dist/
 npm run preview   # preview the production build
 ```
+
+## FlareForward Bonds
+
+How the FTSO V1 bonds work (mint, bond, measure, sell): [docs/FTSO_V1_HOW_IT_WORKS.md](docs/FTSO_V1_HOW_IT_WORKS.md).
